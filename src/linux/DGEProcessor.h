@@ -148,7 +148,7 @@ private:
 	float match_[5][5];
 
 	bool filterTile_;
-	set<int> tiles_;
+	set<string> tiles_;
 };
 
 } // namespace DGEProcessTool

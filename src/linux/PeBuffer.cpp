@@ -14,7 +14,7 @@ namespace PreProcessTool
 {
 
 	PeBuffer::PeBuffer(const char *fq1Filename, const char *fq2Filename,
-			int capacity, MODE mode, bool filterTile, const set<int> &tiles) :
+			int capacity, MODE mode, bool filterTile, const set<string> &tiles) :
 		capacity_(capacity), size1_(0), size2_(0), readSize_(0), realReadSize_(0), initReadSize_(
 				0), lastIndex1_(0), lastIndex2_(0), lineNum1_(0), lineNum2_(0), seqType_(0)
 	{
@@ -41,13 +41,18 @@ namespace PreProcessTool
 		filterTile_ = filterTile;
 		tiles_ = tiles;
 	}
-	PeBuffer::PeBuffer(const char *fq1Filename, const char *fq2Filename,int capacity, MODE mode, bool filterTile, const set<int> &tiles, int seqType){
+	PeBuffer::PeBuffer(const char *fq1Filename, const char *fq2Filename,int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType){
 		PeBuffer(fq1Filename,fq2Filename,capacity,mode,filterTile,tiles);
 		seqType_ = seqType;
 	}
+    
 	void PeBuffer::setSeqType(int type){
 		seqType_ = type;
 	}
+    
+    void PeBuffer::setTileIsFov(bool b){
+        tileIsFov_ = b;
+    }
 
 	Read* PeBuffer::getReadsOne()
 	{
@@ -222,12 +227,24 @@ namespace PreProcessTool
 					buf1_[pos[3]] = '\0';
 
 					nameIndex1_[readNumTmp1++] = buf1_ + last1 + 1;
-					if(filterTile_ && isFilterTile(buf1_ + last1 + 1, seqType_))
-					{
-						last1 = pos[3];
-						index1++;
-						continue;
-					}
+                    
+                    if(filterTile_)
+                    {
+                        if(tileIsFov_)
+                        {
+                            if(isFilterFov(buf1_ + last1 + 1, seqType_))
+                            {
+                                last1 = pos[3];
+                                index1++;
+                                continue;
+                            }
+                        }else if(isFilterTile(buf1_ + last1 + 1, seqType_))
+                        {
+                            last1 = pos[3];
+                            index1++;
+                            continue;
+                        }
+                    }
 
 					reads1_[readNum1].readName = buf1_ + last1 + 1;
 					reads1_[readNum1].baseSequence = buf1_ + pos[0] + 1;
@@ -271,13 +288,24 @@ namespace PreProcessTool
 					buf2_[pos[3]] = '\0';
 
 					nameIndex2_[readNumTmp2++] = buf2_ + last2 + 1;
-					if(filterTile_ && isFilterTile(buf2_ + last2 + 1, seqType_))
-					{
-						last2 = pos[3];
-						index2++;
-						continue;
-					}
-
+                    if(filterTile_)
+                    {
+                        if(tileIsFov_)
+                        {
+                            if(isFilterFov(buf2_ + last2 + 1, seqType_))
+                            {
+                                last2 = pos[3];
+                                index2++;
+                                continue;
+                            }
+                        }else if(isFilterTile(buf2_ + last2 + 1, seqType_))
+                        {
+                            last2 = pos[3];
+                            index2++;
+                            continue;
+                        }
+                    }
+                    
 					reads2_[readNum2].readName = buf2_ + last2 + 1;
 					reads2_[readNum2].baseSequence = buf2_ + pos[0] + 1;
 					reads2_[readNum2].optionalName = buf2_ + pos[1] + 1;
@@ -397,13 +425,42 @@ namespace PreProcessTool
 
 		for(int j=0; j<5; j++)
 		{
-			tile[j]=name[i+j+1];
+            if(name[i+j+1]>='0' && name[i+j+1] <= '9')
+            {
+                tile[j]=name[i+j+1];
+            }else
+            {
+                tile[j] = '\0';
+            }
 		}
 		tile[5]='\0';
 
-		int tileNum = atoi(tile);
-
-		return tiles_.count(tileNum);
+        return tiles_.count(tile);
 	}
+    
+    bool PeBuffer::isFilterFov(char *name, int seqType)
+    {
+        long len = strlen(name);
+        int i=0;
+        
+        if(seqType==0){
+            for(i=0; i<len; i++)
+            {
+                if(name[i]=='C')
+                    if(i+8<len && name[i+4]=='R' && name[i+8]=='_')
+                        break;
+                
+            }
+        }else{
+            LOG(ERROR, "Zebra-500 data(--fov), --seqType is 0");
+        }
+        
+        for(int j=0; j<8; j++)
+        {
+            tile[j]=name[i+j];
+        }
+        tile[8]='\0';
+        return tiles_.count(tile);
+    }
 } // namespace PreProcessTool
 

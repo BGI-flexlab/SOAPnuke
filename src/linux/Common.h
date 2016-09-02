@@ -306,8 +306,13 @@ namespace PreProcessTool {
      */
     void upper(char* str);
 
-	void getTiles(string tiles, set<int> &tileSet);
-
+	void getTiles(string tiles, set<string> &tileSet);
+    void getFovs(string tiles, set<string> &tileSet);
+    
+    /**
+     * trans int to string
+     */
+    string i2s(int i);
 
 }  // namespace PreProcessTool
 

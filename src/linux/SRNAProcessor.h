@@ -220,7 +220,7 @@ namespace SRNAProcessTool {
 			int seqType_;
 			pool pl_;
 			bool filterTile_;
-			set<int> tiles_;
+			set<string> tiles_;
 	};
 
 } // namespace SRNAProcessTool

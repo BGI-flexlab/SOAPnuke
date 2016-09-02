@@ -22,8 +22,8 @@ public:
 		RB, WB,
 	};
 public:
-	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<int> &tiles);
-	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<int> &tiles, int seqType);
+	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles);
+	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType);
 	~FqBuffer();
 
 	Read* getReads();
@@ -37,24 +37,27 @@ public:
 	int getLastIndex();
 	
 	bool isFilterTile(char *name, int seqType);
+    bool isFilterFov(char *name, int seqType);
+    
 	void setSeqType(int type);
+    void setTileIsFov(bool b);
 
 
 private:
 	bool filterTile_;
+    bool tileIsFov_;
+    char tile[9];
+    set<string> tiles_;
+    
 	gzFile file_;
 	char *buf_;
-	char tile[5];
 	int capacity_;
 	int size_;
 	Read *reads_;
 	int readSize_;
 	int realReadSize_;
-
 	int lastIndex_;
-
 	long lineNum_;
-	set<int> tiles_;
 	int seqType_;
 };
 

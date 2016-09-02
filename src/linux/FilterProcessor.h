@@ -164,7 +164,9 @@ private:
 	set<string> readsName2_;
 
 	bool filterTile_;
-	set<int> tiles_;
+	set<string> tiles_;
+    
+    bool tileIsFov_;
 
 	string adapter1_;
 	string adapter2_;
