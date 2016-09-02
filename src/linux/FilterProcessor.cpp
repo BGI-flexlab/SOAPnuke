@@ -29,7 +29,7 @@ namespace PreProcessTool {
 
 	void FilterProcessor::printVersion()
 	{
-		cout << "soapnuke filter tools version 1.5.5\n";
+		cout << "soapnuke filter tools version 1.5.6\n";
 		cout << "Author:  chenhaosen\n";
 		cout << " Email:  chenhaosen@genomics.cn\n";
 	}
@@ -42,6 +42,7 @@ namespace PreProcessTool {
 		cout << "\t-1, --fq1       : <s> fq1 file\n";
 		cout << "\t-2, --fq2       : <s> fq2 file, used to pe\n";
 		cout << "\t--tile          : <s> tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t--fov           : <s> fov number to ignore reads (only for zebra-500 data), such as [C001R003,C003R004]\n";
 
 		cout << "\tthe next two options only for adapter sequence: \n";
 		cout << "\t-M, --misMatch  : <i> the max mismatch number when match the adapter (default: [1])\n";
@@ -95,7 +96,7 @@ namespace PreProcessTool {
 		cout << "\t-v, --version   : <b> show version" << endl;
 	}
 
-	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), filterTile_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
+	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
 	qualRate_(0.5), nRate_(0.05), polyA_(0), minMean_(0.0), filterIndex_(false),
 	rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
 	memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
@@ -114,6 +115,7 @@ namespace PreProcessTool {
 			{ "fq1"     , 1, NULL, '1' },
 			{ "fq2"     , 1, NULL, '2' },
 			{ "tile"    , 1, NULL, 'K' },
+            { "fov"    , 1, NULL, 'F' },
 			{ "misMatch", 1, NULL, 'M' },
 			{ "matchRatio", 1, NULL, 'A' },
 			{ "lowQual" , 1, NULL, 'l' },
@@ -125,7 +127,6 @@ namespace PreProcessTool {
 			{ "dupRate" , 0, NULL, '3' },
 			{ "cutAdaptor" ,1, NULL, 'E'},
 			{ "BaseNum" ,1, NULL, 'b'},
-
 			{ "index"   , 0, NULL, 'i' },
 			{ "cut"     , 1, NULL, 'c' },
 			{ "trim"    , 1, NULL, 't' },
@@ -184,8 +185,12 @@ namespace PreProcessTool {
 				case 'K':
 					filterTile_ = true;
 					tiles.assign(optarg);
-					PreProcessTool::getTiles(tiles, tiles_);
 					break;
+                case 'F':
+                    filterTile_ = true;
+                    tileIsFov_ = true;
+                    tiles.assign(optarg);
+                    break;
 				case 'M':
 					misMatch_ = atoi(optarg);
 					break;
@@ -418,7 +423,17 @@ namespace PreProcessTool {
 			LOG(WARN, "output directory " << outDir_ << " has been created");
 		}
 
-
+        if(filterTile_)
+        {
+            if(tileIsFov_)
+            {
+                PreProcessTool::getFovs(tiles, tiles_);
+            
+            }else
+            {
+                PreProcessTool::getTiles(tiles, tiles_);
+            }
+        }
 
 		if (readLen_ == 0)
 		{
@@ -680,6 +695,7 @@ namespace PreProcessTool {
 
 			PeBuffer buffer(fqFile1_.c_str(), fqFile2_.c_str(), capacity, PeBuffer::RB, filterTile_, tiles_);
 			buffer.setSeqType(seqType_);
+            buffer.setTileIsFov(tileIsFov_);
 			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
 
 			int size = 0;
@@ -869,6 +885,7 @@ namespace PreProcessTool {
 			long capacity = static_cast<long>(memLimit_ / 2.5);
 			FqBuffer buffer(fqFile1_.c_str(), capacity, FqBuffer::RB, filterTile_, tiles_);
 			buffer.setSeqType(seqType_);
+            buffer.setTileIsFov(tileIsFov_);
 
 			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
 

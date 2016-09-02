@@ -7,6 +7,8 @@
  */
 #include "Common.h"
 #include "Logger.h"
+#include <sstream>
+
 
 
 namespace PreProcessTool {
@@ -1087,8 +1089,9 @@ namespace PreProcessTool {
 		}
 	}
 
-	void getTiles(string tiles, set<int> &tileSet)
+	void getTiles(string tiles, set<string> &tileSet)
 	{
+        stringstream strStream;
 		int len = tiles.size();
 		if (len < 0)
 			return;
@@ -1111,7 +1114,7 @@ namespace PreProcessTool {
 		{
 			if(strlen(s+pos[i])==4)
 			{
-				tileSet.insert(atoi(s+pos[i]));
+				tileSet.insert(s+pos[i]);
 			}
 			else if(strlen(s+pos[i])==9)
 			{
@@ -1120,13 +1123,54 @@ namespace PreProcessTool {
 				int end = atoi(s+pos[i]+5);
 				for(int j=begin; j<=end; j++)
 				{
-					tileSet.insert(j);
+					tileSet.insert(i2s(j));
 				}
 			}
 		}
 		delete []s;
 	}
-
+    
+    void getFovs(string fovs, set<string> &fovSet)
+    {
+        long len = fovs.size();
+        if (len < 0)
+            return;
+        
+        char *s = new char[len+1];
+        vector<int> pos;
+        pos.push_back(0);
+        for(int i=0; i<len; i++)
+        {
+            s[i] = fovs[i];
+            if(s[i]==',')
+            {
+                pos.push_back(i+1);
+                s[i] = '\0';
+            }
+        }
+        s[len]='\0';
+        
+        for(size_t i=0; i<pos.size();i++)
+        {
+            if(strlen(s+pos[i])==8)
+            {
+                fovSet.insert(s+pos[i]);
+            }
+            else
+            {
+                LOG(ERROR, "--fov parameter format: " + fovs + " error");
+            }
+        }
+        delete []s;
+    }
+    
+    string i2s(int i)
+    {
+        stringstream ss;
+        ss << i;
+        return ss.str();
+    }
+    
 }  // namespace PreProcessTool
 
 

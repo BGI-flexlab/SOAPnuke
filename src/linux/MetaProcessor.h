@@ -132,7 +132,7 @@ namespace MetaPreProcessTool
 			set<string> readsName2_;
 
 			bool filterTile_;
-			set<int> tiles_;
+			set<string> tiles_;
 
 			int seqType_;//测序fa name类型
 			int polyAType_;//poly A过滤方案

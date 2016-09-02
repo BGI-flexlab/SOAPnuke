@@ -22,8 +22,8 @@ public:
 	};
 
 public:
-	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<int> &tiles);
-	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<int> &tiles, int seqType);
+	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles);
+	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType);
 	~PeBuffer();
 
 	/**
@@ -47,7 +47,9 @@ public:
 	Read* getReadsTwo();
 
 	bool isFilterTile(char *name, int seqType);
+    bool isFilterFov(char *name, int seqType);
 	void setSeqType(int type);
+    void setTileIsFov(bool b);
 
 private:
 	/**
@@ -64,11 +66,12 @@ private:
 
 private:
 	bool filterTile_;
+    bool tileIsFov_;
 	gzFile file1_;
 	gzFile file2_;
 	char *buf1_;
 	char *buf2_;
-	char tile[5];
+	char tile[9];
 	int capacity_;
 	int size1_;
 	int size2_;
@@ -87,7 +90,7 @@ private:
 	long lineNum1_; //fq1 current line number
 	long lineNum2_; //fq2 current line number
 
-	set<int> tiles_;
+	set<string> tiles_;
 	int seqType_;
 
 };
