@@ -1159,6 +1159,7 @@ namespace PreProcessTool {
             else
             {
                 LOG(ERROR, "--fov parameter format: " + fovs + " error");
+		exit(1);
             }
         }
         delete []s;
