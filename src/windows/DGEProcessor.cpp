@@ -200,7 +200,7 @@ namespace DGEProcessTool {
 		}
 
 		bool isPathNotExists = false; //指示输出目录是否存在
-		if (access(outDir_.c_str(), 0) == -1)  //输出路径不存在
+		if (access(outDir_.c_str(), F_OK) == -1)  //输出路径不存在
 		{
 			isPathNotExists = true;
 			int len = outDir_.size();

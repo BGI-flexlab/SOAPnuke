@@ -1,3 +1,10 @@
+/*
+ * Common.cpp
+ *
+ *  Created on: 2012-6-14
+ *      Author: Haosen Chen
+ * 		Mail  : chenhaosen@genomics.cn
+ */
 #include "Common.h"
 #include "Logger.h"
 
@@ -59,7 +66,7 @@ namespace PreProcessTool {
 
 	void printFqInfo(const string outDir, const string prefix, const FqInfo *fqInfo1, const FqInfo *fqInfo2)
 	{
-		string outFile = outDir + "/" + prefix  + SEQUENCING_QUALITY + ".txt";
+		string outFile = outDir + "\\" + prefix  + SEQUENCING_QUALITY + ".txt";
 		ofstream out(outFile.c_str());
 		if (!out)
 		{
@@ -255,7 +262,7 @@ namespace PreProcessTool {
 		out.clear();
 
 
-		outFile = outDir + "/" + prefix + FILTERED_READS + ".txt";
+		outFile = outDir + "\\" + prefix + FILTERED_READS + ".txt";
 
 		out.open(outFile.c_str());
 		if (!out)
@@ -409,7 +416,7 @@ namespace PreProcessTool {
 		out.close();
 		out.clear();
 
-		outFile = outDir + "/" + prefix + BASE_DISTRIBUTIONS + "_1.txt";
+		outFile = outDir + "\\" + prefix + BASE_DISTRIBUTIONS + "_1.txt";
 		out.open(outFile.c_str());
 		if (!out)
 		{
@@ -452,7 +459,7 @@ namespace PreProcessTool {
 		out.close();
 		out.clear();
 
-		outFile = outDir + "/" + prefix + DISTRIBUTION_OF_Q20_Q30 + "_1.txt";
+		outFile = outDir + "\\" + prefix + DISTRIBUTION_OF_Q20_Q30 + "_1.txt";
 		out.open(outFile.c_str());
 		if (!out)
 		{
@@ -481,7 +488,7 @@ namespace PreProcessTool {
 		out.close();
 		out.clear();
 
-		outFile = outDir + "/" + prefix + BASE_QUALITY_VALUE_DISTRIBUTION + "_1.txt";
+		outFile = outDir + "\\" + prefix + BASE_QUALITY_VALUE_DISTRIBUTION + "_1.txt";
 		out.open(outFile.c_str());
 		if (!out)
 		{
@@ -687,11 +694,11 @@ namespace PreProcessTool {
 		//output fq2 info
 		if (fqInfo2 != NULL)
 		{
-			outFile = outDir + "/" + prefix + BASE_DISTRIBUTIONS + "_2.txt";
+			outFile = outDir + "\\" + prefix + BASE_DISTRIBUTIONS + "_2.txt";
 			out.open(outFile.c_str());
 			if (!out)
 			{
-				LOG(ERROR, "open output file: " << outDir + "/" + BASE_DISTRIBUTIONS + ".txt");
+				LOG(ERROR, "open output file: " << outDir + "\\" + BASE_DISTRIBUTIONS + ".txt");
 				exit(1);
 			}
 
@@ -731,7 +738,7 @@ namespace PreProcessTool {
 			out.close();
 			out.clear();
 
-			outFile = outDir + "/" + prefix + DISTRIBUTION_OF_Q20_Q30 + "_2.txt";
+			outFile = outDir + "\\" + prefix + DISTRIBUTION_OF_Q20_Q30 + "_2.txt";
 			out.open(outFile.c_str());
 			if (!out)
 			{
@@ -759,7 +766,7 @@ namespace PreProcessTool {
 			out.close();
 			out.clear();
 
-			outFile = outDir + "/" + prefix + BASE_QUALITY_VALUE_DISTRIBUTION + "_2.txt";
+			outFile = outDir + "\\" + prefix + BASE_QUALITY_VALUE_DISTRIBUTION + "_2.txt";
 			out.open(outFile.c_str());
 			if (!out)
 			{
@@ -967,29 +974,33 @@ namespace PreProcessTool {
 	string getOutputFileName(string filename, string prefix, string path)
 	{
 		string outFileName;
+		if(path[path.length() - 1] == '\\')
+		{
+			path = path.substr(0, path.length() - 1);
+		}	
 		if (filename.substr(filename.size() - 2, 2) != "gz")
 		{
-			int pos = filename.rfind('/');
+			int pos = filename.rfind('\\');
 			if (pos == -1)
 			{
-				outFileName = path + "/" + prefix + filename + ".gz";
+				outFileName = path + "\\" + prefix + filename + ".gz";
 			}
 			else
 			{
-				outFileName = path + "/" + prefix
+				outFileName = path + "\\" + prefix
 					+ filename.substr(pos + 1) + ".gz";
 			}
 		}
 		else
 		{
-			int pos = filename.rfind('/');
+			int pos = filename.rfind('\\');
 			if (pos == -1)
 			{
-				outFileName = path + "/" + prefix + filename;
+				outFileName = path + "\\" + prefix + filename;
 			}
 			else
 			{
-				outFileName = path + "/" + prefix
+				outFileName = path + "\\" + prefix
 					+ filename.substr(pos + 1);
 			}
 		}

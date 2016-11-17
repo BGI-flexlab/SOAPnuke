@@ -10,6 +10,7 @@
 #include "PeBuffer.h"
 #include "FqBuffer.h"
 #include "threadpool.hpp"
+#include <sys/stat.h>
 #include <boost/thread.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
 using namespace boost;
@@ -255,13 +256,13 @@ namespace MetaPreProcessTool
 		}
 
 		bool isPathNotExists = false;
-		if(_access(outDir_.c_str(), 0) == -1)
+		if(access(outDir_.c_str(), F_OK) == -1)
 		{
 			isPathNotExists = true;
 			int len = outDir_.size();
 			char *path = (char *)malloc(len + 15);
-			sprintf(path, "mkdir -p %s", outDir_.c_str());
-			if (std::system(path) == -1)
+			//sprintf(path, "mkdir -p %s", outDir_.c_str());
+			if (mkdir(path, 755) != 0)
 			{
 				cerr << "output directory " << outDir_ << " cannot create" << endl;
 				return 1;
