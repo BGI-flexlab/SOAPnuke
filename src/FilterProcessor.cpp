@@ -16,13 +16,12 @@
 
 #include "threadpool.hpp"
 #include <fstream>
+
 #include <openssl/md5.h>
 #include <boost/thread.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
-#include <windows.h>
-#include <sys/stat.h>
 
-#define GZ_BUF_SIZE 1048576
+#include <sys/stat.h>
 
 using namespace boost;
 using namespace boost::threadpool;
@@ -32,19 +31,20 @@ namespace PreProcessTool {
 
 	void FilterProcessor::printVersion()
 	{
-		cout << "soapnuke filter tools version 1.5.2\n";
+		cout << "soapnuke filter tools version 1.5.6\n";
 		cout << "Author:  chenhaosen\n";
-		cout << " Email:  chenhaosen@genomics.cn";
+		cout << " Email:  chenhaosen@genomics.cn\n";
 	}
 
 	void FilterProcessor::printUsage()
 	{
 		cout << "Usage: filter [OPTION]... \n";
-		cout << "\t-f, --adapter1  : <s> 3' adapter sequence or adapter list file of fq1 file\n";
-		cout << "\t-r, --adapter2  : <s> 5' adapter sequence or adapter list file of fq2 file [only for PE reads]\n";
+		cout << "\t-f, --adapter1  : <s> 3' adapter sequence of fq1 file\n";
+		cout << "\t-r, --adapter2  : <s> 5' adapter sequence of fq2 file [only for PE reads]\n";
 		cout << "\t-1, --fq1       : <s> fq1 file\n";
 		cout << "\t-2, --fq2       : <s> fq2 file, used to pe\n";
 		cout << "\t--tile          : <s> tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t--fov           : <s> fov number to ignore reads (only for zebra-500 data), such as [C001R003,C003R004]\n";
 
 		cout << "\tthe next two options only for adapter sequence: \n";
 		cout << "\t-M, --misMatch  : <i> the max mismatch number when match the adapter (default: [1])\n";
@@ -57,6 +57,7 @@ namespace PreProcessTool {
 		cout << "\t-m, --mean      : <f> filter reads with low average quality, (<) \n";
 		cout << "\t-p, --polyA     : <f> filter poly A, percent of A, 0 means do not filter (default: [ 0 ])\n";
 		cout << "\t-d, --rmdup     : <b> remove PCR duplications\n";
+		cout << "\t-3, --dupRate   : <b> calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
 		cout << "\t-i, --index     : <b> remove index\n";
 		cout << "\t-c, --cut       : <f> the read number you want to keep in each clean fq file\n"
 			"\t                      (unit:1024*1024, 0 means not cut reads)\n";
@@ -81,6 +82,9 @@ namespace PreProcessTool {
 		cout << "\t-o, --outDir    : <s> output directory, directory must exists (default: current directory)\n";
 		cout << "\t-C, --cleanFq1  : <s> clean fq1 file name\n";
 		cout << "\t-D, --cleanFq2  : <s> clean fq2 file name\n";
+		cout << "\t-E, --cutAdaptor: <i> cut sequence from adaptor index,unless performed -f/-r also in use\n";
+		cout << "\t                      discard the read when the adaptor index of the read is less than INT\n";
+		cout << "\t-b, --BaseNum   : <i> the base number you want to keep in each clean fq file,unless performed -E also in use\n";
 		cout << "\t-R, --rawFq1    : <s> raw fq1 file name\n";
 		cout << "\t-W, --rawFq2    : <s> raw fq2 file name\n";
 		cout << "\n";
@@ -94,18 +98,18 @@ namespace PreProcessTool {
 		cout << "\t-v, --version   : <b> show version" << endl;
 	}
 
-	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), filterTile_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
+	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
 	qualRate_(0.5), nRate_(0.05), polyA_(0), minMean_(0.0), filterIndex_(false),
-	rmdup_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
+	rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
 	memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
-	mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),
+	mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
 	isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),polyAType_(0)
 	{
 	}
 
 	int FilterProcessor::processParams(int argc, char **argv)
 	{
-		const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:din:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:hv";
+		const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:E:b:hv";
 		const struct option longOptions[] =
 		{
 			{ "adapter1", 1, NULL, 'f' },
@@ -113,6 +117,7 @@ namespace PreProcessTool {
 			{ "fq1"     , 1, NULL, '1' },
 			{ "fq2"     , 1, NULL, '2' },
 			{ "tile"    , 1, NULL, 'K' },
+            { "fov"    , 1, NULL, 'F' },
 			{ "misMatch", 1, NULL, 'M' },
 			{ "matchRatio", 1, NULL, 'A' },
 			{ "lowQual" , 1, NULL, 'l' },
@@ -121,7 +126,9 @@ namespace PreProcessTool {
 			{ "mean"    , 1, NULL, 'm' },
 			{ "polyA"   , 1, NULL, 'p' },
 			{ "rmdup"   , 0, NULL, 'd' },
-
+			{ "dupRate" , 0, NULL, '3' },
+			{ "cutAdaptor" ,1, NULL, 'E'},
+			{ "BaseNum" ,1, NULL, 'b'},
 			{ "index"   , 0, NULL, 'i' },
 			{ "cut"     , 1, NULL, 'c' },
 			{ "trim"    , 1, NULL, 't' },
@@ -161,6 +168,7 @@ namespace PreProcessTool {
 		float num;
 		string tiles;
 
+
 		while (-1 != (nextOpt = getopt_long(argc, argv, shortOptions, longOptions, NULL)))
 		{
 			switch (nextOpt)
@@ -180,8 +188,12 @@ namespace PreProcessTool {
 				case 'K':
 					filterTile_ = true;
 					tiles.assign(optarg);
-					PreProcessTool::getTiles(tiles, tiles_);
 					break;
+                case 'F':
+                    filterTile_ = true;
+                    tileIsFov_ = true;
+                    tiles.assign(optarg);
+                    break;
 				case 'M':
 					misMatch_ = atoi(optarg);
 					break;
@@ -208,6 +220,9 @@ namespace PreProcessTool {
 					break;
 				case 'd':
 					rmdup_ = true;
+					break;
+				case '3':
+					dupRateOnly_ = true;
 					break;
 				case 'i':
 					filterIndex_ = true;
@@ -294,10 +309,10 @@ namespace PreProcessTool {
 					break;
 				case 'o':
 					outDir_.assign(optarg);
-					if(outDir_[outDir_.length() - 1] == '\\')
-					{
-						outDir_ = outDir_.substr(0, outDir_.length() - 1);
-					}	
+//					if(outDir_[outDir_.length() - 1] == '\\')
+//					{
+//						outDir_ = outDir_.substr(0, outDir_.length() - 1);
+//					}	
 					break;
 				case 'C':
 					cleanFq1_.assign(optarg);
@@ -326,6 +341,13 @@ namespace PreProcessTool {
 				case 'h':
 					printUsage();
 					return 1;
+				case 'E':
+					cutAdaptor = true;
+					minReadLength = atoi(optarg);
+					break;
+				case 'b':
+					cutBasesNumber = strtoul(optarg,NULL,10);
+					break;
 				case 'v':
 					printVersion();
 					return 1;
@@ -351,8 +373,7 @@ namespace PreProcessTool {
 			isPathNotExists = true;
 			int len = outDir_.size();
 			char *path = (char *)malloc(len + 15);
-			//sprintf(path, "mkdir -p %s", outDir_.c_str());
-			if (mkdir(path, 755) != 0)
+			if (mkdir(path, 0755) != 0)
 			{
 				cerr << "output directory " << outDir_ << " cannot create" << endl;
 				return 1;
@@ -391,7 +412,7 @@ namespace PreProcessTool {
 		//		}
 		//	}
 
-		string logoutPath = outDir_ + "\\" + LOG_FILE;
+		string logoutPath = outDir_ + "/" + LOG_FILE;
 		if (!init_logger(append, logoutPath))
 		{
 			cerr << "Cannot Init Log:" << append << "-" << logoutPath << endl;
@@ -408,7 +429,17 @@ namespace PreProcessTool {
 			LOG(WARN, "output directory " << outDir_ << " has been created");
 		}
 
-
+        if(filterTile_)
+        {
+            if(tileIsFov_)
+            {
+                PreProcessTool::getFovs(tiles, tiles_);
+            
+            }else
+            {
+                PreProcessTool::getTiles(tiles, tiles_);
+            }
+        }
 
 		if (readLen_ == 0)
 		{
@@ -454,67 +485,44 @@ namespace PreProcessTool {
 			LOG(INFO, "fq2 read length: " << readLen2_);
 		}
 
+		if( cutAdaptor && cutBasesNumber != 0 ){
+			cutReadNum_ = 0;
+		}
+
 		//when rawFq1 or rawFq2 were set and not cut data
 		if ((!rawFq1_.empty() || !rawFq2_.empty()) && cutReadNum_ == 0 && !filterTile_)
 		{
-			char buf[1024];
 			if (!rawFq1_.empty() && !fqFile1_.empty())
 			{
 				string file = getOutputFileName(rawFq1_, "", outDir_);
 				if (fqFile1_.substr(fqFile1_.size() - 2, 2) != "gz")
 				{
-					//sprintf(buf, "gzip -c %s > %s", fqFile1_.c_str(), file.c_str());
-					gzFile in = gzopen(fqFile2_.c_str(), "rb");
-					ofstream outfile;
-					outfile.open(file.c_str());
-					unsigned char buf[GZ_BUF_SIZE];
-					int have;
-					while( (have = gzread(in, buf, GZ_BUF_SIZE)) > 0)
-					{
-						outfile << buf;
-					}
-					gzclose(in);
-					outfile.close();
+					gzLoad(fqFile1_.c_str(), file.c_str());
 				}
 				else
 				{
-					//sprintf(buf, "cp %s %s", fqFile1_.c_str(), file.c_str());
-					if ( !CopyFile(fqFile1_.c_str(), file.c_str(), FALSE) )
+					if ( CopyFile(fqFile1_.c_str(), file.c_str()) != 0 )
 					{
-						printf("Copy file error : %x\n", GetLastError());
+						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
 						return 2;
 					}
 				}
-				//system(buf);
 			}
 			if (!rawFq2_.empty() && !fqFile2_.empty())
 			{
 				string file = getOutputFileName(rawFq2_, "", outDir_);
 				if (fqFile2_.substr(fqFile2_.size()-2, 2) != "gz")
 				{
-					//sprintf(buf, "gzip -c %s > %s", fqFile2_.c_str(), file.c_str());
-					gzFile in = gzopen(fqFile2_.c_str(), "rb");
-					ofstream outfile;
-					outfile.open(file.c_str());
-					unsigned char buf[GZ_BUF_SIZE];
-					int have;
-					while( (have = gzread(in, buf, GZ_BUF_SIZE)) > 0)
-					{
-						outfile << buf;
-					}
-					gzclose(in);
-					outfile.close();
+					gzLoad(fqFile2_.c_str(), file.c_str());
 				}
 				else
 				{
-					//sprintf(buf, "cp %s %s", fqFile2_.c_str(), file.c_str());
-					if ( !CopyFile(fqFile1_.c_str(), file.c_str(), FALSE) )
+					if ( CopyFile(fqFile2_.c_str(), file.c_str()) != 0 )
 					{
-						printf("Copy file error : %x\n", GetLastError());
+						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
 						return 2;
 					}
 				}
-				//system(buf);
 			}
 		}
 
@@ -547,6 +555,8 @@ namespace PreProcessTool {
 			else if (type == 2)
 			{
 				isAdptList_ = true;
+				LOG(ERROR, "adapter1 or adapter2 type error.Not support adaptor list file.");
+				return 2;
 			}
 			else
 			{
@@ -696,6 +706,7 @@ namespace PreProcessTool {
 
 			PeBuffer buffer(fqFile1_.c_str(), fqFile2_.c_str(), capacity, PeBuffer::RB, filterTile_, tiles_);
 			buffer.setSeqType(seqType_);
+            buffer.setTileIsFov(tileIsFov_);
 			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
 
 			int size = 0;
@@ -776,9 +787,16 @@ namespace PreProcessTool {
 					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
 					tempOFS.open(tempFile); 
 					outputTempData(tempOFS, reads1, reads2);
+					if(dupRateOnly_){
+						ofstream tempOFS1;
+						char dupTempFile[1024];
+						sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
+                                       		tempOFS1.open(dupTempFile);
+						outputDupData(tempOFS1, reads1, reads2,size);
+					}
 					duplications_.clear();
 				}
-
+				
 				for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
 				{
 					globleInfo1.add(params[i].info1);
@@ -808,6 +826,10 @@ namespace PreProcessTool {
 					break;
 				}
 
+				if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
+					break;
+				}
+
 				if (rmdup_)
 				{
 					fileNum++;
@@ -824,6 +846,11 @@ namespace PreProcessTool {
 					char tempFile[1024];
 					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
 					remove(tempFile);
+					if(dupRateOnly_){
+						char dupTempFile[1024];
+                                        	sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+                                        	remove(dupTempFile);
+					}
 				}
 			}
 
@@ -853,7 +880,7 @@ namespace PreProcessTool {
 				delete []params;
 			}
 
-			if (cutReadNum_)
+			if (cutReadNum_ || filterTile_)
 			{
 				gzclose(outRawFile1);
 				gzclose(outRawFile2);
@@ -869,6 +896,7 @@ namespace PreProcessTool {
 			long capacity = static_cast<long>(memLimit_ / 2.5);
 			FqBuffer buffer(fqFile1_.c_str(), capacity, FqBuffer::RB, filterTile_, tiles_);
 			buffer.setSeqType(seqType_);
+            buffer.setTileIsFov(tileIsFov_);
 
 			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
 
@@ -945,6 +973,13 @@ namespace PreProcessTool {
 					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
 					tempOFS.open(tempFile);
 					outputTempData(tempOFS, reads);
+					if(dupRateOnly_){
+                                                ofstream tempOFS1;
+                                                char dupTempFile[1024];
+                                                sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
+                                                tempOFS1.open(dupTempFile);
+                                                outputDupData(tempOFS1, reads, size);
+                                        }
 					duplications_.clear();
 				}
 
@@ -957,7 +992,7 @@ namespace PreProcessTool {
 					}
 				}
 
-				if (rmdup_ && cutReadNum_*1.1 < globleInfo1.greyTotalReadNum)
+				if (rmdup_ && cutReadNum_ > 0 && cutReadNum_*1.1 < globleInfo1.greyTotalReadNum)
 				{
 					if (rmdup_)
 					{
@@ -966,9 +1001,13 @@ namespace PreProcessTool {
 					}
 					break;
 				}
-				else if (cutReadNum_ > 0 && cutReadNum_ < globleInfo1.rawTotalReadNum)
+				else if (cutReadNum_ > 0 && cutReadNum_ < globleInfo1.cleanTotalReadNum)
 				{
 
+					break;
+				}
+
+				if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
 					break;
 				}
 
@@ -987,8 +1026,12 @@ namespace PreProcessTool {
 					char tempFile[1024];
 					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
 					remove(tempFile);
+					if(dupRateOnly_){
+                                                char dupTempFile[1024];
+                                                sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+                                                remove(dupTempFile);
+                                        }
 				}
-
 			}
 
 			if (params != NULL)
@@ -997,7 +1040,7 @@ namespace PreProcessTool {
 				delete []params;
 			}
 
-			if (cutReadNum_)
+			if (cutReadNum_ || filterTile_)
 			{
 				gzclose(outRawFile1);
 			}
@@ -1076,6 +1119,10 @@ namespace PreProcessTool {
 					info1->duplicationNum++;
 					info2->duplicationNum++;
 					info1->totalDuplicationNum++;
+					if(dupRateOnly_){
+                                                outputCleanData(outFile1, reads1[i]);
+                                                outputCleanData(outFile2, reads2[i]);
+                                        }
 					result = ifs[i].nextRead(reads1[i], reads2[i]);
 					temp = reads1[i].baseSequence + reads2[i].baseSequence;
 					MD5((const unsigned char *)(temp.c_str()), temp.length(), md5Seq_);
@@ -1131,6 +1178,11 @@ namespace PreProcessTool {
 				info1->duplicationNum++;
 				info2->duplicationNum++;
 				info1->totalDuplicationNum++;
+				
+				if(dupRateOnly_){
+					outputCleanData(outFile1, reads1[index]);
+                                	outputCleanData(outFile2, reads2[index]);
+				}
 			}
 
 			heap.erase(iter);
@@ -1145,11 +1197,36 @@ namespace PreProcessTool {
 					info1->duplicationNum++;
 					info2->duplicationNum++;
 					info1->totalDuplicationNum++;
+					
+					if(dupRateOnly_){
+                                        	outputCleanData(outFile1, reads1[index]);
+                                        	outputCleanData(outFile2, reads2[index]);
+                               		}
 					result = ifs[index].nextRead(reads1[index], reads2[index]);
 				}
 				else
 				{
 					break;
+				}
+			}
+		}
+
+		if(dupRateOnly_){
+			FqFile dup[num];
+			for (int i=0; i<num; ++i)
+                	{               
+				char dupFile[1024];
+				sprintf(dupFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+                        	dup[i].open(dupFile);
+				while(true){
+                        		result = dup[i].nextRead(reads1[i], reads2[i]); 
+                        		if (!result)
+                        		{       
+                                		break;
+                        		}
+
+					outputCleanData(outFile1, reads1[i]);
+                                	outputCleanData(outFile2, reads2[i]);
 				}
 			}
 		}
@@ -1194,6 +1271,9 @@ namespace PreProcessTool {
 				else
 				{
 					info->duplicationNum++;
+					if(dupRateOnly_){
+                                                outputCleanData(outFile, reads[i]);
+                                        }
 					result = ifs[i].nextRead(reads[i]);
 					temp = reads[i].baseSequence;
 					MD5((const unsigned char *)(temp.c_str()), temp.length(), md5Seq_);
@@ -1234,6 +1314,10 @@ namespace PreProcessTool {
 			else
 			{
 				info->duplicationNum++;
+
+				if(dupRateOnly_){
+					outputCleanData(outFile, reads[index]);
+				}
 			}
 			heap.erase(iter);
 			result = ifs[index].nextRead(reads[index]);
@@ -1245,6 +1329,9 @@ namespace PreProcessTool {
 				if (!ret.second)
 				{                                                                                                        
 					info->duplicationNum++;
+					if(dupRateOnly_){
+                                                outputCleanData(outFile, reads[index]);
+                                        }
 					result = ifs[index].nextRead(reads[index]);
 				}
 				else
@@ -1254,6 +1341,24 @@ namespace PreProcessTool {
 			}
 
 		}
+
+		if(dupRateOnly_){
+			FqFile dup[num];
+                        for (int i=0; i<num; ++i)
+                        {
+				char dupFile[1024];
+                                sprintf(dupFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+                                dup[i].open(dupFile);
+				while(true){
+                                	result = dup[i].nextRead(reads[i]);
+                                	if (!result)
+                                	{
+                                        	break;
+                                	}
+                                	outputCleanData(outFile, reads[i]);
+				}
+                        }
+                }
 
 		delete[] reads;
 	}
@@ -1300,6 +1405,68 @@ namespace PreProcessTool {
 				<< reads[index].optionalName << '\n'
 				<< reads[index].baseQuality << '\n';
 		}
+	}
+
+	void FilterProcessor::outputDupData(ofstream& file, Read* reads1, Read* reads2, unsigned int size)
+	{
+		bool* outIndex = new bool[size];
+		map<string ,int>::iterator iter;
+                unsigned int i;
+
+		for (i=0; i < size; i++){
+			outIndex[i] = false;
+                }
+
+                for (iter = duplications_.begin(); iter != duplications_.end(); ++iter)
+                {
+                        i = iter->second;
+			outIndex[i] = true;
+                }
+
+		for(i=0; i < atomic_read32(&size_); i++)
+		{
+			int index = cleanDataIndexs_[i];
+			if(!outIndex[index])
+			{
+				file << reads1[index].readName << '\t'
+                                << reads2[index].readName << '\n'
+                                << reads1[index].baseSequence << '\t'
+                                << reads2[index].baseSequence << '\n'
+                                << reads1[index].optionalName << '\t'
+                                << reads2[index].optionalName << '\n'
+                                << reads1[index].baseQuality << '\t'
+                                << reads2[index].baseQuality << '\n';
+			}
+		}
+		delete[] outIndex;
+	}
+	
+    	void FilterProcessor::outputDupData(ofstream& file, Read* reads, unsigned int size)
+	{
+		bool* outIndex = new bool[size];
+		map<string ,int>::iterator iter;
+                unsigned int i;
+		for(i=0; i < size; i++){
+			outIndex[i] = false;
+		}
+                for (iter = duplications_.begin(); iter != duplications_.end(); ++iter)
+                {
+                        i = iter->second;
+                        outIndex[i] = true;
+                }
+
+		for(i = 0; i < atomic_read32(&size_); i++)
+		{
+			int index = cleanDataIndexs_[i];
+			if(!outIndex[index])
+			{
+				file << reads[index].readName << '\n'
+                                << reads[index].baseSequence << '\n'
+                                << reads[index].optionalName << '\n'
+                                << reads[index].baseQuality << '\n';
+			}
+		}
+		delete[] outIndex;
 	}
 
 	void FilterProcessor::outputCleanDataTask(gzFile &file, Read *reads)
@@ -1383,7 +1550,7 @@ namespace PreProcessTool {
 				upper(reads1[i].baseSequence);
 				upper(reads2[i].baseSequence);
 				isClean = statisticsPE(reads1, reads2, i, &(param->info1), &(param->info2));
-				if (!rmdup_ && isClean)
+				if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
 				{
 					mutex::scoped_lock lock(sizeMutex_);
 					cleanDataIndexs_[atomic_read32(&size_)] = i;
@@ -1397,7 +1564,7 @@ namespace PreProcessTool {
 			{
 				upper(reads1[i].baseSequence);
 				isClean = statisticsSE(reads1, i, &param->info1);
-				if (!rmdup_ && isClean)
+				if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
 				{
 					mutex::scoped_lock lock(sizeMutex_);
 					cleanDataIndexs_[atomic_read32(&size_)] = i;
@@ -1416,7 +1583,22 @@ namespace PreProcessTool {
 
 		Read* read = &reads[index];
 
-		si = auxStatistics(read, headTrim_, tailTrim_, adapter1_, adapterLen1_, readsName1_, *info, sr);
+		int tailTrimTemp1_ = tailTrim_ ;
+
+		int index1_ = adaptorIndex(read,adapter1_,adapterLen1_,readsName1_,sr);
+
+		if(index1_ != -1 && cutAdaptor){
+			if(index1_ >= minReadLength){
+				int cutLen1_ = strlen(read->baseSequence) - index1_;
+
+				if(cutLen1_ > tailTrim_)
+					tailTrimTemp1_ = cutLen1_;
+
+				info->totalCutAdaptorNum++;
+			}
+		}
+
+		si = auxStatistics(read, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info, sr);
 
 		if (!sr.hasAdpt) //no adapter
 		{
@@ -1445,6 +1627,8 @@ namespace PreProcessTool {
 								else
 								{
 									info->duplicationNum++;
+									if(dupRateOnly_)
+										return true;
 								}
 							}
 							else
@@ -1499,10 +1683,39 @@ namespace PreProcessTool {
 		StatisResult sr1, sr2;
 		Read* read1 = &reads1[index];
 		Read* read2 = &reads2[index];
+
+		int tailTrimTemp1_ = tailTrim_ ;
+		int tailTrimTemp2_ = tailTrim2_;
+
+		int index1_ = adaptorIndex(read1,adapter1_,adapterLen1_,readsName1_,sr1);
+		int index2_ = adaptorIndex(read2,adapter2_,adapterLen2_,readsName2_,sr2);
+
+		if(index1_ != -1 || index2_ != -1){
+			int minLen;
+			if(index1_ != -1 && index2_ != -1)
+				minLen = index1_ > index2_ ? index1_ : index2_;
+			else
+				minLen = index1_ == -1 ? index2_ : index1_;
+
+			if(minLen >= minReadLength){
+
+				int cutLen1_ = strlen(read1->baseSequence) - minLen;
+				int cutLen2_ = strlen(read2->baseSequence) - minLen;
+
+				if(cutLen1_ > tailTrim_)
+					tailTrimTemp1_ = cutLen1_;
+				if(cutLen2_ > tailTrim2_)
+					tailTrimTemp2_ = cutLen2_;
+
+				info1->totalCutAdaptorNum++;
+				info2->totalCutAdaptorNum++;
+			}
+		}
+		
 		//fq1
-		StatisInfo si1 = auxStatistics(read1, headTrim_, tailTrim_, adapter1_, adapterLen1_, readsName1_, *info1, sr1);
+		StatisInfo si1 = auxStatistics(read1, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info1, sr1);
 		//fq2
-		StatisInfo si2 = auxStatistics(read2, headTrim2_, tailTrim2_, adapter2_, adapterLen2_, readsName2_, *info2, sr2);
+		StatisInfo si2 = auxStatistics(read2, headTrim2_, tailTrimTemp2_, adapter2_, adapterLen2_, readsName2_, *info2, sr2);
 
 		if (!sr1.hasAdpt && !sr2.hasAdpt) //no adapter
 		{
@@ -1538,6 +1751,8 @@ namespace PreProcessTool {
 										info1->duplicationNum++;
 										info2->duplicationNum++;
 										info1->totalDuplicationNum++;
+										if(dupRateOnly_)
+											return true;
 									}
 								} // not remove duplication
 								else
@@ -1683,6 +1898,31 @@ namespace PreProcessTool {
 		return si;
 	}
 
+	int FilterProcessor::adaptorIndex(Read *read,string adapter,int adpLen,set<string> &readsName,StatisResult &sr)
+	{
+		int readLen = strlen(read->baseSequence);
+		int index = -1;
+		if(filterAdapter_)
+		{
+			if(isAdptList_)
+			{
+				sr.hasAdpt = hasAdapter(readsName,read->readName);
+			}
+			else
+			{
+				index = hasAdapter(read->baseSequence, readLen, adapter.c_str(), adpLen);
+				if(index != -1)
+				{
+					if(!cutAdaptor || (cutAdaptor && index < minReadLength))
+					{
+						sr.hasAdpt = true;
+					}
+				}
+			}
+		}
+		return index;
+	}
+
 	StatisInfo FilterProcessor::auxStatistics(Read *read, int headTrim, int tailTrim, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr)
 	{
 		int qual;
@@ -1692,7 +1932,7 @@ namespace PreProcessTool {
 		info.rawTotalBaseNum += readLen;
 		info.rawTotalReadNum++;
 
-		if (filterAdapter_)
+		/*if (filterAdapter_)
 		{
 			if (isAdptList_)
 			{
@@ -1702,7 +1942,7 @@ namespace PreProcessTool {
 			{
 				sr.hasAdpt = hasAdapter(read->baseSequence, readLen, adapter.c_str(), adptLen);
 			}
-		}
+		}*/
 
 		StatisInfo si;
 
@@ -1879,9 +2119,9 @@ namespace PreProcessTool {
 		return readsName.count(string(seqName + 1, i-2));
 	}
 
-	bool FilterProcessor::hasAdapter(const char *sequence, int readLen, const char *adapter, int adptLen)
+	int FilterProcessor::hasAdapter(const char *sequence, int readLen, const char *adapter, int adptLen)
 	{
-		bool find = false;
+		int find = -1;
 		int minMatchLen = (int)ceil(adptLen * matchRatio_);
 		int a1 = adptLen - minMatchLen;
 		int r1 = 0;
@@ -1919,7 +2159,7 @@ namespace PreProcessTool {
 			}
 			if ((mis <= misMatch_) || (max_map >= minMatchLen))
 			{
-				find = true;
+				find = r1;
 				break;
 			}
 			if (a1 > 0)

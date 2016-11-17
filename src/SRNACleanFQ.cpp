@@ -25,7 +25,7 @@ namespace SRNAProcessTool {
 
 		gzFile outFile;
 		string outFileName;
-		gzFile outRawFq;
+		gzFile outRawFq = NULL;
 		int headTrimTmp = headTrim_, tailTrimTmp = tailTrim_;
 		bool filterIndexTmp = filterIndex_;
 		int rightTmp;

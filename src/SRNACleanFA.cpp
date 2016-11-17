@@ -24,7 +24,7 @@ namespace SRNAProcessTool {
 		globleInfo.lengthStart = minInsertSize_;
 		globleInfo.lengthEnd = 44;
 
-		gzFile outRawFq;
+		gzFile outRawFq = NULL;
 		if(outfq_){
 			string outFqName;
 			if(outFqName_.empty()){

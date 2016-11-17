@@ -15,19 +15,16 @@
 
 namespace PreProcessTool {
 
-    //本工具支持的最大读长
-    const static int MAX_LENGTH = 1024;
-    //本工具支持的最大质量值
+    const static int MAX_LENGTH = 300;
     const static int MAX_QUALITY = 100;
 
-    //本工具支持的质量体系
     enum QualitySystem
     {
         ILLUMINA_ = 64,
         SANGER_ = 33,
     };
 
-    //read 信息
+    //read info
     typedef struct {
         char *readName;
         char *baseSequence;
@@ -164,6 +161,8 @@ namespace PreProcessTool {
         unsigned long totalSmallInsertNum;
         unsigned long totalPolyANum;
 
+        unsigned long totalCutAdaptorNum;
+
         //base distributions by read position(Raw)
         unsigned long base[MAX_LENGTH][5]; //ACGT
         unsigned long clean_base[MAX_LENGTH][5];
@@ -223,6 +222,8 @@ namespace PreProcessTool {
             totalSmallInsertNum += src.totalSmallInsertNum;
             totalPolyANum += src.totalPolyANum;
 
+            totalCutAdaptorNum += src.totalCutAdaptorNum;
+		 
             for (unsigned int i = 0; i < rawReadLength; ++i)
             {
                 base[i][0] += src.base[i][0];
@@ -302,7 +303,17 @@ namespace PreProcessTool {
      */
     void upper(char* str);
 
-	void getTiles(string tiles, set<int> &tileSet);
+	void getTiles(string tiles, set<string> &tileSet);
+    void getFovs(string tiles, set<string> &tileSet);
+    
+    /**
+     * trans int to string
+     */
+    string i2s(int i);
+	
+	int CopyFile(const char *in, const char *out);
+	
+	bool gzLoad(const char *gzfn, const char *out);
 
 
 }  // namespace PreProcessTool
