@@ -16,12 +16,10 @@
 
 #include "threadpool.hpp"
 #include <fstream>
-
+#include <stdlib.h>
 #include <openssl/md5.h>
 #include <boost/thread.hpp>
 #include <boost/interprocess/detail/atomic.hpp>
-
-#include <sys/stat.h>
 
 using namespace boost;
 using namespace boost::threadpool;
@@ -168,7 +166,6 @@ namespace PreProcessTool {
 		float num;
 		string tiles;
 
-
 		while (-1 != (nextOpt = getopt_long(argc, argv, shortOptions, longOptions, NULL)))
 		{
 			switch (nextOpt)
@@ -309,10 +306,6 @@ namespace PreProcessTool {
 					break;
 				case 'o':
 					outDir_.assign(optarg);
-//					if(outDir_[outDir_.length() - 1] == '\\')
-//					{
-//						outDir_ = outDir_.substr(0, outDir_.length() - 1);
-//					}	
 					break;
 				case 'C':
 					cleanFq1_.assign(optarg);
@@ -373,7 +366,8 @@ namespace PreProcessTool {
 			isPathNotExists = true;
 			int len = outDir_.size();
 			char *path = (char *)malloc(len + 15);
-			if (mkdir(path, 0755) != 0)
+			sprintf(path, "mkdir -p %s", outDir_.c_str());
+			if (system(path) == -1)
 			{
 				cerr << "output directory " << outDir_ << " cannot create" << endl;
 				return 1;
@@ -492,37 +486,32 @@ namespace PreProcessTool {
 		//when rawFq1 or rawFq2 were set and not cut data
 		if ((!rawFq1_.empty() || !rawFq2_.empty()) && cutReadNum_ == 0 && !filterTile_)
 		{
+			char buf[1024];
 			if (!rawFq1_.empty() && !fqFile1_.empty())
 			{
 				string file = getOutputFileName(rawFq1_, "", outDir_);
 				if (fqFile1_.substr(fqFile1_.size() - 2, 2) != "gz")
 				{
-					gzLoad(fqFile1_.c_str(), file.c_str());
+					sprintf(buf, "gzip -c %s > %s", fqFile1_.c_str(), file.c_str());
 				}
 				else
 				{
-					if ( CopyFile(fqFile1_.c_str(), file.c_str()) != 0 )
-					{
-						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
-						return 2;
-					}
+					sprintf(buf, "cp %s %s", fqFile1_.c_str(), file.c_str());
 				}
+				system(buf);
 			}
 			if (!rawFq2_.empty() && !fqFile2_.empty())
 			{
 				string file = getOutputFileName(rawFq2_, "", outDir_);
 				if (fqFile2_.substr(fqFile2_.size()-2, 2) != "gz")
 				{
-					gzLoad(fqFile2_.c_str(), file.c_str());
+					sprintf(buf, "gzip -c %s > %s", fqFile2_.c_str(), file.c_str());
 				}
 				else
 				{
-					if ( CopyFile(fqFile2_.c_str(), file.c_str()) != 0 )
-					{
-						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
-						return 2;
-					}
+					sprintf(buf, "cp %s %s", fqFile2_.c_str(), file.c_str());
 				}
+				system(buf);
 			}
 		}
 

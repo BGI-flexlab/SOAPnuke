@@ -15,16 +15,19 @@
 
 namespace PreProcessTool {
 
-    const static int MAX_LENGTH = 300;
+    //本工具支持的最大读长
+    const static int MAX_LENGTH = 1024;
+    //本工具支持的最大质量值
     const static int MAX_QUALITY = 100;
 
+    //本工具支持的质量体系
     enum QualitySystem
     {
         ILLUMINA_ = 64,
         SANGER_ = 33,
     };
 
-    //read info
+    //read 信息
     typedef struct {
         char *readName;
         char *baseSequence;
@@ -161,7 +164,7 @@ namespace PreProcessTool {
         unsigned long totalSmallInsertNum;
         unsigned long totalPolyANum;
 
-        unsigned long totalCutAdaptorNum;
+	 unsigned long totalCutAdaptorNum;
 
         //base distributions by read position(Raw)
         unsigned long base[MAX_LENGTH][5]; //ACGT
@@ -222,7 +225,7 @@ namespace PreProcessTool {
             totalSmallInsertNum += src.totalSmallInsertNum;
             totalPolyANum += src.totalPolyANum;
 
-            totalCutAdaptorNum += src.totalCutAdaptorNum;
+	     totalCutAdaptorNum += src.totalCutAdaptorNum;
 		 
             for (unsigned int i = 0; i < rawReadLength; ++i)
             {
@@ -310,11 +313,6 @@ namespace PreProcessTool {
      * trans int to string
      */
     string i2s(int i);
-	
-	int CopyFile(const char *in, const char *out);
-	
-	bool gzLoad(const char *gzfn, const char *out);
-
 
 }  // namespace PreProcessTool
 

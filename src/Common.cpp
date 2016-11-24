@@ -9,7 +9,6 @@
 #include "Logger.h"
 #include <sstream>
 
-#define GZ_BUF_SIZE 1048576
 
 
 namespace PreProcessTool {
@@ -1160,7 +1159,7 @@ namespace PreProcessTool {
             else
             {
                 LOG(ERROR, "--fov parameter format: " + fovs + " error");
-				exit(1);
+		exit(1);
             }
         }
         delete []s;
@@ -1172,51 +1171,6 @@ namespace PreProcessTool {
         ss << i;
         return ss.str();
     }
-	
-	int CopyFile(const char *in, const char *out)  
-    {  
-       FILE *fp1;  
-       fp1 = fopen(in, "r");  
-       FILE *fp2;  
-       fp2 = fopen(out, "w");  
-       char buff[1024] = {'\0'};  
-       int count = 0;  
-       while((count = fread(buff, 1, 1024, fp1)) != 0)  
-       {  
-          fwrite(buff, 1, count, fp2);  
-       }  
-       fclose(fp1);  
-       fclose(fp2);
-	   delete []buff;
-       return 0;  
-    }
-	
-	bool gzLoad(const char *gzfn, const char *out)
-	{
-	    //open .gz file
-	    gzFile gzfp = gzopen(gzfn,"rb");
-	    if(!gzfp)
-	    {
-	        return false;
-	    }
-		
-		ofstream outfile;
-		outfile.open(out);
- 
-	    //read and add it to out
-	    unsigned char buf[GZ_BUF_SIZE];
-	    int have;
-	    while( (have = gzread(gzfp,buf,GZ_BUF_SIZE)) > 0)
-	    {
-			outfile << buf;
-	       // outfile.append((const char*)buf,have);
-	    }
- 
-	    //close .gz file
-	    gzclose(gzfp);
-		delete []buf;
-	    return true;
-	}
     
 }  // namespace PreProcessTool
 

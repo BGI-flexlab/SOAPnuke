@@ -1,0 +1,81 @@
+SOAPnuke Change Log
+2012-12-19 <chenhaosen@genomics.cn>
+    * (FilterProcessor.cpp)修改PE测序中判断低平均质量值的方法
+      判断方法
+      1.1.0 两条read的质量值相加/read总长度 < 设定值
+      1.1.1 现在版本：read1质量值之和/read1长度 < 设定值 || read2质量值之和/read2长度 < 设定值
+
+2012-12-21 <chenhaosen@genomics.cn>
+    * (PeBuffer.cpp::getReads) 初始化中result1和result2
+    * (PeBuffer.cpp::readTask) 在开始阶段初始化result 
+
+2012-12-25 <chenhaosen@genomics.cn>
+    * 版本变为 1.1.2
+    * 修改去重模块, 去掉BTree, 使用std::map
+    * （FilterProcessor) 在去重时,使用外排+归并,降低内存耗用
+
+2013-4-7 <jiangshuai@genomics.cn>
+	* 修改版本为1.2.0.2
+	* 小RNA模块, 增加输出small.txt, clean.txt
+	* 小RNA模块, 长度分布从10开始.
+	* 修改文件 SRNACleanFA.cpp SRNAProcessor.h
+
+2013-4-9 <jiangshuai@genomics.cn>
+	* 修改版本1.3.0
+	* FqBuffer与PeBuffer, 加入过滤Tile号功能.
+	* Filter, FilterSRNA, FilterDGE都加入--tile参数, 支持过滤tile
+	* Filter, FilterSRNA, FilterDGE都基于FqBuffer与PeBuffer, 不再有自己的buffer函数.
+	* 当过滤Tile的时候, SRNA与DGE不强制输出, DNA强制输出.
+
+2013-4-9 <jiangshuai@genomics.cn>
+	* 修改版本1.4.0
+	* 新增加FilterMeta模块.
+
+2014-9-10 <jiangshuai@genomics.cn>
+	* 修改版本1.4.2
+	* 修改FilterMeta，将最大长度限定为512
+
+2014-9-10 <jiangshuai@genomics.cn>
+	* 修改版本1.4.2.1
+	* 修改Filter模块，将最大长度上限改为1024
+
+2014-10-14 <jiangshuai@genomics.cn>
+	* 修改版本1.4.2
+	* 更新bug, PeBuffer.cpp当中，在读取reads2的时候，判断reads的碱基和质量值长度，误写为reads1的了
+	* 更新bug, FilterProcessor.cpp，在输出reads2的长度时，readLen2_误写为readLen_了
+
+2015-01-05 <jiangshuai@genomics.cn>
+	* 修改版本1.5 继承1.4.2.1，主要针对另一种测序平台
+	* 添加参数--seqtype, 对应两种fq name格式 0为原格式， 1为新格式 FilterProcessor.*, MetaProcessor.*
+	* 添加参数--polyatype, 对应两种去polya方法，0为两条都是，1为1条是就可以 FilterProcessor.*, MetaProcessor.*
+	* 先改读取adapterlist, 并比较接头 FilterProcessor, MetaProcessor
+	* 过滤index FilterProcessor.cpp
+	* 过滤Tile PeBuffer.*, FqBuffer.* FilterProcessor.cpp, MetaProcessor.cpp
+	* 处理Duplex ' ' 改为 '\t' FqFile.cpp, FilterProcessor.cpp
+	* 处理Poly A,  FilterProcessor.cpp
+	* FilterProcessor.cpp MetaProcessor.cpp PeBuffer.cpp FqBuffer.cpp PeBuffer.h FqBuffer.h FqFile.cpp MetaProcessor.h FilterProcessor.h
+2015-07-06 <jiangshuai@genomics.cn>
+	* 陈建威，增加参数，需要fastq末尾加/1,/2标识符
+	* 谭启琴， --trim 参数中有四个值  reads1前  ，reads1后 ，reads2前 ， reads2后   经过测试，发现 reads1前  这个参数不生效 
+	* 谭启琴， Hiseq4000 的质量体系已经达到了42  过滤完成后 得到的文件  Base_quality_value_distribution_by_read_position_1.txt 有42的统计，但是 Base_quality_value_distribution_by_read_position_2.txt 文件并没有统计 
+	* 谭启琴， 小RNA数据，Hiseq4000
+
+2015-11-12 <lishengkang@genomics.cn>
+	* 版本升级为1.5.3，新版本修改部分包含：
+	* 新版本增加了–cutAdaptor参数，选择此参数后，SOAPnuke会截掉reads中的接头序列，而不是直接丢弃含有接头的reads。截短后的reads长度要求至少INTbp，否则整个reads丢弃。
+	* 增加了–BaseNum参数，此参数的值是截取数据所需要保留的数据量，只有在选择了–cutAdaptor的情况下能生效。选择–cutAdaptor后，同样是截取数据功能的–cut参数失效。
+	* 本版本开始–adapter1和–adapter2的值只能是接头序列，不再对adapter list进行支持
+
+2016-03-18 <lishengkang@genomics.cn>
+	* 修复raw data的GZ文件在filter tile的时未关闭的bug 
+
+2016-04-25 <lishengkang@genomics.cn>
+	* 修复filter中SE数据会出现截取数据量不够情况，版本升级为1.5.4
+
+2016-06-30 <lishengkang@genomics.cn>
+	* filter版本升级到1.5.5，增加-3参数，主要是用于在设置-d参数同时，设置-3参数，在clean data中输出duplication reads；但最终的filter的所有统计并没有加入duplication reads的统计
+
+2016-08-22 <huangzhibo@genomics.cn>
+	* 版本升级为1.5.6
+	* 增加--fov参数, 指定Zebra500数据reads name中的FOV编号（C001R001,C001R003等），含指定编号的reads将被过滤掉
+	* --fov参数类似于--tile, 两参数不能同时使用
