@@ -22,8 +22,10 @@ public:
 	};
 
 public:
+	PeBuffer(gzFile fqStreaming, int capacity, bool filterTile, const set<string> &tiles);
 	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles);
 	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType);
+	PeBuffer(const char *fq1Filename, const char *fq2Filename, int capacity, bool filterTile, const set<string> &tiles, bool IS_STREAMING);
 	~PeBuffer();
 
 	/**
@@ -33,6 +35,7 @@ public:
 	 * 		-1: error,
 	 * 		-2: fq1和fq2的read条数不一样
 	 */
+	int getStreamingReads();
 	int getReads();
 	int getReadSize();
 
@@ -65,6 +68,7 @@ private:
 	void readTask(int file, int &result);
 
 private:
+	bool IS_STREAMING;
 	bool filterTile_;
     bool tileIsFov_;
 	gzFile file1_;

@@ -67,6 +67,72 @@ namespace PreProcessTool {
 			return 3;
 	}
 
+	void printFqInfo(const FqInfo *fqInfo)
+	{
+		cout << fqInfo->rawReadLength << "\t" << fqInfo->cleanReadLength << "\t" << fqInfo->rawTotalReadNum << "\t" << fqInfo->cleanTotalReadNum << "\t" << fqInfo->greyTotalReadNum;
+		cout << "\t" << fqInfo->rawTotalBaseNum << "\t" << fqInfo->cleanTotalBaseNum << "\t" << fqInfo->rawBaseA << "\t" << fqInfo->cleanBaseA << "\t" << fqInfo->rawBaseC;
+		cout << "\t" << fqInfo->cleanBaseC << "\t" << fqInfo->rawBaseG << "\t" << fqInfo->cleanBaseG << "\t" << fqInfo->rawBaseT << "\t" << fqInfo->cleanBaseT;
+		cout << "\t" << fqInfo->rawBaseN << "\t" << fqInfo->cleanBaseN;
+		cout << "\t" << fqInfo->rawQ20 << "\t" << fqInfo->cleanQ20 << "\t" << fqInfo->rawQ30 << "\t" << fqInfo->cleanQ30;
+		cout << "\t" << fqInfo->duplicationNum << "\t" << fqInfo->adapterNum << "\t" << fqInfo->nExceedNum << "\t" << fqInfo->lowQualNum;
+		cout << "\t" << fqInfo->lowMeanNum << "\t" << fqInfo->smallInsertNum << "\t" << fqInfo->polyANum;
+		cout << "\t" << fqInfo->totalDuplicationNum << "\t" << fqInfo->totalAdapterNum << "\t" << fqInfo->totalNExceedNum << "\t" << fqInfo->totalLowQualNum;
+		cout << "\t" << fqInfo->totalSmallInsertNum << "\t" << fqInfo->totalPolyANum << "\t" << fqInfo->totalCutAdaptorNum;
+		cout << "\t" << fqInfo->maxQualityValue << "#S" << endl;
+
+		//base distributions by read position
+		cout << "#Base_distributions_by_read_position\t#S" << endl;
+		for (unsigned int i=0; i<fqInfo->rawReadLength; ++i)
+		{
+			for (int k=0; k<5; k++)
+			{
+				cout << fqInfo->base[i][k] << "\t" ;
+			}
+
+			cout << fqInfo->clean_base[i][0];
+			for (int k=1; k<5; k++)
+			{
+				cout << "\t" << fqInfo->clean_base[i][k];
+			}
+			cout << "#S\n";
+		}
+
+		//Raw Base_quality_value_distribution_by_read_position && Distribution_of_Q20_Q30_bases_by_read_position
+		cout << "#Raw_Base_quality_value_distribution_by_read_position\t#S" << endl;
+		for (unsigned int i=0; i<fqInfo->rawReadLength; ++i)
+		{
+			cout << fqInfo->q20q30[i][0] << "\t" << fqInfo->q20q30[i][1];
+			for (int k=0; k<=fqInfo->maxQualityValue; k++)
+			{
+				cout << "\t" << fqInfo->qual[i][k];
+			}
+			cout << "#S\n";
+		}
+
+		//Clean Base_quality_value_distribution_by_read_position && Distribution_of_Q20_Q30_bases_by_read_position
+		cout << "#Clean_Base_quality_value_distribution_by_read_position\t#S" << endl;
+		for (unsigned int i=0; i<fqInfo->cleanReadLength; ++i)
+		{
+			cout << fqInfo->clean_q20q30[i][0] << "\t" << fqInfo->clean_q20q30[i][1];
+			for (int k=0; k<=fqInfo->maxQualityValue; k++)
+			{
+				cout << "\t" << fqInfo->clean_qual[i][k];
+			}
+			cout << "#S\n";
+		}
+
+
+	}
+
+	void printFqInfo(const FqInfo *fqInfo1, const FqInfo *fqInfo2){
+		cout << "#Fq1_statistical_information\t#S" << endl;
+		printFqInfo(fqInfo1);
+		if (fqInfo2 != NULL){
+			cout << "#Fq2_statistical_information\t#S" << endl;
+			printFqInfo(fqInfo2);
+		}
+	}
+
 	void printFqInfo(const string outDir, const string prefix, const FqInfo *fqInfo1, const FqInfo *fqInfo2)
 	{
 		string outFile = outDir + "/" + prefix  + SEQUENCING_QUALITY + ".txt";
@@ -1078,6 +1144,31 @@ namespace PreProcessTool {
 		return reverse;
 	}
 
+	void turnBase(char* str, char from, char to)
+	{
+		while (*str)
+		{
+			if (*str == from)
+			{
+				*str = to;
+			}
+			++str;
+		}
+	}
+
+	void maskLowQualBase(char* qual, char* seq, char qualityThreshold)
+	{
+		while (*qual)
+		{
+			if (*qual <= qualityThreshold)
+			{
+				*seq = 'N';
+			}
+			++qual;
+			++seq;
+		}
+	}
+
 	void upper(char* str)
 	{
 		while (*str)
@@ -1187,7 +1278,7 @@ namespace PreProcessTool {
        }  
        fclose(fp1);  
        fclose(fp2);
-	   delete []buff;
+	   //delete []buff;
        return 0;  
     }
 	
@@ -1214,9 +1305,30 @@ namespace PreProcessTool {
  
 	    //close .gz file
 	    gzclose(gzfp);
-		delete []buf;
+		//delete []buf;
 	    return true;
 	}
+
+	vector<string> split(const std::string &s, char delim) {
+		    stringstream ss(s);
+		    string item;
+		    vector<string> elems;
+		    while(getline(ss, item, delim)) {
+		        elems.push_back(item);
+		    }
+		    return elems;
+	}
+
+	vector<string> split(char *s, char delim) {
+	    stringstream ss(s);
+	    string item;
+	    vector<string> elems;
+	    while(getline(ss, item, delim)) {
+	        elems.push_back(item);
+	    }
+	    return elems;
+	}
+
     
 }  // namespace PreProcessTool
 

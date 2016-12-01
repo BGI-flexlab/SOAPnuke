@@ -36,3 +36,13 @@ bool init_logger(const std::string &appenders, const std::string &log_out_pathna
 	return true;
 };
 
+bool init_logger()
+{
+	SharedAppenderPtr append = SharedAppenderPtr(new ConsoleAppender());
+	string pattern = "%D{%Y-%m-%d %H:%M:%S} %-5p - %m\t#L%n";
+	auto_ptr<Layout> layout(new PatternLayout(pattern));
+	append->setLayout(layout);
+	g_logger.addAppender(append);
+	return true;
+};
+

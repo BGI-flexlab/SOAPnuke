@@ -15,8 +15,8 @@
 
 namespace PreProcessTool {
 
-    const static int MAX_LENGTH = 300;
-    const static int MAX_QUALITY = 100;
+    const static int MAX_LENGTH = 512;
+    const static int MAX_QUALITY = 50;
 
     enum QualitySystem
     {
@@ -163,15 +163,16 @@ namespace PreProcessTool {
 
         unsigned long totalCutAdaptorNum;
 
+        unsigned long cleanReadLengthDistribution[MAX_LENGTH];
         //base distributions by read position(Raw)
         unsigned long base[MAX_LENGTH][5]; //ACGT
         unsigned long clean_base[MAX_LENGTH][5];
 
-        //DistributionofQ20+/Q30+basesbyreadposition(Raw)
+        //Distribution ofQ20+/Q30+ bases by read position(Raw)
         unsigned long q20q30[MAX_LENGTH][2];  //Q20 Q30
         unsigned long clean_q20q30[MAX_LENGTH][2];
 
-        //Basequalityvaluedistributionbyreadposition(Raw)
+        //Basequality value distribution by read position(Raw)
         unsigned long qual[MAX_LENGTH][MAX_QUALITY + 1];
         unsigned long clean_qual[MAX_LENGTH][MAX_QUALITY + 1];
 
@@ -285,6 +286,8 @@ namespace PreProcessTool {
      * print all the fqInfo's member variables
      */
     void printFqInfo(const string outDir, const string prefix, const FqInfo *fqInfo1, const FqInfo *fqInfo2);
+    void printFqInfo(const FqInfo *fqInfo1, const FqInfo *fqInfo2);
+    void printFqInfo(const FqInfo *fqInfo);
 
     /**
      * get the output file name for fq file
@@ -297,6 +300,13 @@ namespace PreProcessTool {
      * get the sequence's reverse complementary strand
      */
     string reverseComplementary(string &seq);
+
+    /**
+     * turn base:  U to T or T to U
+     */
+    void turnBase(char* str, char from, char to);
+
+    void maskLowQualBase(char* qual, char* seq, char qualityThreshold);
 
     /**
      * upper the string
@@ -315,6 +325,13 @@ namespace PreProcessTool {
 	
 	bool gzLoad(const char *gzfn, const char *out);
 
+	/**
+	 * split string by a char
+	 * split(s,'\t');
+	 */
+	vector<string> split(const string &s, char delim);
+
+	vector<string> split(char *s, char delim);
 
 }  // namespace PreProcessTool
 

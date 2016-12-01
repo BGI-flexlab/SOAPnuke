@@ -12,10 +12,30 @@
 
 namespace PreProcessTool
 {
+	PeBuffer::PeBuffer(gzFile fqStreaming, int capacity, bool filterTile, const set<string> &tiles):
+		IS_STREAMING(true), capacity_(capacity), size1_(0), size2_(0), readSize_(0), realReadSize_(0), initReadSize_(0),
+		lastIndex1_(0), lastIndex2_(0), lineNum1_(0), lineNum2_(0), seqType_(0)
+	{
+
+		//file1_ = strcmp(streamingInput, "-")? gzopen(streamingInput, "rb") : gzdopen(fileno(stdin), "r");
+		file1_ = fqStreaming;
+
+		if (file1_ == NULL)
+		{
+			LOG(ERROR, "open file: fqStreaming error");
+			exit(1);
+		}
+
+		buf1_ = new char[capacity_ + 1];
+
+		filterTile_ = filterTile;
+		tiles_ = tiles;
+	}
+
 
 	PeBuffer::PeBuffer(const char *fq1Filename, const char *fq2Filename,
 			int capacity, MODE mode, bool filterTile, const set<string> &tiles) :
-		capacity_(capacity), size1_(0), size2_(0), readSize_(0), realReadSize_(0), initReadSize_(
+		IS_STREAMING(false), capacity_(capacity), size1_(0), size2_(0), readSize_(0), realReadSize_(0), initReadSize_(
 				0), lastIndex1_(0), lastIndex2_(0), lineNum1_(0), lineNum2_(0), seqType_(0)
 	{
 		if (fq1Filename == NULL || fq2Filename == NULL)
@@ -41,11 +61,12 @@ namespace PreProcessTool
 		filterTile_ = filterTile;
 		tiles_ = tiles;
 	}
+
 	PeBuffer::PeBuffer(const char *fq1Filename, const char *fq2Filename,int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType){
 		PeBuffer(fq1Filename,fq2Filename,capacity,mode,filterTile,tiles);
 		seqType_ = seqType;
 	}
-    
+
 	void PeBuffer::setSeqType(int type){
 		seqType_ = type;
 	}
@@ -143,6 +164,9 @@ namespace PreProcessTool
 
 	int PeBuffer::getReads()
 	{
+		if(IS_STREAMING){
+			return getStreamingReads();
+		}
 		int result1 = 0, result2 = 0;
 		readTask(1, result1);
 		readTask(2, result2);
@@ -351,6 +375,152 @@ namespace PreProcessTool
 		return readSize_;
 	}
 
+	int PeBuffer::getStreamingReads()
+	{
+		int result1 = 0;
+		readTask(1, result1);
+
+		//end
+		if (result1 == 0 && size1_ == 0)
+		{
+			return 0;
+		}
+		else if (result1 == -1)
+		{
+			return -1;
+		}
+
+		//calculate the number of read in buffer
+		if (initReadSize_ == 0)
+		{
+			int lines = 0;
+			int tempSize1 = 0;
+			for (int i = 0; i < size1_; ++i)
+			{
+				if (buf1_[i] == '\n')
+				{
+					lines++;
+					if (lines == 2)
+					{
+						lines = 0;
+						tempSize1++;
+					}
+				}
+			}
+
+
+			initReadSize_ = tempSize1;
+
+			reads1_ = new Read[initReadSize_];
+			reads2_ = new Read[initReadSize_];
+			nameIndex1_ = new char*[initReadSize_];
+			nameIndex2_ = new char*[initReadSize_];
+		}
+
+		lineNum1_ += (readSize_ * 2);
+		long tempNum = lineNum1_;
+
+		int readNum1 = 0, readNumTmp1 = 0, index1 = 0, fields = 0;
+		int pos[10], last1 = -1;
+
+		while (index1 < size1_ && readNumTmp1 < initReadSize_)
+		{
+			if(buf1_[index1] == '\t'){
+				pos[fields] = index1;
+				fields++;
+			}else if (buf1_[index1] == '\n')
+			{
+				pos[fields] = index1;
+				fields++;
+				tempNum++;
+				if (fields == 10)
+				{
+					fields = 0;
+					buf1_[pos[0]] = '\0';
+					buf1_[pos[1]] = '\0';
+					buf1_[pos[2]] = '\0';
+					buf1_[pos[3]] = '\0';
+					buf1_[pos[4]] = '\0';
+					buf1_[pos[5]] = '\0';
+					buf1_[pos[6]] = '\0';
+					buf1_[pos[7]] = '\0';
+					buf1_[pos[8]] = '\0';
+					buf1_[pos[9]] = '\0';
+
+					char* readName1 = buf1_ + pos[0] + 1;
+
+					nameIndex1_[readNumTmp1++] = readName1;
+
+					if(filterTile_)
+					{
+						if(tileIsFov_)
+						{
+							if(isFilterFov(readName1, seqType_))
+							{
+								last1 = pos[9];
+								index1++;
+								continue;
+							}
+						}else if(isFilterTile(readName1, seqType_))
+						{
+							last1 = pos[9];
+							index1++;
+							continue;
+						}
+					}
+
+					if(buf1_ + pos[1] + 1 == "1"){
+						reads1_[readNum1].readName = readName1;
+						reads1_[readNum1].baseSequence = buf1_ + pos[2] + 1;
+						reads1_[readNum1].optionalName = "+";
+						reads1_[readNum1].baseQuality = buf1_ + pos[3] + 1;
+						reads2_[readNum1].readName = buf1_ + pos[5] + 1;
+						reads2_[readNum1].baseSequence = buf1_ + pos[7] + 1;
+						reads2_[readNum1].optionalName = "+";
+						reads2_[readNum1].baseQuality = buf1_ + pos[8] + 1;
+					}else{
+						reads2_[readNum1].readName = readName1;
+						reads2_[readNum1].baseSequence = buf1_ + pos[2] + 1;
+						reads2_[readNum1].optionalName = "+";
+						reads2_[readNum1].baseQuality = buf1_ + pos[3] + 1;
+						reads1_[readNum1].readName = buf1_ + pos[5] + 1;
+						reads1_[readNum1].baseSequence = buf1_ + pos[7] + 1;
+						reads1_[readNum1].optionalName = "+";
+						reads1_[readNum1].baseQuality = buf1_ + pos[8] + 1;
+					}
+
+
+					if (strlen(reads1_[readNum1].baseSequence)
+							< strlen(reads1_[readNum1].baseQuality))
+					{
+						string temp = "" + tempNum;
+						LOG(ERROR,
+								"the length of base sequence and base quality are not equal in fq1, line number: " + temp);
+						exit(1);
+					}
+					if (strlen(reads2_[readNum1].baseSequence)
+							< strlen(reads2_[readNum1].baseQuality))
+					{
+						string temp = "" + tempNum;
+						LOG(ERROR,
+								"the length of base sequence and base quality are not equal in fq2, line number: " + temp);
+						exit(1);
+					}
+
+					last1 = pos[9];
+					readNum1++;
+				}
+			}
+			index1++;
+		}
+
+		readSize_ = readNumTmp1;
+		lastIndex1_ = last1 + 1;
+
+		realReadSize_ = readNum1;
+		return readSize_;
+	}
+
 	char* PeBuffer::getBuf1()
 	{
 		return buf1_;
@@ -453,6 +623,7 @@ namespace PreProcessTool
             }
         }else{
             LOG(ERROR, "Zebra-500 data(--fov), --seqType is 0");
+            exit(1);
         }
         
         for(int j=0; j<8; j++)

@@ -19,7 +19,7 @@ using namespace DGEProcessTool;
 using namespace MetaPreProcessTool;
 
 #ifndef PACKAGEVERSION
-#define PACKAGEVERSION "1.5.6"
+#define PACKAGEVERSION "1.6.0"
 #endif
 
 int usage()
@@ -55,7 +55,7 @@ int main(int argc,char *argv[])
 	else if(0==strcmp(argv[1],"FILTERSRNA"))
 	{
         RNAProcessor rnaProcessor;
-        return rnaProcessor.processRNA(argc-1, argv+1);   
+        return rnaProcessor.processRNA(argc-1, argv+1);
 	}
     else if (0 == strcmp(argv[1], "FILTERDGE"))
     {

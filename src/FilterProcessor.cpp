@@ -31,74 +31,78 @@ namespace PreProcessTool {
 
 	void FilterProcessor::printVersion()
 	{
-		cout << "soapnuke filter tools version 1.5.6\n";
-		cout << "Author:  chenhaosen\n";
-		cout << " Email:  chenhaosen@genomics.cn\n";
+		cerr << "soapnuke filter tools version 1.6.0\n";
+		cerr << "Author:  chenhaosen\n";
+		cerr << " Email:  chenhaosen@genomics.cn\n";
 	}
 
 	void FilterProcessor::printUsage()
 	{
 		cout << "Usage: filter [OPTION]... \n";
-		cout << "\t-f, --adapter1  : <s> 3' adapter sequence of fq1 file\n";
-		cout << "\t-r, --adapter2  : <s> 5' adapter sequence of fq2 file [only for PE reads]\n";
-		cout << "\t-1, --fq1       : <s> fq1 file\n";
-		cout << "\t-2, --fq2       : <s> fq2 file, used to pe\n";
-		cout << "\t--tile          : <s> tile number to ignore reads , such as [1101-1104,1205]\n";
-		cout << "\t--fov           : <s> fov number to ignore reads (only for zebra-500 data), such as [C001R003,C003R004]\n";
-
-		cout << "\tthe next two options only for adapter sequence: \n";
-		cout << "\t-M, --misMatch  : <i> the max mismatch number when match the adapter (default: [1])\n";
-		cout << "\t-A, --matchRatio: <f> adapter's shortest match ratio(default: [0.5])\n";
+		cout << "\t-1, --fq1         FILE      fq1 file\n";
+		cout << "\t-2, --fq2         FILE      fq2 file, used to pe\n";
+		cout << "\t  --tile          STR       tile number to ignore reads, such as [1101-1104,1205]\n";
+		cout << "\t  --fov           STR       fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
+		cout << "\n";
+		cout << "\t-f, --adapter1    STR       3' adapter sequence of fq1 file\n";
+		cout << "\t-r, --adapter2    STR       5' adapter sequence of fq2 file (only for PE reads)\n";
+		cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
+		cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
+		cout << "\t    --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
+		cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
 		cout << "\n";
 
-		cout << "\t-l, --lowQual   : <i> low quality threshold (default: [5])\n";
-		cout << "\t-q, --qualRate  : <f> low quality rate (default: [0.5])\n";
-		cout << "\t-n, --nRate     : <f> N rate threshold (default: [0.05])\n";
-		cout << "\t-m, --mean      : <f> filter reads with low average quality, (<) \n";
-		cout << "\t-p, --polyA     : <f> filter poly A, percent of A, 0 means do not filter (default: [ 0 ])\n";
-		cout << "\t-d, --rmdup     : <b> remove PCR duplications\n";
-		cout << "\t-3, --dupRate   : <b> calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
-		cout << "\t-i, --index     : <b> remove index\n";
-		cout << "\t-c, --cut       : <f> the read number you want to keep in each clean fq file\n"
-			"\t                      (unit:1024*1024, 0 means not cut reads)\n";
-		cout << "\t-t, --trim      : <s> trim some bp of the read's head and tail, they means: \n";
-		cout <<	"\t                      read1's head and tail and read2's head and tail(default: [ 0,0,0,0 ])\n";
+		cout << "\t-l, --lowQual     INT       low quality threshold  [5]\n";
+		cout << "\t-q, --qualRate    FLOAT     low quality rate  [0.5]\n";
+		cout << "\t-n, --nRate       FLOAT     N rate threshold  [0.05]\n";
+		cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
+		cout << "\t-m, --mean        FLOAT     filter reads with low average quality, (<) \n";
+		cout << "\t-p, --polyA       FLOAT     filter poly A, percent of A, 0 means do not filter   [0]\n";
+		cout << "\t-d, --rmdup                 remove PCR duplications\n";
+		cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
+		cout << "\t-i, --index                 remove index\n";
+		cout << "\t-c, --cut         FLOAT     the read number you want to keep in each clean fq file, (unit:1024*1024, 0 means not cut reads)\n";
+		cout << "\t-t, --trim        INT,INT,INT,INT" << endl;
+		cout <<	"\t                            trim some bp of the read's head and tail, they means: (read1's head and tail and read2's head and tail  [0,0,0,0]\n";
+		cout << "\t  --trimBadTail   INT,INT   Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+		cout << "\t  --trimBadHead   INT,INT   Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+		cout << "\n";
 
+		cout << "\t-S, --small                 filter the small insert size\n";
+		cout << "\t    --overlap     INT       minimun match length (depend on -S)  [10]\n";
+		cout << "\t    --mis         FLOAT     the maximum miss match ratio (depend on -S)  [0.1]\n";
 		cout << "\n";
-		cout << "\t-S, --small     : <b> filter the small insert size\n";
-		cout << "\tthe next two options only for filter the small insert size\n";
-		cout << "\t-O, --overlap   : <i> minimun match length (default: [ 10 ])\n";
-		cout << "\t-P, --mis       : <f> the maximum miss match ratio (default: [ 0.1 ])\n";
+		cout << "\t-e, --mem         INT       memory limit (MB default: [1024]MB), if rmdup was set, this memory limit has no effect\n";
+		cout << "\t-T, --thread      INT       process thread number (default: [2])" << endl;
 		cout << "\n";
-		//cout << "\t-e, --mem       : <i> memory limit (MB default: [1024]MB)\n";
-		//cout << "\t                      if rmdup was set, this memory limit has no effect\n";
-		//cout << "\t-T, --thread   : <i> process thread number (default: [2])\n";
-		cout << "\t-Q, --qualSys   : <i> quality system 1:illumina, 2:sanger (default: [ 1 ])\n";
-		cout << "\t-L, --read1Len  : <i> read1 max length (default: all read1's length are equal, and auto acquire)\n";
-		cout << "\t-I, --read2Len  : <i> read2 max length (default: all read2's length are equal, and auto acquire)\n";
+
+		cout << "\t-Q, --qualSys     INT       quality system 1:illumina, 2:sanger  [1]\n";
+		cout << "\t-G, --sanger                set clean data qualtiy system to sanger  [illumina]\n";
+		cout << "\t-L, --read1Len    INT       read1 max length (default: all read1's length are equal, and auto acquire)\n";
+		cout << "\t-I, --read2Len    INT       read2 max length (default: all read2's length are equal, and auto acquire)\n";
 		cout << "\n";
-		cout << "\t-G, --sanger    : <b> set clean data qualtiy system to sanger (default: illumina)\n";
-		cout << "\t-a, --append    : <s> the log's output place : console or file (default: [console])\n";
-		cout << "\t-o, --outDir    : <s> output directory, directory must exists (default: current directory)\n";
-		cout << "\t-C, --cleanFq1  : <s> clean fq1 file name\n";
-		cout << "\t-D, --cleanFq2  : <s> clean fq2 file name\n";
-		cout << "\t-E, --cutAdaptor: <i> cut sequence from adaptor index,unless performed -f/-r also in use\n";
-		cout << "\t                      discard the read when the adaptor index of the read is less than INT\n";
-		cout << "\t-b, --BaseNum   : <i> the base number you want to keep in each clean fq file,unless performed -E also in use\n";
-		cout << "\t-R, --rawFq1    : <s> raw fq1 file name\n";
-		cout << "\t-W, --rawFq2    : <s> raw fq2 file name\n";
+
+		cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
+		cout << "\t-o, --outDir      STR       output directory, directory must exists  [.]\n";
+		cout << "\t-C, --cleanFq1    STR       clean fq1 file name\n";
+		cout << "\t-D, --cleanFq2    STR       clean fq2 file name\n";
+		cout << "\t-R, --rawFq1      STR       raw fq1 file name\n";
+		cout << "\t-W, --rawFq2      STR       raw fq2 file name\n";
 		cout << "\n";
-		cout << "\t-5, --seqType   : <i> Sequence fq name type, 0->old fastq name, 1->new fastq name[default: 0]\n";
-		cout << "\t    old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
-		cout << "\t    new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
-		cout << "\t-6, --polyAType : <i> filter poly A type, 0->both two reads are poly a, 1->at least one reads is poly a, then filter, [default: 0]\n";
-		cout << "\t-7, --outType: <i> Add /1, /2 at the end of fastq name, 0:not add, 1:add [default: 0]\n";
+		cout << "\t-5, --seqType     INT       Sequence fq name type, 0->old fastq name, 1->new fastq name [0]\n";
+		cout << "\t                                  old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
+		cout << "\t                                  new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
+		cout << "\t-6, --polyAType   INT       filter poly A type, 0->both two reads are poly a, 1->at least one reads is poly a, then filter  [0]\n";
+		cout << "\t-7, --outType:    INT       Add /1, /2 at the end of fastq name, 0:not add, 1:add  [0]\n";
 		cout << "\n";
-		cout << "\t-h, --help      : <b> help\n";
-		cout << "\t-v, --version   : <b> show version" << endl;
+		cout << "\t  --TtoU		               convert T to U when write data" << endl;
+		cout << "\t  --UtoT		               convert U to T when read data" << endl;
+		cout << "\n";
+		cout << "\t-h, --help                  help" << endl;
+		cout << "\t-v, --version               show version" << endl;
 	}
 
-	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
+	FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), IS_STREAMING(false), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
 	qualRate_(0.5), nRate_(0.05), polyA_(0), minMean_(0.0), filterIndex_(false),
 	rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
 	memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
@@ -109,7 +113,17 @@ namespace PreProcessTool {
 
 	int FilterProcessor::processParams(int argc, char **argv)
 	{
-		const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:E:b:hv";
+
+		trimBadHeadMaxLength = 0;
+		trimBadHeadQuility = 0;
+		trimBadTailMaxLength = 0;
+		trimBadTailQuility = 0;
+		maskLowQual = -1;
+		TtoU = 0;
+		UtoT = 0;
+		cutAdaptorOri = 3;  //cut sequence from adaptor index
+
+		const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:E:b:x:y:hv";
 		const struct option longOptions[] =
 		{
 			{ "adapter1", 1, NULL, 'f' },
@@ -123,6 +137,7 @@ namespace PreProcessTool {
 			{ "lowQual" , 1, NULL, 'l' },
 			{ "qualRate", 1, NULL, 'q' },
 			{ "nRate"   , 1, NULL, 'n' },
+			{ "maskLowQual" , 1, NULL, 'N' },
 			{ "mean"    , 1, NULL, 'm' },
 			{ "polyA"   , 1, NULL, 'p' },
 			{ "rmdup"   , 0, NULL, 'd' },
@@ -132,6 +147,9 @@ namespace PreProcessTool {
 			{ "index"   , 0, NULL, 'i' },
 			{ "cut"     , 1, NULL, 'c' },
 			{ "trim"    , 1, NULL, 't' },
+			{ "trimBadHead" , 1, NULL, 'x' },
+			{ "trimBadTail" , 1, NULL, 'y' },
+
 			{ "mem"     , 1, NULL, 'e' },
 			{ "thread"  , 1, NULL, 'T' },
 			{ "small"   , 0, NULL, 'S' },
@@ -150,8 +168,13 @@ namespace PreProcessTool {
 			{ "seqType"  , 1, NULL, '5' },
 			{ "polyAType" , 1, NULL, '6' },
 			{ "outType" , 1, NULL, '7' },
+
+			{ "TtoU" , 0, &TtoU, 1 },
+			{ "UtoT" , 0, &UtoT, 1 },
+
 			{ "help"    , 0, NULL, 'h' },
 			{ "version" , 0, NULL, 'v' },
+			{     0,    0,    0,    0},
 		};
 
 		string append;
@@ -164,10 +187,12 @@ namespace PreProcessTool {
 
 		int nextOpt;
 		string trim;
+	    string trimBadHeadStr;
+		string trimBadTailStr;
+		string cutAdaptorStr;
 		size_t i;
 		float num;
 		string tiles;
-
 
 		while (-1 != (nextOpt = getopt_long(argc, argv, shortOptions, longOptions, NULL)))
 		{
@@ -209,6 +234,9 @@ namespace PreProcessTool {
 				case 'n':
 					nRate_ = atof(optarg);
 					break;
+				case 'N':
+					maskLowQual = atoi(optarg);
+					break;
 				case 'm':
 					minMean_ = atof(optarg);
 					break;
@@ -243,7 +271,7 @@ namespace PreProcessTool {
 					i = trim.find_first_of(',');
 					if (i == string::npos)
 					{
-						cout << "-t/--trim options error" << endl;
+						cerr << "-t/--trim options error" << endl;
 						return 1;
 					}
 					headTrim_ = atoi(trim.substr(0, i).c_str());
@@ -252,7 +280,7 @@ namespace PreProcessTool {
 					i = trim.find_first_of(',');
 					if (i == string::npos)
 					{
-						cout << "-t/--trim options error" << endl;
+						cerr << "-t/--trim options error" << endl;
 						return 1;
 					}
 					tailTrim_ = atoi(trim.substr(0, i).c_str());
@@ -261,7 +289,7 @@ namespace PreProcessTool {
 					i = trim.find_first_of(',');
 					if (i == string::npos)
 					{
-						cout << "-t/--trim options error" << endl;
+						cerr << "-t/--trim options error" << endl;
 						return 1;
 					}
 					headTrim2_ = atoi(trim.substr(0, i).c_str());
@@ -271,6 +299,28 @@ namespace PreProcessTool {
 					break;
 				case 'e':
 					memLimit_ = atol(optarg) * MEM_UNIT;
+					break;
+				case 'x':
+					trimBadHeadStr.assign(optarg);
+					i = trimBadHeadStr.find_first_of(',');
+					if (i == string::npos)
+					{
+						cout << "  --trimBadHead options error" << endl;
+						return 1;
+					}
+					trimBadHeadQuility  = atoi(trimBadHeadStr.substr(0, i).c_str());
+					trimBadHeadMaxLength = atoi(trimBadHeadStr.substr(i+1).c_str());
+					break;
+				case 'y':
+					trimBadTailStr.assign(optarg);
+					i = trimBadTailStr.find_first_of(',');
+					if (i == string::npos)
+					{
+						cout << "  --trimBadTail options error" << endl;
+						return 1;
+					}
+					trimBadTailQuility = atoi(trimBadTailStr.substr(0, i).c_str());
+					trimBadTailMaxLength = atoi(trimBadTailStr.substr(i+1).c_str());
 					break;
 				case 'S':
 					isFilterSmallInsertSize_ = true;
@@ -291,7 +341,7 @@ namespace PreProcessTool {
 							qualSys_ = SANGER_;
 							break;
 						default:
-							cout << "error quality system" << endl;
+							cerr << "error quality system" << endl;
 							return 1;
 					}
 					break;
@@ -343,7 +393,12 @@ namespace PreProcessTool {
 					return 1;
 				case 'E':
 					cutAdaptor = true;
-					minReadLength = atoi(optarg);
+					cutAdaptorStr.assign(optarg);
+					i = cutAdaptorStr.find_first_of(',');
+					minReadLength = atoi(cutAdaptorStr.substr(0, i).c_str());
+					if (i == string::npos)
+						break;
+					cutAdaptorOri = atoi(cutAdaptorStr.substr(i+1).c_str());
 					break;
 				case 'b':
 					cutBasesNumber = strtoul(optarg,NULL,10);
@@ -351,176 +406,210 @@ namespace PreProcessTool {
 				case 'v':
 					printVersion();
 					return 1;
+				case 0:
+					break;
 				case '?':
-					cout << "unkonwn option: -" << (char) optopt << endl;
-					cout << "Print -h or --help for more information." << endl;
+					cerr << "unkonwn option: -" << (char) optopt << endl;
+					cerr << "Print -h or --help for more information." << endl;
 					return 1;
 				default:
-					cout << "Param : " << optarg << endl;
+					cerr << "Param : " << optarg << endl;
 					return 1;
 			}
 		}
 
-		if (argc != optind)
+		if(filterTile_)
 		{
-			cout << "options error, please check the options" << endl;
-			return 1;
-		}
-
-		bool isPathNotExists = false; //指示输出目录是否存在
-		if (access(outDir_.c_str(), F_OK) == -1)  //输出路径不存在
-		{
-			isPathNotExists = true;
-			int len = outDir_.size();
-			char *path = (char *)malloc(len + 15);
-			if (mkdir(path, 0755) != 0)
+			if(tileIsFov_)
 			{
-				cerr << "output directory " << outDir_ << " cannot create" << endl;
-				return 1;
-			}
-		}
+				PreProcessTool::getFovs(tiles, tiles_);
 
-		if (fqFile1_.empty())
-		{
-			cout << "fq1 file must be exists" << endl;
-			return 1;
-		}
-
-		//	size_t slashFound = fqFile1_.find_last_of('/');
-		//	if (string::npos == slashFound)
-		//	{
-		//		size_t underlineFound = fqFile1_.find_last_of('_');
-		//		if (string::npos == underlineFound)
-		//		{
-		//			lanID_ = fqFile1_;
-		//		}
-		//		else
-		//		{
-		//			lanID_ = fqFile1_.substr(0, underlineFound);
-		//		}
-		//	}
-		//	else
-		//	{
-		//		size_t underlineFound = fqFile1_.find_last_of('_');
-		//		if (string::npos == underlineFound)
-		//		{
-		//			lanID_ = fqFile1_.substr(slashFound + 1);
-		//		}
-		//		else
-		//		{
-		//			lanID_ = fqFile1_.substr(slashFound + 1, underlineFound - slashFound - 1);
-		//		}
-		//	}
-
-		string logoutPath = outDir_ + "/" + LOG_FILE;
-		if (!init_logger(append, logoutPath))
-		{
-			cerr << "Cannot Init Log:" << append << "-" << logoutPath << endl;
-			return 1;
-		}
-		else
-		{
-			LOG(INFO, "Log Init Success");
-		}
-
-		if (isPathNotExists)
-		{
-			LOG(WARN, "output directory " << outDir_ << " does not exists, program will auto create");
-			LOG(WARN, "output directory " << outDir_ << " has been created");
-		}
-
-        if(filterTile_)
-        {
-            if(tileIsFov_)
-            {
-                PreProcessTool::getFovs(tiles, tiles_);
-            
-            }else
-            {
-                PreProcessTool::getTiles(tiles, tiles_);
-            }
-        }
-
-		if (readLen_ == 0)
-		{
-			gzFile file = gzopen(fqFile1_.c_str(), "rb");
-			if (file == NULL)
+			}else
 			{
-				LOG(ERROR, "No file: " << fqFile1_);
-				return 1;
+				PreProcessTool::getTiles(tiles, tiles_);
 			}
-			char *buf = new char[512];
-			gzgets(file, buf, 512);
-			gzgets(file, buf, 512);
-			readLen_ = strlen(buf) - 1;
-			delete[] buf;
-			gzclose(file);
-		}
-
-		LOG(INFO, "fq1 read length: " << readLen_);
-
-		if (fqFile2_.empty())
-		{
-			isPE_ = false;
-		}
-
-		if (isPE_)
-		{
-			if (readLen2_ == 0)
-			{
-				gzFile file = gzopen(fqFile2_.c_str(), "rb");
-				if (file == NULL)
-				{
-					LOG(ERROR, "No file: " << fqFile2_);
-					return 1;
-				}
-				char *buf = new char[512];
-				gzgets(file, buf, 512);
-				gzgets(file, buf, 512);
-				readLen2_ = strlen(buf) - 1;
-				delete[] buf;
-				gzclose(file);
-			}
-
-			LOG(INFO, "fq2 read length: " << readLen2_);
 		}
 
 		if( cutAdaptor && cutBasesNumber != 0 ){
 			cutReadNum_ = 0;
 		}
 
-		//when rawFq1 or rawFq2 were set and not cut data
-		if ((!rawFq1_.empty() || !rawFq2_.empty()) && cutReadNum_ == 0 && !filterTile_)
+		if(argc - optind == 1){
+			streamingInput = strdup(argv[optind]);
+			IS_STREAMING = true;
+		}else if (argc != optind)
 		{
-			if (!rawFq1_.empty() && !fqFile1_.empty())
+			cerr << "options error, please check the options" << endl;
+			return 1;
+		}
+
+		if(IS_STREAMING){
+			if (!init_logger())
 			{
-				string file = getOutputFileName(rawFq1_, "", outDir_);
-				if (fqFile1_.substr(fqFile1_.size() - 2, 2) != "gz")
-				{
-					gzLoad(fqFile1_.c_str(), file.c_str());
+				cerr << "Cannot Init Log."<< endl;
+				return 1;
+			}
+			else
+			{
+				LOG(INFO, "Log Init Success");
+			}
+
+			if (rmdup_)
+			{
+				LOG(WARN, "-d,--rmdup parameter is unavailable in STREAMING mode!");
+			}
+
+			fqStreaming = strcmp(streamingInput, "-")? gzopen(streamingInput, "rb") : gzdopen(fileno(stdin), "r");
+
+			char *buf = new char[1024];
+			gzgets(fqStreaming, buf, 1024);
+			if(strlen(buf) <= 10){
+				LOG(ERROR, "Input is empty!");
+				exit(1);
+			}
+			vector<string> s = split(buf,'\t');
+
+			gzgets(fqStreaming, buf, 1024);
+			vector<string> s2 = split(buf,'\t');
+
+			if(s[2]!="2" && s2[2]!="2"){
+				isPE_ = false;
+			}
+
+			if(isPE_){
+				if(s[2]=="2"){
+					readLen_ = s2[3].size();
+					readLen2_ = s[3].size();
+				}else{
+					readLen_ = s[3].size();
+					readLen2_ = s2[3].size();
 				}
-				else
+				LOG(INFO, "fq1 read length: " << readLen_);
+				LOG(INFO, "fq2 read length: " << readLen2_);
+			}else
+			{
+				readLen_ = s[3].size();
+				LOG(INFO, "read length: " << readLen_);
+			}
+			delete[] buf;
+			//gzclose(fqStreaming);
+		}
+		else{
+			bool isPathNotExists = false; //指示输出目录是否存在
+			if (access(outDir_.c_str(), F_OK) == -1)  //输出路径不存在
+			{
+				isPathNotExists = true;
+				if (mkdir(outDir_.c_str(), 0755) != 0)
 				{
-					if ( CopyFile(fqFile1_.c_str(), file.c_str()) != 0 )
-					{
-						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
-						return 2;
-					}
+					cerr << "output directory " << outDir_ << " cannot create" << endl;
+					return 1;
 				}
 			}
-			if (!rawFq2_.empty() && !fqFile2_.empty())
+
+			if (fqFile1_.empty())
 			{
-				string file = getOutputFileName(rawFq2_, "", outDir_);
-				if (fqFile2_.substr(fqFile2_.size()-2, 2) != "gz")
+				cerr << "fq1 file must be exists" << endl;
+				return 1;
+			}
+
+			string logoutPath = outDir_ + "/" + LOG_FILE;
+			if (!init_logger(append, logoutPath))
+			{
+				cerr << "Cannot Init Log:" << append << "-" << logoutPath << endl;
+				return 1;
+			}
+			else
+			{
+				LOG(INFO, "Log Init Success");
+			}
+
+			if (isPathNotExists)
+			{
+				LOG(WARN, "output directory " << outDir_ << " does not exists, program will auto create");
+				LOG(WARN, "output directory " << outDir_ << " has been created");
+			}
+
+			if (readLen_ == 0)
+			{
+				gzFile file = gzopen(fqFile1_.c_str(), "rb");
+				if (file == NULL)
 				{
-					gzLoad(fqFile2_.c_str(), file.c_str());
+					LOG(ERROR, "No file: " << fqFile1_);
+					return 1;
 				}
-				else
+				char *buf = new char[512];
+				gzgets(file, buf, 512);
+				gzgets(file, buf, 512);
+				readLen_ = strlen(buf) - 1;
+				delete[] buf;
+				gzclose(file);
+			}
+
+			LOG(INFO, "fq1 read length: " << readLen_);
+
+			if (fqFile2_.empty())
+			{
+				isPE_ = false;
+			}
+
+			if (isPE_)
+			{
+				if (readLen2_ == 0)
 				{
-					if ( CopyFile(fqFile2_.c_str(), file.c_str()) != 0 )
+					gzFile file = gzopen(fqFile2_.c_str(), "rb");
+					if (file == NULL)
 					{
-						printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
-						return 2;
+						LOG(ERROR, "No file: " << fqFile2_);
+						return 1;
+					}
+					char *buf = new char[512];
+					gzgets(file, buf, 512);
+					gzgets(file, buf, 512);
+					readLen2_ = strlen(buf) - 1;
+					delete[] buf;
+					gzclose(file);
+				}
+
+				LOG(INFO, "fq2 read length: " << readLen2_);
+			}
+
+			if( cutAdaptor && cutBasesNumber != 0 ){
+				cutReadNum_ = 0;
+			}
+
+			//when rawFq1 or rawFq2 were set and not cut data
+			if ((!rawFq1_.empty() || !rawFq2_.empty()) && cutReadNum_ == 0 && !filterTile_)
+			{
+				if (!rawFq1_.empty() && !fqFile1_.empty())
+				{
+					string file = getOutputFileName(rawFq1_, "", outDir_);
+					if (fqFile1_.substr(fqFile1_.size() - 2, 2) != "gz")
+					{
+						gzLoad(fqFile1_.c_str(), file.c_str());
+					}
+					else
+					{
+						if ( CopyFile(fqFile1_.c_str(), file.c_str()) != 0 )
+						{
+							printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
+							return 2;
+						}
+					}
+				}
+				if (!rawFq2_.empty() && !fqFile2_.empty())
+				{
+					string file = getOutputFileName(rawFq2_, "", outDir_);
+					if (fqFile2_.substr(fqFile2_.size()-2, 2) != "gz")
+					{
+						gzLoad(fqFile2_.c_str(), file.c_str());
+					}
+					else
+					{
+						if ( CopyFile(fqFile2_.c_str(), file.c_str()) != 0 )
+						{
+							printf("Copy file error : cp %s %s \n", fqFile2_.c_str(), file.c_str());
+							return 2;
+						}
 					}
 				}
 			}
@@ -532,13 +621,6 @@ namespace PreProcessTool {
 			exit(1);
 		}
 
-		//	float temp = (readLen_ + readLen2_)/32.0;
-		//	encodSize_ = (int)temp;
-		//	if (encodSize_ == temp)
-		//	{
-		//		encodSize_--;
-		//	}
-
 		if (adapter1_.empty() && adapter2_.empty())
 		{
 			filterAdapter_ = false;
@@ -548,7 +630,7 @@ namespace PreProcessTool {
 			int type = adapterType(isPE_, adapter1_, adapter2_);
 			if (type == 3)
 			{
-				cout << "adapter1 or adapter2 type error" << endl;
+				cerr << "adapter1 or adapter2 type error" << endl;
 				LOG(ERROR, "adapter1 or adapter2 type error");
 				return 1;
 			}
@@ -586,481 +668,693 @@ namespace PreProcessTool {
 			return  1;
 		}
 
-		FqInfo globleInfo1, globleInfo2;
-		//store clean read
-		gzFile outCleanFile1 = NULL, outCleanFile2 = NULL;
-		string outCleanFileName1, outCleanFileName2;
-		gzFile outRawFile1 = NULL, outRawFile2 = NULL;
-		string outRawFileName1, outRawFileName2;
+		if(IS_STREAMING){
+			FqInfo globleInfo1, globleInfo2;
+			globleInfo1.rawReadLength = readLen_;
+			globleInfo1.cleanReadLength = readLen_ - headTrim_ - tailTrim_;
 
-		globleInfo1.rawReadLength = readLen_;
-		globleInfo1.cleanReadLength = readLen_ - headTrim_ - tailTrim_;
-		//get the output fq files' name
-		if (!cleanFq1_.empty())  //有指定输出文件名
-		{
-			outCleanFileName1 = getOutputFileName(cleanFq1_, "", outDir_);
-		}
-		else
-		{
-			outCleanFileName1 = getOutputFileName(fqFile1_, CLEAN_FQ_PREFIX, outDir_);
-		}
-
-		outCleanFile1 = gzopen(outCleanFileName1.c_str(), "wb");
-
-		if (outCleanFile1 == NULL)
-		{
-			LOG(ERROR, "create output file: " + outCleanFileName1 + " error");
-			return 1;
-		}
-
-		if (isPE_)
-		{
-			globleInfo2.rawReadLength = readLen2_;
-			globleInfo2.cleanReadLength = readLen2_ - headTrim2_ - tailTrim2_;
-
-			if (!cleanFq2_.empty())
-			{
-				outCleanFileName2 = getOutputFileName(cleanFq2_, "", outDir_);
-			}
-			else
-			{
-				outCleanFileName2 = getOutputFileName(fqFile2_, CLEAN_FQ_PREFIX, outDir_);
-			}
-
-			outCleanFile2 = gzopen(outCleanFileName2.c_str(), "wb");
-			if (!outCleanFile2)
-			{
-				LOG(ERROR, "create output file: " + outCleanFileName2 + " error");
-				return 1;
-			}
-		}
-
-		if (cutReadNum_ || filterTile_)
-		{
-			if (!rawFq1_.empty())
-			{
-				outRawFileName1 = getOutputFileName(rawFq1_, "", outDir_);
-			}
-			else
-			{
-				outRawFileName1 = getOutputFileName(fqFile1_, RAW_FQ_PREFIX, outDir_);
-			}
-
-			outRawFile1 = gzopen(outRawFileName1.c_str(), "wb");
-			if (!outRawFile1)
-			{
-				LOG(ERROR, "create output file: " + outRawFileName1);
-				return 1;
-			}
+			pool pl(PROCESS_THREAD_NUM + 1);
 			if (isPE_)
 			{
-				if (!rawFq2_.empty())
+				globleInfo2.rawReadLength = readLen2_;
+				globleInfo2.cleanReadLength = readLen2_ - headTrim2_ - tailTrim2_;
+
+				Read *reads1, *reads2;
+				long capacity = static_cast<long>(memLimit_ / 2.5);
+
+				PeBuffer buffer(fqStreaming, capacity, filterTile_, tiles_);
+				buffer.setSeqType(seqType_);
+				buffer.setTileIsFov(tileIsFov_);
+				TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
+
+				int size = 0;
+
+				bool first = true;
+
+				while (buffer.getReads() > 0)
 				{
-					outRawFileName2 = getOutputFileName(rawFq2_, "", outDir_);
+					size = buffer.getReadSize();
+					if(size == 0)
+						continue;
+					if (first)
+					{
+						first = false;
+						cleanDataIndexs_ = new unsigned int[buffer.getInitReadSize() + 1];
+					}
+
+					reads1 = buffer.getReadsOne();
+					reads2 = buffer.getReadsTwo();
+
+					size_ = 0;
+					doneNum_ = 0;
+
+					int block = size / PROCESS_THREAD_NUM;
+					int remain = size % PROCESS_THREAD_NUM;
+					int index = 0;
+
+					pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTaskStreamingPE, this, reads1, reads2));
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						params[i].left = index;
+						index += block;
+						if (remain > 0)
+						{
+							index += 1;
+							remain--;
+						}
+
+						params[i].right = index;
+						params[i].reads1 = reads1;
+						params[i].reads2 = reads2;
+
+						bzero(&(params[i].info1), sizeof(FqInfo));
+						bzero(&(params[i].info2), sizeof(FqInfo));
+
+						pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
+					}
+
+					pl.wait();
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						globleInfo1.add(params[i].info1);
+						globleInfo2.add(params[i].info2);
+						//calculte the max quality value
+						if (params[i].info1.maxQualityValue > globleInfo1.maxQualityValue)
+						{
+							globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
+						}
+						if (params[i].info2.maxQualityValue > globleInfo2.maxQualityValue)
+						{
+							globleInfo2.maxQualityValue = params[i].info2.maxQualityValue;
+						}
+					}
+
+					if (cutReadNum_ > 0 && cutReadNum_  < globleInfo1.cleanTotalReadNum)
+					{
+						break;
+					}
+
+					if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
+						break;
+					}
+
+				}
+
+				if (globleInfo1.maxQualityValue > globleInfo2.maxQualityValue)
+				{
+					globleInfo2.maxQualityValue = globleInfo1.maxQualityValue;
 				}
 				else
 				{
-					outRawFileName2 = getOutputFileName(fqFile2_, RAW_FQ_PREFIX, outDir_);
+					globleInfo1.maxQualityValue = globleInfo2.maxQualityValue;
 				}
-
-				outRawFile2 = gzopen(outRawFileName2.c_str(), "wb");
-				if (!outRawFile2)
-				{
-					LOG(ERROR, "create output file: " + outRawFileName2);
-					return 1;
-				}
-			}
-		}
-
-		if (filterAdapter_ && isAdptList_)
-		{
-			if (getReadsNameFromFile(adapter1_, readsName1_) != 0)
-			{
-				return 1;
-			}
-			if (isPE_)
-			{
-				if (getReadsNameFromFile(adapter2_, readsName2_) != 0)
-				{
-					return 1;
-				}
-			}
-		}
-
-		int threadNum;
-		if (isPE_)
-		{
-			threadNum = PROCESS_THREAD_NUM + 2;
-		}
-		else
-		{
-			threadNum = PROCESS_THREAD_NUM + 1;
-		}
-		//
-		pool pl(threadNum);
-		if (isPE_)
-		{
-			Read *reads1, *reads2;
-
-			long capacity = static_cast<long>(memLimit_ / 2.5);
-
-			PeBuffer buffer(fqFile1_.c_str(), fqFile2_.c_str(), capacity, PeBuffer::RB, filterTile_, tiles_);
-			buffer.setSeqType(seqType_);
-            buffer.setTileIsFov(tileIsFov_);
-			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
-
-			int size = 0;
-
-			bool first = true;
-			//循环一次，产生一个已排序的临时文件
-			int fileNum = 0;
-
-			while (buffer.getReads() > 0)
-			{
-				size = buffer.getReadSize();
-				if(size == 0)
-					continue;
-				if (first)
-				{
-					first = false;
-					cleanDataIndexs_ = new unsigned int[buffer.getInitReadSize() + 1];
-				}
-
-				reads1 = buffer.getReadsOne();
-				reads2 = buffer.getReadsTwo();
-
-				if (cutReadNum_ || filterTile_) //output raw data
-				{
-					pl.schedule(boost::bind(&FilterProcessor::outputRawDataTask,
-								this, outRawFile1, reads1, size)
-						   );
-					pl.schedule(boost::bind(&FilterProcessor::outputRawDataTask,
-								this, outRawFile2, reads2, size)
-						   );
-
-					pl.wait();
-				}
-				size_ = 0;
-				doneNum_ = 0;
-
-				int block = size / PROCESS_THREAD_NUM;
-				int remain = size % PROCESS_THREAD_NUM;
-				int index = 0;
-				ofstream tempOFS;
-
-				if (!rmdup_)
-				{
-					if(outType_!=0){
-						pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile1, reads1, "/1\n"));
-						pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile2, reads2, "/2\n"));
-					}else{
-						pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile1, reads1));
-						pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile2, reads2));
-					}
-				}
-
-				for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
-				{
-					params[i].left = index;
-					index += block;
-					if (remain > 0)
-					{
-						index += 1;
-						remain--;
-					}
-
-					params[i].right = index;
-					params[i].reads1 = reads1;
-					params[i].reads2 = reads2;
-
-					bzero(&(params[i].info1), sizeof(FqInfo));
-					bzero(&(params[i].info2), sizeof(FqInfo));
-
-					pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
-				}
-
-				pl.wait();
-
-				if (rmdup_)
-				{
-					char tempFile[1024];
-					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
-					tempOFS.open(tempFile); 
-					outputTempData(tempOFS, reads1, reads2);
-					if(dupRateOnly_){
-						ofstream tempOFS1;
-						char dupTempFile[1024];
-						sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
-                                       		tempOFS1.open(dupTempFile);
-						outputDupData(tempOFS1, reads1, reads2,size);
-					}
-					duplications_.clear();
-				}
-				
-				for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
-				{
-					globleInfo1.add(params[i].info1);
-					globleInfo2.add(params[i].info2);
-					//calculte the max quality value
-					if (params[i].info1.maxQualityValue > globleInfo1.maxQualityValue)
-					{
-						globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
-					}
-					if (params[i].info2.maxQualityValue > globleInfo2.maxQualityValue)
-					{
-						globleInfo2.maxQualityValue = params[i].info2.maxQualityValue;
-					}
-				}
-
-				if (rmdup_ && cutReadNum_ > 0 && cutReadNum_ * 1.1 < globleInfo1.greyTotalReadNum)
-				{
-					if (rmdup_)
-					{   
-						tempOFS.close();
-						fileNum++;
-					}
-					break;
-				}
-				else if (cutReadNum_ > 0 && cutReadNum_  < globleInfo1.cleanTotalReadNum)
-				{
-					break;
-				}
-
-				if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
-					break;
-				}
-
-				if (rmdup_)
-				{
-					fileNum++;
-					tempOFS.close();
-				}
-			}
-
-			//merge all sorted files
-			if (rmdup_)
-			{
-				mergeSortedFiles(fileNum, &globleInfo1, &globleInfo2, outCleanFile1, outCleanFile2);
-				for (int i=0; i<fileNum; ++i)
-				{
-					char tempFile[1024];
-					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
-					remove(tempFile);
-					if(dupRateOnly_){
-						char dupTempFile[1024];
-                                        	sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
-                                        	remove(dupTempFile);
-					}
-				}
-			}
-
-			if (globleInfo1.maxQualityValue > globleInfo2.maxQualityValue)
-			{
-				globleInfo2.maxQualityValue = globleInfo1.maxQualityValue;
-			}
-			else
-			{
-				globleInfo1.maxQualityValue = globleInfo2.maxQualityValue;
-			}
-
-			if (size == -1)
-			{
-				LOG(ERROR, "read fq1 or fq2 error");
-				return 1;
-			}
-
-			if (size == -2)
-			{
-				LOG(WARN, "fq1 and fq2's read number not equal");
-			}
-
-			if (params != NULL)
-			{
-				LOG(INFO, "delete params");
-				delete []params;
-			}
-
-			if (cutReadNum_ || filterTile_)
-			{
-				gzclose(outRawFile1);
-				gzclose(outRawFile2);
-			}
-
-			gzclose(outCleanFile1);
-			gzclose(outCleanFile2);
-
-
-		}
-		else //SE
-		{
-			long capacity = static_cast<long>(memLimit_ / 2.5);
-			FqBuffer buffer(fqFile1_.c_str(), capacity, FqBuffer::RB, filterTile_, tiles_);
-			buffer.setSeqType(seqType_);
-            buffer.setTileIsFov(tileIsFov_);
-
-			TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
-
-			Read *reads;
-			int size;
-
-			bool first = true;
-			int fileNum = 0;
-
-			while ((reads = buffer.getReads()))
-			{
-				size = buffer.getRealReadSize();
-				if(size==0)
-					continue;
 
 				if (size == -1)
 				{
-					LOG(ERROR, "read fq file: " + fqFile1_ + " error");
+					LOG(ERROR, "read fq1 or fq2 error");
 					return 1;
 				}
 
-				if (first)
+				if (size == -2)
 				{
-					first = false;
-					cleanDataIndexs_ = new unsigned int[buffer.getReadSize() + 1];
+					LOG(WARN, "fq1 and fq2's read number not equal");
 				}
 
-				size_ = 0;
-				doneNum_ = 0;
-
-				if (cutReadNum_ || filterTile_) //output raw data
+				if (params != NULL)
 				{
-					outputRawDataTask(outRawFile1, reads, size);
+					LOG(INFO, "delete params");
+					delete []params;
+				}
+				printFqInfo(&globleInfo1, &globleInfo2);
+
+			}else{
+				long capacity = static_cast<long>(memLimit_ / 2.5);
+				FqBuffer buffer(fqStreaming, capacity, filterTile_, tiles_);
+				buffer.setSeqType(seqType_);
+				buffer.setTileIsFov(tileIsFov_);
+
+				TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
+
+				Read *reads;
+				int size;
+
+				bool first = true;
+
+				while ((reads = buffer.getReads()))
+				{
+					size = buffer.getRealReadSize();
+					if(size==0)
+						continue;
+
+					if (size == -1)
+					{
+						LOG(ERROR, "read fq file: " + fqFile1_ + " error");
+						return 1;
+					}
+
+					if (first)
+					{
+						first = false;
+						cleanDataIndexs_ = new unsigned int[buffer.getReadSize() + 1];
+					}
+
+					size_ = 0;
+					doneNum_ = 0;
+
+					int block = size / PROCESS_THREAD_NUM;
+					int remain = size % PROCESS_THREAD_NUM;
+					int index = 0;
+
+					pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTaskStreamingSE, this, reads));
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						params[i].left = index;
+						index += block;
+						if (remain > 0)
+						{
+							index += 1;
+							remain--;
+						}
+
+						params[i].right = index;
+						params[i].reads1 = reads;
+
+						bzero(&(params[i].info1), sizeof(FqInfo));
+
+						pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
+					}
+
+					pl.wait();
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						globleInfo1.add(params[i].info1);
+						if (globleInfo1.maxQualityValue < params[i].info1.maxQualityValue)
+						{
+							globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
+						}
+					}
+
+
+					if (cutReadNum_ > 0 && cutReadNum_ < globleInfo1.cleanTotalReadNum)
+					{
+						break;
+					}
+
+					if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
+						break;
+					}
+
 				}
 
-				int block = size / PROCESS_THREAD_NUM;
-				int remain = size % PROCESS_THREAD_NUM;
-				int index = 0;
-				ofstream tempOFS;
 
-				if (!rmdup_)
-				{ 
+				if (params != NULL)
+				{
+					LOG(INFO, "delete params");
+					delete []params;
+				}
+
+				printFqInfo(&globleInfo1, NULL);
+			}
+		}else{
+			FqInfo globleInfo1, globleInfo2;
+			//store clean read
+			gzFile outCleanFile1 = NULL, outCleanFile2 = NULL;
+			string outCleanFileName1, outCleanFileName2;
+			gzFile outRawFile1 = NULL, outRawFile2 = NULL;
+			string outRawFileName1, outRawFileName2;
+
+			globleInfo1.rawReadLength = readLen_;
+			globleInfo1.cleanReadLength = readLen_ - headTrim_ - tailTrim_;
+			//get the output fq files' name
+			if (!cleanFq1_.empty())  //有指定输出文件名
+			{
+				outCleanFileName1 = getOutputFileName(cleanFq1_, "", outDir_);
+			}
+			else
+			{
+				outCleanFileName1 = getOutputFileName(fqFile1_, CLEAN_FQ_PREFIX, outDir_);
+			}
+
+			outCleanFile1 = gzopen(outCleanFileName1.c_str(), "wb");
+
+			if (outCleanFile1 == NULL)
+			{
+				LOG(ERROR, "create output file: " + outCleanFileName1 + " error");
+				return 1;
+			}
+
+			if (isPE_)
+			{
+				globleInfo2.rawReadLength = readLen2_;
+				globleInfo2.cleanReadLength = readLen2_ - headTrim2_ - tailTrim2_;
+
+				if (!cleanFq2_.empty())
+				{
+					outCleanFileName2 = getOutputFileName(cleanFq2_, "", outDir_);
+				}
+				else
+				{
+					outCleanFileName2 = getOutputFileName(fqFile2_, CLEAN_FQ_PREFIX, outDir_);
+				}
+
+				outCleanFile2 = gzopen(outCleanFileName2.c_str(), "wb");
+				if (!outCleanFile2)
+				{
+					LOG(ERROR, "create output file: " + outCleanFileName2 + " error");
+					return 1;
+				}
+			}
+
+			if (cutReadNum_ || filterTile_)
+			{
+				if (!rawFq1_.empty())
+				{
+					outRawFileName1 = getOutputFileName(rawFq1_, "", outDir_);
+				}
+				else
+				{
+					outRawFileName1 = getOutputFileName(fqFile1_, RAW_FQ_PREFIX, outDir_);
+				}
+
+				outRawFile1 = gzopen(outRawFileName1.c_str(), "wb");
+				if (!outRawFile1)
+				{
+					LOG(ERROR, "create output file: " + outRawFileName1);
+					return 1;
+				}
+				if (isPE_)
+				{
+					if (!rawFq2_.empty())
+					{
+						outRawFileName2 = getOutputFileName(rawFq2_, "", outDir_);
+					}
+					else
+					{
+						outRawFileName2 = getOutputFileName(fqFile2_, RAW_FQ_PREFIX, outDir_);
+					}
+
+					outRawFile2 = gzopen(outRawFileName2.c_str(), "wb");
+					if (!outRawFile2)
+					{
+						LOG(ERROR, "create output file: " + outRawFileName2);
+						return 1;
+					}
+				}
+			}
+
+			if (filterAdapter_ && isAdptList_)
+			{
+				if (getReadsNameFromFile(adapter1_, readsName1_) != 0)
+				{
+					return 1;
+				}
+				if (isPE_)
+				{
+					if (getReadsNameFromFile(adapter2_, readsName2_) != 0)
+					{
+						return 1;
+					}
+				}
+			}
+
+			int threadNum;
+			if (isPE_)
+			{
+				threadNum = PROCESS_THREAD_NUM + 2;
+			}
+			else
+			{
+				threadNum = PROCESS_THREAD_NUM + 1;
+			}
+			//
+			pool pl(threadNum);
+			if (isPE_)
+			{
+				Read *reads1, *reads2;
+
+				long capacity = static_cast<long>(memLimit_ / 2.5);
+
+				PeBuffer buffer(fqFile1_.c_str(), fqFile2_.c_str(), capacity, PeBuffer::RB, filterTile_, tiles_);
+				buffer.setSeqType(seqType_);
+				buffer.setTileIsFov(tileIsFov_);
+				TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
+
+				int size = 0;
+
+				bool first = true;
+				//循环一次，产生一个已排序的临时文件
+				int fileNum = 0;
+
+				while (buffer.getReads() > 0)
+				{
+					size = buffer.getReadSize();
+					if(size == 0)
+						continue;
+					if (first)
+					{
+						first = false;
+						cleanDataIndexs_ = new unsigned int[buffer.getInitReadSize() + 1];
+					}
+
+					reads1 = buffer.getReadsOne();
+					reads2 = buffer.getReadsTwo();
+
+					if (cutReadNum_ || filterTile_) //output raw data
+					{
+						pl.schedule(boost::bind(&FilterProcessor::outputRawDataTask,
+									this, outRawFile1, reads1, size)
+							   );
+						pl.schedule(boost::bind(&FilterProcessor::outputRawDataTask,
+									this, outRawFile2, reads2, size)
+							   );
+
+						pl.wait();
+					}
+					size_ = 0;
+					doneNum_ = 0;
+
+					int block = size / PROCESS_THREAD_NUM;
+					int remain = size % PROCESS_THREAD_NUM;
+					int index = 0;
+					ofstream tempOFS;
+
+					if (!rmdup_)
+					{
 						if(outType_!=0){
-							 pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile1, reads,"/1\n"));
-
-						 }else{
-							 pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile1, reads));
-						 }
-				}
-
-				for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
-				{
-					params[i].left = index;
-					index += block;
-					if (remain > 0)
-					{
-						index += 1;
-						remain--;
+							pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile1, reads1, "/1\n"));
+							pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile2, reads2, "/2\n"));
+						}else{
+							pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile1, reads1));
+							pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile2, reads2));
+						}
 					}
 
-					params[i].right = index;
-					params[i].reads1 = reads;
-
-					bzero(&(params[i].info1), sizeof(FqInfo));
-
-					pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
-				}
-
-				pl.wait();
-
-				if (rmdup_)
-				{
-					char tempFile[1024];
-					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
-					tempOFS.open(tempFile);
-					outputTempData(tempOFS, reads);
-					if(dupRateOnly_){
-                                                ofstream tempOFS1;
-                                                char dupTempFile[1024];
-                                                sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
-                                                tempOFS1.open(dupTempFile);
-                                                outputDupData(tempOFS1, reads, size);
-                                        }
-					duplications_.clear();
-				}
-
-				for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
-				{
-					globleInfo1.add(params[i].info1);
-					if (globleInfo1.maxQualityValue < params[i].info1.maxQualityValue)
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
 					{
-						globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
-					}
-				}
+						params[i].left = index;
+						index += block;
+						if (remain > 0)
+						{
+							index += 1;
+							remain--;
+						}
 
-				if (rmdup_ && cutReadNum_ > 0 && cutReadNum_*1.1 < globleInfo1.greyTotalReadNum)
-				{
+						params[i].right = index;
+						params[i].reads1 = reads1;
+						params[i].reads2 = reads2;
+
+						bzero(&(params[i].info1), sizeof(FqInfo));
+						bzero(&(params[i].info2), sizeof(FqInfo));
+
+						pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
+					}
+
+					pl.wait();
+
+					if (rmdup_)
+					{
+						char tempFile[1024];
+						sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
+						tempOFS.open(tempFile);
+						outputTempData(tempOFS, reads1, reads2);
+						if(dupRateOnly_){
+							ofstream tempOFS1;
+							char dupTempFile[1024];
+							sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
+												tempOFS1.open(dupTempFile);
+							outputDupData(tempOFS1, reads1, reads2,size);
+						}
+						duplications_.clear();
+					}
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						globleInfo1.add(params[i].info1);
+						globleInfo2.add(params[i].info2);
+						//calculte the max quality value
+						if (params[i].info1.maxQualityValue > globleInfo1.maxQualityValue)
+						{
+							globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
+						}
+						if (params[i].info2.maxQualityValue > globleInfo2.maxQualityValue)
+						{
+							globleInfo2.maxQualityValue = params[i].info2.maxQualityValue;
+						}
+					}
+
+					if (rmdup_ && cutReadNum_ > 0 && cutReadNum_ * 1.1 < globleInfo1.greyTotalReadNum)
+					{
+						if (rmdup_)
+						{
+							tempOFS.close();
+							fileNum++;
+						}
+						break;
+					}
+					else if (cutReadNum_ > 0 && cutReadNum_  < globleInfo1.cleanTotalReadNum)
+					{
+						break;
+					}
+
+					if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
+						break;
+					}
+
 					if (rmdup_)
 					{
 						fileNum++;
 						tempOFS.close();
 					}
-					break;
 				}
-				else if (cutReadNum_ > 0 && cutReadNum_ < globleInfo1.cleanTotalReadNum)
+
+				//merge all sorted files
+				if (rmdup_)
 				{
-
-					break;
+					mergeSortedFiles(fileNum, &globleInfo1, &globleInfo2, outCleanFile1, outCleanFile2);
+					for (int i=0; i<fileNum; ++i)
+					{
+						char tempFile[1024];
+						sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
+						remove(tempFile);
+						if(dupRateOnly_){
+							char dupTempFile[1024];
+							sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+							remove(dupTempFile);
+						}
+					}
 				}
 
-				if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
-					break;
+				if (globleInfo1.maxQualityValue > globleInfo2.maxQualityValue)
+				{
+					globleInfo2.maxQualityValue = globleInfo1.maxQualityValue;
+				}
+				else
+				{
+					globleInfo1.maxQualityValue = globleInfo2.maxQualityValue;
+				}
+
+				if (size == -1)
+				{
+					LOG(ERROR, "read fq1 or fq2 error");
+					return 1;
+				}
+
+				if (size == -2)
+				{
+					LOG(WARN, "fq1 and fq2's read number not equal");
+				}
+
+				if (params != NULL)
+				{
+					LOG(INFO, "delete params");
+					delete []params;
+				}
+
+				if (cutReadNum_ || filterTile_)
+				{
+					gzclose(outRawFile1);
+					gzclose(outRawFile2);
+				}
+
+				gzclose(outCleanFile1);
+				gzclose(outCleanFile2);
+
+
+			}
+			else //SE
+			{
+				long capacity = static_cast<long>(memLimit_ / 2.5);
+				FqBuffer buffer(fqFile1_.c_str(), capacity, FqBuffer::RB, filterTile_, tiles_);
+				buffer.setSeqType(seqType_);
+				buffer.setTileIsFov(tileIsFov_);
+
+				TaskParam *params = new TaskParam[PROCESS_THREAD_NUM];
+
+				Read *reads;
+				int size;
+
+				bool first = true;
+				int fileNum = 0;
+
+				while ((reads = buffer.getReads()))
+				{
+					size = buffer.getRealReadSize();
+					if(size==0)
+						continue;
+
+					if (size == -1)
+					{
+						LOG(ERROR, "read fq file: " + fqFile1_ + " error");
+						return 1;
+					}
+
+					if (first)
+					{
+						first = false;
+						cleanDataIndexs_ = new unsigned int[buffer.getReadSize() + 1];
+					}
+
+					size_ = 0;
+					doneNum_ = 0;
+
+					if (cutReadNum_ || filterTile_) //output raw data
+					{
+						outputRawDataTask(outRawFile1, reads, size);
+					}
+
+					int block = size / PROCESS_THREAD_NUM;
+					int remain = size % PROCESS_THREAD_NUM;
+					int index = 0;
+					ofstream tempOFS;
+
+					if (!rmdup_)
+					{
+							if(outType_!=0){
+								 pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask2, this, outCleanFile1, reads,"/1\n"));
+
+							 }else{
+								 pl.schedule(boost::bind(&FilterProcessor::outputCleanDataTask, this, outCleanFile1, reads));
+							 }
+					}
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						params[i].left = index;
+						index += block;
+						if (remain > 0)
+						{
+							index += 1;
+							remain--;
+						}
+
+						params[i].right = index;
+						params[i].reads1 = reads;
+
+						bzero(&(params[i].info1), sizeof(FqInfo));
+
+						pl.schedule(boost::bind(&FilterProcessor::task, this, &params[i]));
+					}
+
+					pl.wait();
+
+					if (rmdup_)
+					{
+						char tempFile[1024];
+						sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
+						tempOFS.open(tempFile);
+						outputTempData(tempOFS, reads);
+						if(dupRateOnly_){
+													ofstream tempOFS1;
+													char dupTempFile[1024];
+													sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
+													tempOFS1.open(dupTempFile);
+													outputDupData(tempOFS1, reads, size);
+											}
+						duplications_.clear();
+					}
+
+					for (unsigned int i=0; i<PROCESS_THREAD_NUM; ++i)
+					{
+						globleInfo1.add(params[i].info1);
+						if (globleInfo1.maxQualityValue < params[i].info1.maxQualityValue)
+						{
+							globleInfo1.maxQualityValue = params[i].info1.maxQualityValue;
+						}
+					}
+
+					if (rmdup_ && cutReadNum_ > 0 && cutReadNum_*1.1 < globleInfo1.greyTotalReadNum)
+					{
+						if (rmdup_)
+						{
+							fileNum++;
+							tempOFS.close();
+						}
+						break;
+					}
+					else if (cutReadNum_ > 0 && cutReadNum_ < globleInfo1.cleanTotalReadNum)
+					{
+
+						break;
+					}
+
+					if(cutAdaptor && cutBasesNumber > 0 && cutBasesNumber < globleInfo1.cleanTotalBaseNum){
+						break;
+					}
+
+					if (rmdup_)
+					{
+						fileNum++;
+						tempOFS.close();
+					}
 				}
 
 				if (rmdup_)
 				{
-					fileNum++;
-					tempOFS.close();
+					mergeSortedFiles(fileNum, &globleInfo1, outCleanFile1);
+					for (int i=0; i<fileNum; ++i)
+					{
+						char tempFile[1024];
+						sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
+						remove(tempFile);
+						if(dupRateOnly_){
+													char dupTempFile[1024];
+													sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
+													remove(dupTempFile);
+											}
+					}
 				}
-			}
 
-			if (rmdup_)
-			{
-				mergeSortedFiles(fileNum, &globleInfo1, outCleanFile1);
-				for (int i=0; i<fileNum; ++i)
+				if (params != NULL)
 				{
-					char tempFile[1024];
-					sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), i);
-					remove(tempFile);
-					if(dupRateOnly_){
-                                                char dupTempFile[1024];
-                                                sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), i);
-                                                remove(dupTempFile);
-                                        }
+					LOG(INFO, "delete params");
+					delete []params;
 				}
+
+				if (cutReadNum_ || filterTile_)
+				{
+					gzclose(outRawFile1);
+				}
+				gzclose(outCleanFile1);
+
+				/*gzclose(filteredFile1);*/
 			}
 
-			if (params != NULL)
+			//////////////////////////////////////////////////
+
+			//output the statistic infomation
+			if (!isPE_)
 			{
-				LOG(INFO, "delete params");
-				delete []params;
+				printFqInfo(outDir_, lanID_, &globleInfo1, NULL);
 			}
-
-			if (cutReadNum_ || filterTile_)
+			else
 			{
-				gzclose(outRawFile1);
+				printFqInfo(outDir_, lanID_, &globleInfo1, &globleInfo2);
 			}
-			gzclose(outCleanFile1);
-
-			/*gzclose(filteredFile1);*/
 		}
-
-		//////////////////////////////////////////////////
-
-		//output the statistic infomation
-		if (!isPE_)
-		{
-			printFqInfo(outDir_, lanID_, &globleInfo1, NULL);
-		}
-		else
-		{
-			printFqInfo(outDir_, lanID_, &globleInfo1, &globleInfo2);
-		}
-
 		LOG(INFO, "PreProcess Finish");
 
 		return 0;
@@ -1469,6 +1763,57 @@ namespace PreProcessTool {
 		delete[] outIndex;
 	}
 
+	void FilterProcessor::outputCleanDataTaskStreamingPE(Read *reads, Read *reads2)
+	{
+		unsigned int index = 0;
+		while (index == atomic_read32(&size_) && (atomic_read32(&doneNum_) < PROCESS_THREAD_NUM))
+		{
+			this_thread::sleep(posix_time::seconds(2)); //sleep 2 second
+		}
+
+		while ((atomic_read32(&doneNum_) < PROCESS_THREAD_NUM) || index < atomic_read32(&size_))
+		{
+			this_thread::sleep(posix_time::seconds(1));
+			while (index < atomic_read32(&size_))
+			{
+				char *rName = reads[cleanDataIndexs_[index]].readName;
+				cout << "@" << rName << "/1" << endl;
+				cout << reads[cleanDataIndexs_[index]].baseSequence << endl;
+				cout << "+" << endl;
+				cout << reads[cleanDataIndexs_[index]].baseQuality << endl;
+
+				cout << "@" << rName << "/2" << endl;
+				cout << reads2[cleanDataIndexs_[index]].baseSequence << endl;
+				cout << "+" << endl;
+				cout << reads2[cleanDataIndexs_[index]].baseQuality << endl;
+
+				index++;
+			}
+		}
+	}
+
+	void FilterProcessor::outputCleanDataTaskStreamingSE(Read *reads)
+	{
+		unsigned int index = 0;
+		while (index == atomic_read32(&size_) && (atomic_read32(&doneNum_) < PROCESS_THREAD_NUM))
+		{
+			this_thread::sleep(posix_time::seconds(2)); //sleep 2 second
+		}
+
+		while ((atomic_read32(&doneNum_) < PROCESS_THREAD_NUM) || index < atomic_read32(&size_))
+		{
+			this_thread::sleep(posix_time::seconds(1));
+			while (index < atomic_read32(&size_))
+			{
+				cout << "@" << reads[cleanDataIndexs_[index]].readName << "/1" << endl;
+				cout << reads[cleanDataIndexs_[index]].baseSequence << endl;
+				cout << "+" << endl;
+				cout << reads[cleanDataIndexs_[index]].baseQuality << endl;
+				index++;
+			}
+		}
+	}
+
 	void FilterProcessor::outputCleanDataTask(gzFile &file, Read *reads)
 	{
 		unsigned int index = 0;
@@ -1549,6 +1894,10 @@ namespace PreProcessTool {
 			{
 				upper(reads1[i].baseSequence);
 				upper(reads2[i].baseSequence);
+				if(UtoT){
+					turnBase(reads1[i].baseSequence, 'U', 'T');
+					turnBase(reads2[i].baseSequence, 'U', 'T');
+				}
 				isClean = statisticsPE(reads1, reads2, i, &(param->info1), &(param->info2));
 				if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
 				{
@@ -1563,6 +1912,9 @@ namespace PreProcessTool {
 			for (int i=start; i<end; ++i)
 			{
 				upper(reads1[i].baseSequence);
+				if(UtoT){
+					turnBase(reads1[i].baseSequence, 'U', 'T');
+				}
 				isClean = statisticsSE(reads1, i, &param->info1);
 				if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
 				{
@@ -2080,6 +2432,14 @@ namespace PreProcessTool {
 		read->baseSequence = read->baseSequence + headTrim;
 		read->baseQuality[right] = '\0';
 		read->baseQuality = read->baseQuality + headTrim;
+
+		if(maskLowQual >= 0){
+			maskLowQualBase(read->baseQuality, read->baseSequence, maskLowQual + cleanQualSys_);
+		}
+
+		if(TtoU){
+			turnBase(read->baseSequence, 'T', 'U');
+		}
 
 		//去掉index
 		if (filterIndex_)

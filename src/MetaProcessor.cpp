@@ -29,40 +29,39 @@ namespace MetaPreProcessTool
 	void MetaProcessor::printUsage()
 	{
 		cout << "Usage: FILTERMETA [OPTION] ... \n";
-		cout << "  -f, --adapter1  : <s> 3'adapter sequence or adapter list file of fq1 file, (default: [AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC])\n";
-		cout << "  -r, --adapter2  : <s> 5'adapter sequence or adapter list file of fq2 file, (default: [AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA])\n";
-		cout << "  -1, --fq1       : <s> fq1 file, must set\n";
-		cout << "  -2, --fq2       : <s> fq2 file, must set\n";
-		cout << "  -c, --outCleanPfx    : <s> out clean fq files prefix name, must set\n";
-		cout << "  --tile               : <s> tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t-f, --adapter1      STR     3'adapter sequence or adapter list file of fq1 file, (default: [AGATCGGAAGAGCACACGTCTGAACTCCAGTCAC])\n";
+		cout << "\t-r, --adapter2      STR     5'adapter sequence or adapter list file of fq2 file, (default: [AGATCGGAAGAGCGTCGTGTAGGGAAAGAGTGTA])\n";
+		cout << "\t-1, --fq1           FILE    fq1 file, must set\n";
+		cout << "\t-2, --fq2           FILE    fq2 file, must set\n";
+		cout << "\t-c, --outCleanPfx   STR     out clean fq files prefix name, must set\n";
+		cout << "\t  --tile            STR     tile number to ignore reads , such as [1101-1104,1205]\n";
 		//		cout << "  -w, --outRawPfx      : <s> out raw fq files prefix name\n\n";
 
-		cout << "  -o, --outDir         : <s> out directory, (default, [./]\n";
-		cout << "  -Q, --qualitySystem  : <i> quality system of raw fq, 1:illumina, 2:sanger (default: [1])\n";
-		cout << "  -S, --sanger         : <b> set clean data qualtiy system to sanger (default: illumina)\n";
-		cout << "  -L, --alignLength    : <i> the min align length when match the adapter, (default: [15])\n";
+		cout << "\t-o, --outDir        STR     out directory [.]\n";
+		cout << "\t-Q, --qualitySystem INT     quality system of raw fq, 1:illumina, 2:sanger  [1]\n";
+		cout << "\t-S, --sanger                set clean data qualtiy system to sanger [illumina]\n";
+		cout << "\t-L, --alignLength   INT     the min align length when match the adapter, (default: [15])\n";
 		//		cout << "  -M, --misMatchRate  : <f> the max mismatch rate when match the adapter, !only for adapter sequence!, (default: [0.2])\n";
 		//		cout << "  -N, --matchNumber   : <i> the min continuous match number when match the adapter, !only for adapter sequence!, (default: [10])\n";
 
-		cout << "  -N, --nBaseNumber    : <i> filter reads contain N, (default, [3])\n";
-		cout << "  -P, --polyN          : <f> filter polyN[A, T, G, C], 0 means do not filter, (default: [1.0])\n\n";
-		cout << "  -U, --unTrim         : <b> don't trim reads (default, [off])\n";
-		cout << "  when --untrim is off: the next 3 options are useful\n";
-		cout << "    -q, --qualityThreshold : <i> quality threshold, (default: [20])\n";
-		cout << "    -l, --lengthThreshold  : <i> length threshold, (default: [30])\n";
-		cout << "    -R, --lowQualityRate   : <f> low quality(qual < -q) rate, (default: [0.5])\n\n";
-		cout << "  -i, --index     : <b> remove index\n";
-		cout << "  -C, --cut       : <f> the bases number you want to keep in all clean fq files\n";
-		cout << "                        (unit:1024*1024*1024, 0 means not cut reads)\n";
+		cout << "\t-N, --nBaseNumber   INT     filter reads contain N, (default, [3])\n";
+		cout << "\t-P, --polyN         FLOAT   filter polyN[A, T, G, C], 0 means do not filter, (default: [1.0])\n\n";
+		cout << "\t-U, --unTrim                don't trim reads (default, [off])\n";
+		cout << "\twhen --untrim is off: the next 3 options are useful\n";
+		cout << "\t  -q, --qualityThreshold INT   quality threshold, (default: [20])\n";
+		cout << "\t  -l, --lengthThreshold  INT   length threshold, (default: [30])\n";
+		cout << "\t  -R, --lowQualityRate   FLOAT low quality(qual < -q) rate, (default: [0.5])\n\n";
+		cout << "\t-i, --index                remove index\n";
+		cout << "\t-C, --cut           FLOAT     the bases number you want to keep in all clean fq files, (unit:1024*1024*1024, 0 means not cut reads)\n";
 		cout << "\n";
-		cout << "\t-5, --seqType   : <i> Sequence fq name type, 0->old fastq name, 1->new fastq name[default: 0]\n";
-		cout << "\t    old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
-		cout << "\t    new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
+		cout << "\t-5, --seqType       INT    Sequence fq name type, 0->old fastq name, 1->new fastq name[default: 0]\n";
+		cout << "\t                                 old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
+		cout << "\t                                 new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
 		//	cout << "\t-6, --polyAType : <i> filter poly A type, 0->both two reads are poly a, 1->at least one reads is poly a, then filter, [default: 0]\n";
 
-		cout << "  -a, --append    : <s> the log's output place : console or file (default: [console])\n";
-		cout << "  -h, --help      : <b> help\n";
-		cout << "  -v, --version   : <b> show version" << endl;
+		cout << "\t-a, --append        STR    the log's output place : console or file (default: [console])\n";
+		cout << "\t-h, --help                 help\n";
+		cout << "\t-v, --version              show version" << endl;
 	}
 
 	MetaProcessor::MetaProcessor():

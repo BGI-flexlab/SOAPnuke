@@ -103,6 +103,8 @@ private:
 	/**
 	 * ouput clean data
 	 */
+	void outputCleanDataTaskStreamingSE(Read *reads);
+	void outputCleanDataTaskStreamingPE(Read *reads,Read *reads2);
 	void outputCleanDataTask(gzFile &file, Read *reads);
 	void outputCleanDataTask2(gzFile &file, Read *reads, const char* name);
 
@@ -159,6 +161,19 @@ private:
 
 private:
 	unsigned int PROCESS_THREAD_NUM;
+	bool IS_STREAMING;
+	char* streamingInput;
+	gzFile fqStreaming;
+
+	int maskLowQual; // mask low quality base with N
+
+	int trimBadHeadMaxLength;
+	int trimBadHeadQuility;
+	int trimBadTailMaxLength;
+	int trimBadTailQuility;
+
+	int TtoU;
+	int UtoT;
 
 	set<string> readsName1_;   //store the read's name which in adapter list file
 	set<string> readsName2_;
@@ -214,6 +229,7 @@ private:
 	bool isPE_;
 	int minReadLength;
 	bool cutAdaptor;
+	int cutAdaptorOri;
 	unsigned long cutBasesNumber;
 	bool isAdptList_;
 	//用于指示clean data是否已经足够了

@@ -22,44 +22,44 @@ namespace SRNAProcessTool {
 	{
 		cout << "Useage: [OPTION]... FILE [FILE]\n";
 		cout << "must arg:\n";
-		cout << "\t-f, --fq         <string> :  fastq file\n";
+		cout << "\t-f, --fq         STR       fastq file\n";
 
 		cout << "\nusual args:\n";
-		cout << "\t-m, --mrna       <switch> :  mrna filter(default: off)\n";
-		cout << "\t\t-n, --polyN      <float>  :  remove polyN[A, T, G, C], 0 means do not filter, (default: 0.7)\n";
-		cout << "\t-F, --outfq      <string> :  prefix of out orignal fq name, Eg. if set -F XXX, will print out XXX.fq.gz, otherwise will not print\n";
-		cout << "\t-3, --adapter3   <string> :  3' adaptor sequence (default: TCGTATGCCGTCTTCTGCTTG)\n";
-		cout << "\t-5, --adapter5   <string> :  5' adaptor sequence (default: GTTCAGAGTTCTACAGTCCGACGATC)\n";
-		cout << "\t--tile           <string> :  tile number to ignore reads , such as [1101-1104,1205]\n";
-		cout << "\t-o, --outDir     <string> :  out directory (default: current directory)\n";
-		cout << "\t-x, --outPfx     <string> :  out file prefix (default: clean)\n";
-		cout << "\t-s, --strict     <switch> :  filter low quality reads strictly (default: off)\n";
-		cout << "\t-z, --minSize    <int>    :  small insert size (default: 18)\n";
-		cout << "\t-p, --polyA      <float>  :  filter poly A, percent of A, 0 means do not filter, (default: 0.7)\n";
-		cout << "\t-Q, --qualSys    <int>    :  quality system, 1:illumina, 2:sanger (default: 1)\n";
-		cout << "\t-q, --fastq      <switch> :  out file type: on:fastq, off:fasta (default: off)\n";
-		cout << "\t\t-i, --index      <switch> :  remove index\n";
-		cout << "\t\t-G, --sanger     <switch> :  out put sanger quality score system fq. (defaul: off illumina)\n";
-		cout << "\t-u, --untrim     <switch> :  do not trim 3' adapter (default: off)\n";
-		cout << "\t-w, --unlowQ     <switch> :  do not filter low quality reads (default: off)\n";
-		cout << "\t-L, --readLen    <int>    :  Max read length in fq file (default: 49)\n";
-		cout << "\t-t, --trim       <string> :  trim some bp of the read's head and tail (default: [0,0])\n";
-		cout << "\t-c, --cut        <float>  :  the read number you want to keep in each orignal fq file.\n"
+		cout << "\t-m, --mrna                 mrna filter(default: off)\n";
+		cout << "\t\t-n, --polyN    FLOAT     remove polyN[A, T, G, C], 0 means do not filter, (default: 0.7)\n";
+		cout << "\t-F, --outfq      STR       prefix of out orignal fq name, Eg. if set -F XXX, will print out XXX.fq.gz, otherwise will not print\n";
+		cout << "\t-3, --adapter3   STR       3' adaptor sequence (default: TCGTATGCCGTCTTCTGCTTG)\n";
+		cout << "\t-5, --adapter5   STR       5' adaptor sequence (default: GTTCAGAGTTCTACAGTCCGACGATC)\n";
+		cout << "\t--tile           STR       tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t-o, --outDir     STR       out directory (default: current directory)\n";
+		cout << "\t-x, --outPfx     STR       out file prefix (default: clean)\n";
+		cout << "\t-s, --strict               filter low quality reads strictly (default: off)\n";
+		cout << "\t-z, --minSize    INT       small insert size (default: 18)\n";
+		cout << "\t-p, --polyA      FLOAT     filter poly A, percent of A, 0 means do not filter, (default: 0.7)\n";
+		cout << "\t-Q, --qualSys    INT       quality system, 1:illumina, 2:sanger (default: 1)\n";
+		cout << "\t-q, --fastq                out file type: on:fastq, off:fasta (default: off)\n";
+		cout << "\t\t-i, --index              remove index\n";
+		cout << "\t\t-G, --sanger             out put sanger quality score system fq. (defaul: off illumina)\n";
+		cout << "\t-u, --untrim               do not trim 3' adapter (default: off)\n";
+		cout << "\t-w, --unlowQ               do not filter low quality reads (default: off)\n";
+		cout << "\t-L, --readLen    INT       Max read length in fq file (default: 49)\n";
+		cout << "\t-t, --trim       INT,INT   trim some bp of the read's head and tail (default: [0,0])\n";
+		cout << "\t-c, --cut        FLOAT     the read number you want to keep in each orignal fq file.\n"
 			<< "\t                             Eg.: if set -c N, read number = N * 1024; default: N = 0, means reserve whole orignal fq;\n";
-		cout << "\t-y, --seqType   : <i> Sequence fq name type, 0->old fastq name, 1->new fastq name HighSeq4000[default: 0]\n";
+		cout << "\t-y, --seqType    INT       Sequence fq name type, 0->old fastq name, 1->new fastq name HighSeq4000[default: 0]\n";
 		cout << "\nhelp args:\n";
-		cout << "\t-a, --append     <string> :  logger's appender: console or file (defualt: console)\n";
-		cout << "\t-h, --help       <switch> :  help\n";
-		cout << "\t-v, --version    <switch> :  version information\n";
+		cout << "\t-a, --append     STR       logger's appender: console or file [console]\n";
+		cout << "\t-h, --help                 help\n";
+		cout << "\t-v, --version              version information\n";
 
 		cout << "\nunusual arg:\n";
 		cout << " find 5' adapter\n";
-		cout << "\t-C, --continuous <int>    :  mini 5' adapter continuous alignment length (default: 6)\n";
-		cout << "\t-A, --alignRate  <float>  :  mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)\n";
+		cout << "\t-C, --continuous INT       mini 5' adapter continuous alignment length (default: 6)\n";
+		cout << "\t-A, --alignRate  FLOAT     mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)\n";
 		cout << " find 3' adapter\n";
-		cout << "\t-l, --miniAlign  <int>    :  mini alignment length when find 3' adapter (default: 5)\n";
-		cout << "\t-E, --errorRate  <float>  :  Max error rate when find 3' adapter (mismatch/match) (dfault: 0.4)\n";
-		cout << "\t-M, --misMatch   <int>    :  Max mismatch number when find 3' adapter (dfault: 4)" << endl;
+		cout << "\t-l, --miniAlign  INT       mini alignment length when find 3' adapter (default: 5)\n";
+		cout << "\t-E, --errorRate  FLOAT     Max error rate when find 3' adapter (mismatch/match) (dfault: 0.4)\n";
+		cout << "\t-M, --misMatch   INT       Max mismatch number when find 3' adapter (dfault: 4)" << endl;
 	}
 
 	int RNAProcessor::processParams(int argc, char **argv)
@@ -103,7 +103,7 @@ namespace SRNAProcessTool {
 
 		if (argc == 1)
 		{
-			cout << "Print -h or --help for more information." << endl;
+			printUsage();
 			return 1;
 		}
 

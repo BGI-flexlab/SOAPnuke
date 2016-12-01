@@ -23,33 +23,33 @@ namespace DGEProcessTool {
 	{
 		cout << "Useage: [OPTION]... FILE [FILE]\n";
 		cout << "must arg:\n";
-		cout << "\t-f, --fq         <string> :  fastq file\n";
-		cout << "\t-A, --adapter    <string> :  adapter sequenc\n";
-		cout << "\t--tile           <string> :  tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t-f, --fq         STR       fastq file\n";
+		cout << "\t-A, --adapter    STR       adapter sequenc\n";
+		cout << "\t--tile           STR       tile number to ignore reads , such as [1101-1104,1205]\n";
 
 		cout << "\nusual args:\n";
-		cout << "\t-F, --outfq      <switch> :  print out original fq file (default: off)\n";
-		cout << "\t-o, --outDir     <string> :  out directory (default: current directory)\n";
-		cout << "\t-x, --outPfx     <string> :  out file prefix or sample name (default: clean)\n";
-		cout << "\t-s, --site       <string> :  Extra bases before clean tag (default: CATG)\n";
-		cout << "\t-l, --tagLen     <int>    :  Tag length (default: 17)\n";
-		cout << "\t-r, --tagRange   <string> :  Tag length's range when find adapter (default: [17,18])\n";
-		cout << "\t-M, --misMatch   <int>    :  Max mismatch number when find adapter (dfault: 1)\n";
-		cout << "\t-t, --trim       <string> :  trim some bp of the read's head and tail (default: [0,0])\n";
-		cout << "\t-c, --cut        <int>    :  copy number lower limit (default: 1)\n";
-		cout << "\t-N, --number     <float>  :  reserve read number in each fq file (K reads(1024 reads), 0 means not cut reads)\n";
+		cout << "\t-F, --outfq                print out original fq file (default: off)\n";
+		cout << "\t-o, --outDir     STR       out directory (default: current directory)\n";
+		cout << "\t-x, --outPfx     STR       out file prefix or sample name (default: clean)\n";
+		cout << "\t-s, --site       STR       Extra bases before clean tag (default: CATG)\n";
+		cout << "\t-l, --tagLen     INT       Tag length (default: 17)\n";
+		cout << "\t-r, --tagRange   STR       Tag length's range when find adapter (default: [17,18])\n";
+		cout << "\t-M, --misMatch   INT       Max mismatch number when find adapter (dfault: 1)\n";
+		cout << "\t-t, --trim       STR       trim some bp of the read's head and tail (default: [0,0])\n";
+		cout << "\t-c, --cut        INT       copy number lower limit (default: 1)\n";
+		cout << "\t-N, --number     FLOAT     reserve read number in each fq file (K reads(1024 reads), 0 means not cut reads)\n";
 
-		cout << "\t-Q, --qualSys    <int>    :  quality system, 1:illumina, 2:sanger (default: 1)\n";
-		cout << "\t-i, --index      <switch> :  remove index of fq file\n";
-		cout << "\t-G, --sanger     <switch> :  out put sanger quality score system fq. (defaul: off illumina)\n";
+		cout << "\t-Q, --qualSys    INT       quality system, 1:illumina, 2:sanger (default: 1)\n";
+		cout << "\t-i, --index                remove index of fq file\n";
+		cout << "\t-G, --sanger               out put sanger quality score system fq. (defaul: off illumina)\n";
 
-		cout << "\t-u, --unlowQ     <switch> :  do not filter low quality reads (N reads)(default: off)\n";
-		cout << "\t-L, --readLen    <int>    :  Max read length in fq file (default: 49)\n";
+		cout << "\t-u, --unlowQ                do not filter low quality reads (N reads)(default: off)\n";
+		cout << "\t-L, --readLen    INT       Max read length in fq file (default: 49)\n";
 
 		cout << "\nhelp args:\n";
-		cout << "\t-a, --append     <string> :  logger's appender: console or file (defualt: console)\n";
-		cout << "\t-h, --help       <switch> :  help\n";
-		cout << "\t-v, --version    <switch> :  version information" << endl;
+		cout << "\t-a, --append     STR       logger's appender: console or file (defualt: console)\n";
+		cout << "\t-h, --help                 help\n";
+		cout << "\t-v, --version              version information" << endl;
 	}
 
 	int DGEProcessor::processParams(int argc, char **argv)

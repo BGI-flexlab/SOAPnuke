@@ -31,5 +31,6 @@ using namespace log4cplus::helpers;
  */
 extern log4cplus::Logger g_logger;
 bool init_logger(const string &appenders, const string &log_out_pathname);
+bool init_logger();
 
 #endif

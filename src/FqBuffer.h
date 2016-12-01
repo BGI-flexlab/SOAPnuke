@@ -22,10 +22,12 @@ public:
 		RB, WB,
 	};
 public:
+	FqBuffer(gzFile fqStreaming, int capacity, bool filterTile, const set<string> &tiles);
 	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles);
 	FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles, int seqType);
 	~FqBuffer();
 
+	Read* getStreamingReads();
 	Read* getReads();
 
 	int getReadSize();
@@ -44,6 +46,7 @@ public:
 
 
 private:
+    bool IS_STREAMING;
 	bool filterTile_;
     bool tileIsFov_;
     char tile[9];

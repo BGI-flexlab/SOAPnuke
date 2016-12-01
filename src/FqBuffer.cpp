@@ -6,13 +6,30 @@
  * 		Mail  : chenhaosen@genomics.cn
  */
 #include "FqBuffer.h"
-#include "CommonInclude.h"
+#include "Common.h"
 #include "Logger.h"
 
 namespace PreProcessTool {
 
+	FqBuffer::FqBuffer(gzFile fqStreaming, int capacity, bool filterTile, const set<string> &tiles) :
+		IS_STREAMING(true), capacity_(capacity), size_(0), readSize_(0), realReadSize_(0), lastIndex_(0), lineNum_(0),seqType_(0)
+	{
+		//file_ = strcmp(streamingInput, "-")? gzopen(streamingInput, "rb") : gzdopen(fileno(stdin), "r");
+		file_ = fqStreaming;
+		if (file_ == NULL)
+		{
+			LOG(ERROR, "open file: fqStreaming, error");
+			exit(1);
+		}
+
+		buf_ = new char[capacity_ + 1];
+
+		filterTile_ = filterTile;
+		tiles_ = tiles;
+	}
+
 	FqBuffer::FqBuffer(const char *filename, int capacity, MODE mode, bool filterTile, const set<string> &tiles) :
-		capacity_(capacity), size_(0), readSize_(0), realReadSize_(0), lastIndex_(0), lineNum_(0),seqType_(0)
+		IS_STREAMING(false), capacity_(capacity), size_(0), readSize_(0), realReadSize_(0), lastIndex_(0), lineNum_(0),seqType_(0)
 	{
 		if (filename == NULL)
 		{
@@ -48,8 +65,152 @@ namespace PreProcessTool {
     }
     
 
+	Read* FqBuffer::getStreamingReads()
+	{
+		int remain = size_ - lastIndex_;
+		memcpy(buf_, buf_ + lastIndex_, remain);
+
+		int receiveSize;
+		size_ = remain;
+
+		while ((receiveSize = gzread(file_, buf_ + size_, capacity_ - size_)) > 0)
+		{
+			size_ += receiveSize;
+			if (size_ == capacity_)
+			{
+				break;
+			}
+		}
+
+		if (receiveSize == -1) //error
+		{
+			readSize_ = -1;
+			realReadSize_ = -1;
+			return NULL;
+		}
+		else if (receiveSize == 0) //end of file
+		{
+			if (size_ == 0) //end of buffer
+			{
+				readSize_ = 0;
+				realReadSize_ = 0;
+				return NULL;
+			}
+			if (buf_[size_ - 1] != '\n')
+			{
+				buf_[size_++] = '\n';
+			}
+		}
+
+		lineNum_ += readSize_;
+
+		if (readSize_ == 0)
+		{
+			//calculate the number of read in buffer
+			for (int i = 0; i < size_; ++i)
+			{
+				if (buf_[i] == '\n')
+				{
+					readSize_++;
+				}
+			}
+
+			reads_ = new Read[readSize_];
+		}
+
+		long tempNum = lineNum_;
+		int j = 0, i = 0, fileds = 0;
+		int pos[5], lastIndex = -1;
+		realReadSize_ = 0;
+		for (i = 0; i < readSize_; ++i)
+		{
+			while (j < size_)
+			{
+
+				if (buf_[j] == '\t')
+				{
+					pos[fileds] = j;
+					fileds++;
+				}else if (buf_[j] == '\n')
+				{
+					tempNum++;
+					pos[fileds] = j;
+					fileds = 0;
+
+					buf_[pos[0]] = '\0';
+					buf_[pos[1]] = '\0';
+					buf_[pos[2]] = '\0';
+					buf_[pos[3]] = '\0';
+					buf_[pos[4]] = '\0';
+
+					char* readName = buf_ + pos[0] + 1;
+					if(filterTile_)
+					{
+						if(tileIsFov_)
+						{
+							if(isFilterFov(readName, seqType_))
+							{
+								lastIndex = j;
+								j++;
+								break;
+							}
+						}else if(isFilterTile(readName, seqType_))
+						{
+							lastIndex = j;
+							j++;
+							break;
+						}
+					}
+
+					reads_[realReadSize_].readName = readName;
+					reads_[realReadSize_].baseSequence = buf_ + pos[2] + 1;
+					reads_[realReadSize_].optionalName = "+";
+					reads_[realReadSize_].baseQuality = buf_ + pos[3] + 1;
+
+					if (strlen(reads_[realReadSize_].baseSequence) > strlen(reads_[realReadSize_].baseQuality))
+					{
+						string temp = "" + tempNum;
+						LOG(ERROR, "the length of base sequence and base quality are not equal, line number: " + temp);
+						exit(1);
+					}
+					realReadSize_++;
+
+					lastIndex = pos[4];
+					j++;
+					break;
+				}
+				j++;
+			}
+
+			if (j >= size_)
+			{
+				break;
+			}
+		}
+
+		if (j >= size_)
+		{
+			if (lastIndex == size_ - 1)
+			{
+				readSize_ = i + 1;
+			}
+			else
+			{
+				readSize_ = i;
+			}
+		}
+
+		lastIndex_ = lastIndex + 1;
+
+		return reads_;
+	}
+
 	Read* FqBuffer::getReads()
 	{
+		if(IS_STREAMING){
+			return getStreamingReads();
+		}
+
 		int remain = size_ - lastIndex_;
 		memcpy(buf_, buf_ + lastIndex_, remain);
 
@@ -190,6 +351,8 @@ namespace PreProcessTool {
 		return reads_;
 	}
 
+
+
 	char* FqBuffer::getBuf()
 	{
 		return buf_;
@@ -281,6 +444,7 @@ namespace PreProcessTool {
             
         }else{
            LOG(ERROR, "Zebra-500 data(--fov), --seqType is 0");
+           exit(1);
         }
         
         for(int j=0; j<8; j++)
