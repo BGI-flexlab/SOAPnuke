@@ -46,8 +46,9 @@ namespace PreProcessTool {
 		cout << "\n";
 		cout << "\t-f, --adapter1    STR       3' adapter sequence of fq1 file\n";
 		cout << "\t-r, --adapter2    STR       5' adapter sequence of fq2 file (only for PE reads)\n";
-		cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
-		cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
+//		cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
+	    cout << "\t    --cutAdaptor  INT       cut adaptor sequence, discard the read when the adaptor index of the read is less than INT(depend on -f/-r) [50]\n";
+//		cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
 		cout << "\t    --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
 		cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
 		cout << "\n";
@@ -58,8 +59,8 @@ namespace PreProcessTool {
 		cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
 		cout << "\t-m, --mean        FLOAT     filter reads with low average quality, (<) \n";
 		cout << "\t-p, --polyA       FLOAT     filter poly A, percent of A, 0 means do not filter   [0]\n";
-		cout << "\t-d, --rmdup                 remove PCR duplications\n";
-		cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
+//		cout << "\t-d, --rmdup                 remove PCR duplications\n";
+//		cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
 		cout << "\t-i, --index                 remove index\n";
 		cout << "\t-c, --cut         FLOAT     the read number you want to keep in each clean fq file, (unit:1024*1024, 0 means not cut reads)\n";
 		cout << "\t-t, --trim        INT,INT,INT,INT" << endl;
@@ -82,7 +83,7 @@ namespace PreProcessTool {
 		cout << "\t-I, --read2Len    INT       read2 max length (default: all read2's length are equal, and auto acquire)\n";
 		cout << "\n";
 
-		cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
+		//cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
 		cout << "\t-o, --outDir      STR       output directory, directory must exists  [.]\n";
 		cout << "\t-C, --cleanFq1    STR       clean fq1 file name\n";
 		cout << "\t-D, --cleanFq2    STR       clean fq2 file name\n";
@@ -359,10 +360,10 @@ namespace PreProcessTool {
 					break;
 				case 'o':
 					outDir_.assign(optarg);
-//					if(outDir_[outDir_.length() - 1] == '\\')
-//					{
-//						outDir_ = outDir_.substr(0, outDir_.length() - 1);
-//					}	
+					if(outDir_[outDir_.length() - 1] == '\\')
+					{
+						outDir_ = outDir_.substr(0, outDir_.length() - 1);
+					}
 					break;
 				case 'C':
 					cleanFq1_.assign(optarg);
@@ -2039,6 +2040,9 @@ namespace PreProcessTool {
 		int tailTrimTemp1_ = tailTrim_ ;
 		int tailTrimTemp2_ = tailTrim2_;
 
+//		int headTrimTemp1_ = headTrim_ ;
+//		int headTrimTemp2_ = headTrim2_;
+
 		int index1_ = adaptorIndex(read1,adapter1_,adapterLen1_,readsName1_,sr1);
 		int index2_ = adaptorIndex(read2,adapter2_,adapterLen2_,readsName2_,sr2);
 
@@ -2284,6 +2288,21 @@ namespace PreProcessTool {
 		info.rawTotalBaseNum += readLen;
 		info.rawTotalReadNum++;
 
+		int badHeadTrim = 0;
+		for(; badHeadTrim < trimBadHeadMaxLength; badHeadTrim++){
+			if(read->baseQuality[badHeadTrim] - qualSys_ >= trimBadHeadQuility)
+				break;
+		}
+
+		int badTailTrim = 0;
+		for(; badTailTrim < trimBadTailMaxLength; badTailTrim++){
+			if(read->baseQuality[readLen - 1 - badTailTrim] - qualSys_ >= trimBadTailQuility)
+				break;
+		}
+
+		headTrim = headTrim > badHeadTrim ? headTrim : badHeadTrim;
+		tailTrim = tailTrim > badTailTrim ? tailTrim : badTailTrim;
+
 		/*if (filterAdapter_)
 		{
 			if (isAdptList_)
@@ -2416,6 +2435,18 @@ namespace PreProcessTool {
 
 		//clean data read length
 		readLen = readLen - headTrim - tailTrim;
+		if(readLen < 0){
+			readLen = 0;
+			read->baseSequence[0] = '\0'; 
+			read->baseQuality[0] = '\0';
+		}else{
+			//截断read的两端
+			read->baseSequence[right] = '\0';
+			read->baseSequence = read->baseSequence + headTrim;
+			read->baseQuality[right] = '\0';
+			read->baseQuality = read->baseQuality + headTrim;
+		}
+
 		si.readLen = readLen;
 
 		sr.nExceed = (si.n >= readLen * nRate_);
@@ -2426,12 +2457,6 @@ namespace PreProcessTool {
 		{
 			sr.isPolyA = (1.0 * si.a / readLen) >= (polyA_ - 1E-6);
 		}
-
-		//截断read的两端
-		read->baseSequence[right] = '\0';
-		read->baseSequence = read->baseSequence + headTrim;
-		read->baseQuality[right] = '\0';
-		read->baseQuality = read->baseQuality + headTrim;
 
 		if(maskLowQual >= 0){
 			maskLowQualBase(read->baseQuality, read->baseSequence, maskLowQual + cleanQualSys_);
