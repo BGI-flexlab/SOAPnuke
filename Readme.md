@@ -43,7 +43,7 @@ SOAPnuke only works with sequence data of FASTQ format temporarily, but we are c
 ####<a name="qcn"></a>3. Can I choose a part of quality-control statistics instead of all?
 
 We will make it happen in the following versions, but all those statistics will be computed for now.
-
+ 
 
 
 
