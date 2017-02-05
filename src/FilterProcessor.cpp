@@ -1205,7 +1205,8 @@ namespace PreProcessTool {
 				{
 					size = buffer.getRealReadSize();
 					if(size==0)
-						continue;
+						break;
+					//	continue;
 
 					if (size == -1)
 					{
