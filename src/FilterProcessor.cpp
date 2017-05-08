@@ -1946,11 +1946,10 @@ namespace PreProcessTool {
         int tailTrimTemp1_ = tailTrim_ ;
 
         int index1_ = adaptorIndex(read,adapter1_,adapterLen1_,readsName1_,sr);
-        int cutLen1_;
 
         if(index1_ != -1 && cutAdaptor){
             if(index1_ >= minReadLength){
-                cutLen1_ = strlen(read->baseSequence) - index1_;
+                int cutLen1_ = strlen(read->baseSequence) - index1_;
 
                 if(cutLen1_ > tailTrim_)
                     tailTrimTemp1_ = cutLen1_;
@@ -1961,7 +1960,7 @@ namespace PreProcessTool {
 
         si = auxStatistics(read, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info, sr);
 
-        if(cutLen1_ < minReadLength){
+        if(strlen(read->baseSequence) < minReadLength){
             return false;
         }
 
