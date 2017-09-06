@@ -1909,7 +1909,7 @@ namespace PreProcessTool {
                 isClean = statisticsPE(reads1, reads2, i, &(param->info1), &(param->info2));
                 if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
                 {
-                    mutex::scoped_lock lock(sizeMutex_);
+                    boost:mutex::scoped_lock lock(sizeMutex_);
                     cleanDataIndexs_[atomic_read32(&size_)] = i;
                     atomic_inc32(&size_);
                 }
@@ -1926,7 +1926,7 @@ namespace PreProcessTool {
                 isClean = statisticsSE(reads1, i, &param->info1);
                 if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
                 {
-                    mutex::scoped_lock lock(sizeMutex_);
+                    boost:mutex::scoped_lock lock(sizeMutex_);
                     cleanDataIndexs_[atomic_read32(&size_)] = i;
                     atomic_inc32(&size_);
                 }
@@ -1978,7 +1978,7 @@ namespace PreProcessTool {
                             {
                                 pair<map<string,int>::iterator,bool> ret;
                                 {
-                                    mutex::scoped_lock lock(dupMutex_);
+                                    boost::mutex::scoped_lock lock(dupMutex_);
                                     MD5((const unsigned char *)(read->baseSequence), strlen(read->baseSequence), md5Seq_);
                                     ret = duplications_.insert(pair<string, int>(string((const char*)md5Seq_, MD5_DIGEST_LENGTH), index));
                                 }
@@ -2106,7 +2106,7 @@ namespace PreProcessTool {
                                 {
                                     pair<map<string,int>::iterator,bool> ret;
                                     {
-                                        mutex::scoped_lock lock(dupMutex_);
+                                        boost::mutex::scoped_lock lock(dupMutex_);
                                         string temp(read1->baseSequence);
                                         temp += read2->baseSequence;
                                         MD5((const unsigned char *)(temp.c_str()), temp.length(), md5Seq_);

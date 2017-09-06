@@ -11,6 +11,7 @@
 #include "SRNAProcessor.h"
 #include "DGEProcessor.h"
 #include "MetaProcessor.h"
+#include <time.h>
 
 using namespace std;
 using namespace PreProcessTool;
