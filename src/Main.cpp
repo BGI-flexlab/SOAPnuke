@@ -27,7 +27,7 @@ int usage()
 	cout << endl;
 	cout << "Prpgram: soapnuke\n";
 	cout << "Version: " << PACKAGEVERSION <<endl;
-	cout << "Contact: YongshengChen<chenyongsheng@genomics.cn>\n";
+	cout << "Contact: YoungChan<chenyuxin@genomics.cn>\n";
 	cout << "Command:\n";
 	cout << "         filter        preprocessing sequences\n";
 	cout << "         filtersRNA    preprocessing sRNA sequences\n";
