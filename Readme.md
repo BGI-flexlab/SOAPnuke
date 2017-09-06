@@ -2,8 +2,8 @@
 
 	# Make sure libraries like boost, zlib, log4cplus, openssl have been installed.
 	git clone https://github.com/BGI-flexlab/SOAPnuke.git
-	cd SOAPnuke/src; vi CmakeLists.txt
-	# Modify library-path in CmakeLists.txt
+	cd SOAPnuke/src
+	# Make sure those libraries required are accessible in ENV{LD_LIBRARY_PATH}
 	cmake .
 	make
 	./SOAPnuke
