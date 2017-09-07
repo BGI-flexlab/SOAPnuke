@@ -84,7 +84,7 @@ namespace DGEProcessTool {
 
 		if (argc == 1)
 		{
-			cout << "Print -h or --help for more information." << endl;
+			printUsage();
 			return 1;
 		}
 
