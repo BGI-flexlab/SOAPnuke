@@ -20,7 +20,7 @@ using namespace DGEProcessTool;
 using namespace MetaPreProcessTool;
 
 #ifndef PACKAGEVERSION
-#define PACKAGEVERSION "1.6.0"
+#define PACKAGEVERSION "1.6.1"
 #endif
 
 int usage()
