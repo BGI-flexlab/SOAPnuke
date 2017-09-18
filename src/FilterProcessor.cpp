@@ -1909,7 +1909,7 @@ namespace PreProcessTool {
                 isClean = statisticsPE(reads1, reads2, i, &(param->info1), &(param->info2));
                 if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
                 {
-                    boost:mutex::scoped_lock lock(sizeMutex_);
+                    boost::mutex::scoped_lock lock(sizeMutex_);
                     cleanDataIndexs_[atomic_read32(&size_)] = i;
                     atomic_inc32(&size_);
                 }
@@ -1926,7 +1926,7 @@ namespace PreProcessTool {
                 isClean = statisticsSE(reads1, i, &param->info1);
                 if ((!rmdup_ && isClean) || (rmdup_ && dupRateOnly_ && isClean))
                 {
-                    boost:mutex::scoped_lock lock(sizeMutex_);
+                    boost::mutex::scoped_lock lock(sizeMutex_);
                     cleanDataIndexs_[atomic_read32(&size_)] = i;
                     atomic_inc32(&size_);
                 }
