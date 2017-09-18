@@ -1,6 +1,6 @@
 ##Getting started
 
-	# Make sure libraries like boost, zlib, log4cplus, openssl have been installed.
+	# Make sure libraries like boost, zlib, log4cplus (1.0.3), openssl have been installed.
 	git clone https://github.com/BGI-flexlab/SOAPnuke.git
 	cd SOAPnuke/src
 	# Make sure those libraries required are accessible in ENV{LD_LIBRARY_PATH}
@@ -18,7 +18,7 @@ All usages start with executable file **SOAPnuke**, and different modules are in
 ##Availability
 
 SOAPnuke is released under [GPLv3][1]. The latest source code is [freely
-available at github][2]. Before compiling our program, please make sure that you have installed these following libraries: boost, zlib, log4cplus and openssl. After you acquire the source code, modify the **CmakeLists.txt** according to locations of libraries mentioned above. Then, you can use `cmake .` and `make` to compile.
+available at github][2]. Before compiling our program, please make sure that you have installed these following libraries: boost, zlib, log4cplus (1.0.3) and openssl. After you acquire the source code, modify the **CmakeLists.txt** according to locations of libraries mentioned above. Then, you can use `cmake .` and `make` to compile.
 
 ##Frequently asked questions (FAQs)
 
@@ -42,7 +42,7 @@ SOAPnuke only works with sequence data of FASTQ format temporarily, but we are c
  
 ####<a name="qcn"></a>3. Can I choose a part of quality-control statistics instead of all?
 
-We will make it happen in the following versions, but all those statistics will be computed for now.
+We will realize this feature in the following versions, but all those statistics will be computed for now.
  
 
 

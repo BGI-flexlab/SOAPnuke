@@ -79,3 +79,14 @@ SOAPnuke Change Log
 	* 版本升级为1.5.6
 	* 增加--fov参数, 指定Zebra500数据reads name中的FOV编号（C001R001,C001R003等），含指定编号的reads将被过滤掉
 	* --fov参数类似于--tile, 两参数不能同时使用
+
+2016-12-8 <huangzhibo@genomics.cn>
+	* 版本升级为1.6.0
+	* 增加对Windows平台的编译支持
+	* 支持Streaming IO
+
+2017-9-15 <chenyuxin@genomics.cn>
+	* 版本升级为1.6.2
+	* CMake已无需手动修改CMakeList，可自动在环境变量中查找所需库文件
+	* 增加Python脚本辅助完成Streaming处理
+	* 增加QC结果文件的画图脚本
