@@ -2488,12 +2488,14 @@ namespace PreProcessTool {
             if(seqType_==0){
                 int sharpIndex = 0;
                 int i = 0;
-                while (read->readName[i++] != '#')
+                while (read->readName[i++] != '#' and read->readName[i] != '\0')
                     ;
-                sharpIndex = i;
-                while (read->readName[i++] != '/')
-                    ;
-                strcpy(read->readName + sharpIndex, read->readName + i - 1);
+                if (read->readName[i-1] != '\0'){
+                    sharpIndex = i - 1;
+                    while (read->readName[i++] != '/')
+                        ;
+                    strcpy(read->readName + sharpIndex, read->readName + i - 1);
+                }
             }else{
                 int i = strlen(read->readName);
                 while (read->readName[--i] !=':')
