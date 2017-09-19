@@ -2490,7 +2490,7 @@ namespace PreProcessTool {
                 int i = 0;
                 while (read->readName[i++] != '#' and read->readName[i] != '\0')
                     ;
-                if (read->readName[i-1] != '\0'){
+                if (read->readName[i] != '\0'){
                     sharpIndex = i - 1;
                     while (read->readName[i++] != '/')
                         ;
