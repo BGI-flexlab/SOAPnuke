@@ -78,7 +78,8 @@ namespace PreProcessTool {
 		cout << "\t" << fqInfo->lowMeanNum << "\t" << fqInfo->smallInsertNum << "\t" << fqInfo->polyANum;
 		cout << "\t" << fqInfo->totalDuplicationNum << "\t" << fqInfo->totalAdapterNum << "\t" << fqInfo->totalNExceedNum << "\t" << fqInfo->totalLowQualNum;
 		cout << "\t" << fqInfo->totalSmallInsertNum << "\t" << fqInfo->totalPolyANum << "\t" << fqInfo->totalCutAdaptorNum;
-		cout << "\t" << fqInfo->maxQualityValue << "#S" << endl;
+		cout << "\t" << fqInfo->maxQualityValue << "\t" << fqInfo->shortNum << "\t" << fqInfo->totalShortNum;
+		cout << "\t" << fqInfo->polyXNum << "\t" << fqInfo->totalPolyXNum << "#S" << endl;  //这里的shortNum插入位置有点不规范，留待修改
 
 		//base distributions by read position
 		cout << "#Base_distributions_by_read_position\t#S" << endl;
@@ -388,6 +389,21 @@ namespace PreProcessTool {
 		}
 		out << "\n";
 
+		out << "Reads too short (%)                     \t";
+		if (fqInfo2 != NULL)
+		{
+			out << std::left << setw(setwTmp) << fqInfo1->totalShortNum*2  << "\t" << std::right << setw(setwTmp)
+				<< setprecision(precisionTmp) << 100.0 * fqInfo1->totalShortNum / filteredReads << "%\t";
+		}
+		out << std::left << setw(setwTmp) << fqInfo1->shortNum << "\t" << std::right << setw(setwTmp)
+			<< setprecision(precisionTmp) << 100.0 * fqInfo1->shortNum / filteredReads << "%";
+		if (fqInfo2 != NULL)
+		{
+			out << "\t" << std::left << setw(setwTmp) << fqInfo2->shortNum  << "\t" << std::right << setw(setwTmp)
+				<< setprecision(precisionTmp) << 100.0 * fqInfo2->shortNum / filteredReads << "%";
+		}
+		out << "\n";
+
 		out << "Reads with adapter (%)                  \t";
 		if (fqInfo2 != NULL)
 		{
@@ -490,6 +506,21 @@ namespace PreProcessTool {
 		{
 			out << "\t" << std::left << setw(setwTmp) << fqInfo2->polyANum << "\t" << std::right << setw(setwTmp)
 				<< setprecision(precisionTmp) << 100.0 * fqInfo2->polyANum / filteredReads << "%";
+		}
+		out << "\n";
+
+		out << "Reads with PolyX (%)                    \t";
+		if (fqInfo2 != NULL)
+		{
+			out << std::left << setw(setwTmp) << fqInfo1->totalPolyXNum * 2 << "\t" << std::right << setw(setwTmp)
+				<< setprecision(precisionTmp) << 100.0 * fqInfo1->totalPolyXNum / filteredReads << "%\t";
+		}
+		out << std::left << setw(setwTmp) << fqInfo1->polyXNum << "\t" << std::right << setw(setwTmp)
+			<< setprecision(precisionTmp) << 100.0 * fqInfo1->polyXNum / filteredReads << "%";
+		if (fqInfo2 != NULL)
+		{
+			out << "\t" << std::left << setw(setwTmp) << fqInfo2->polyXNum << "\t" << std::right << setw(setwTmp)
+				<< setprecision(precisionTmp) << 100.0 * fqInfo2->polyXNum / filteredReads << "%";
 		}
 		out << "\n";
 

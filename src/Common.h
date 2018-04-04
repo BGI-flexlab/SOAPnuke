@@ -146,20 +146,24 @@ namespace PreProcessTool {
         unsigned long cleanQ30; //cleanfq文件中碱基质量>=30的碱基总数
 
         unsigned long duplicationNum; //重复个数
+        unsigned long shortNum;   //the number of read too short
         unsigned long adapterNum;  //the number of read which contain adapter in raw data
         unsigned long nExceedNum;  //the number of read which n rate was exceed in raw data
         unsigned long lowQualNum;  //low qualtiy read number in raw data
         unsigned long lowMeanNum;  //low mean quality read number in raw data
         unsigned long smallInsertNum;  //samll inert number in raw data
         unsigned long polyANum;    //polyA number in raw data
+        unsigned long polyXNum;    //polyX number in raw data
 
         unsigned long totalDuplicationNum;
+        unsigned long totalShortNum;
         unsigned long totalAdapterNum;
         unsigned long totalNExceedNum;
         unsigned long totalLowQualNum;
         unsigned long totalLowMeanNum;
         unsigned long totalSmallInsertNum;
         unsigned long totalPolyANum;
+        unsigned long totalPolyXNum;
 
         unsigned long totalCutAdaptorNum;
 
@@ -208,20 +212,24 @@ namespace PreProcessTool {
             cleanQ30 += src.cleanQ30;
 
             adapterNum += src.adapterNum;
+            shortNum += src.shortNum;
             nExceedNum += src.nExceedNum;
             lowQualNum += src.lowQualNum;
             lowMeanNum += src.lowMeanNum;
             smallInsertNum += src.smallInsertNum;
             polyANum += src.polyANum;
+            polyXNum += src.polyXNum;
             duplicationNum += src.duplicationNum;
 
             totalDuplicationNum += src.totalDuplicationNum;
             totalAdapterNum += src.totalAdapterNum;
+            totalShortNum += src.totalShortNum;
             totalNExceedNum += src.totalNExceedNum;
             totalLowQualNum += src.totalLowQualNum;
             totalLowMeanNum += src.totalLowMeanNum;
             totalSmallInsertNum += src.totalSmallInsertNum;
             totalPolyANum += src.totalPolyANum;
+            totalPolyXNum += src.totalPolyXNum;
 
             totalCutAdaptorNum += src.totalCutAdaptorNum;
 		 
