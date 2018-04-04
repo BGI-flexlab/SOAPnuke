@@ -3,7 +3,7 @@
  *
  *  Created on: 2012-6-14
  *      Author: Haosen Chen
- * 		Mail  : chenhaosen@genomics.cn
+ *      Mail  : chenhaosen@genomics.cn
  */
 
 #include "FilterProcessor.h"
@@ -31,9 +31,9 @@ namespace PreProcessTool {
 
     void FilterProcessor::printVersion()
     {
-        cerr << "soapnuke filter tools version 1.6.0\n";
-        cerr << "Author:  chenhaosen\n";
-        cerr << " Email:  chenhaosen@genomics.cn\n";
+        cerr << "SOAPnuke filter tools version 1.6.3\n";
+        cerr << "Author:  chenyuxin\n";
+        cerr << "Email:   chenyuxin@genomics.cn\n";
     }
 
     void FilterProcessor::printUsage()
@@ -46,10 +46,10 @@ namespace PreProcessTool {
         cout << "\n";
         cout << "\t-f, --adapter1    STR       3' adapter sequence of fq1 file\n";
         cout << "\t-r, --adapter2    STR       5' adapter sequence of fq2 file (only for PE reads)\n";
-//		cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
+//      cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
 //      cout << "\t    --cutAdaptor  INT       cut adaptor sequence, discard the read when the adaptor index of the read is less than INT(depend on -f/-r) [50]\n";
         cout << "\t    --cutAdaptor  INT       cut adaptor sequence\n";
-//		cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
+//      cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
         cout << "\t    --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
         cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
         cout << "\n";
@@ -59,13 +59,14 @@ namespace PreProcessTool {
         cout << "\t-n, --nRate       FLOAT     N rate threshold  [0.05]\n";
         cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
         cout << "\t-m, --mean        FLOAT     filter reads with low average quality, (<) \n";
-        cout << "\t-p, --polyA       FLOAT     filter poly A, percent of A, 0 means do not filter   [0]\n";
-//		cout << "\t-d, --rmdup                 remove PCR duplications\n";
-//		cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
+        cout << "\t-p, --polyA       FLOAT     filter read(s) if ratio of A in a read exceed [FLOAT], 0 means no filtering [0]\n";
+        cout << "\t    --polyX       INT       filter read(s) if a read contains polyX longer than [INT], 0 means no filtering [0]\n";
+//      cout << "\t-d, --rmdup                 remove PCR duplications\n";
+//      cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
         cout << "\t-i, --index                 remove index\n";
         cout << "\t-c, --cut         FLOAT     the read number you want to keep in each clean fq file, (unit:1024*1024, 0 means not cut reads)\n";
         cout << "\t-t, --trim        INT,INT,INT,INT" << endl;
-        cout <<	"\t                            trim some bp of the read's head and tail, they means: (read1's head and tail and read2's head and tail  [0,0,0,0]\n";
+        cout << "\t                            trim some bp of the read's head and tail, they means: (read1's head and tail and read2's head and tail  [0,0,0,0]\n";
         cout << "\t  --trimBadTail   INT,INT   Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
         cout << "\t  --trimBadHead   INT,INT   Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
         cout << "\n";
@@ -82,7 +83,7 @@ namespace PreProcessTool {
         cout << "\t-G, --sanger                set clean data qualtiy system to sanger  [illumina]\n";
         cout << "\t-L, --read1Len    INT       read1 max length (default: all read1's length are equal, and auto acquire)\n";
         cout << "\t-I, --read2Len    INT       read2 max length (default: all read2's length are equal, and auto acquire)\n";
-        cout << "\t    --minLen      INT       min length of read1&2, those reads longer than it will be filtered out\n";
+        cout << "\t    --minLen      INT       min length of read1&2, those reads shorter than it will be filtered out\n";
         cout << "\n";
 
 //      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
@@ -98,15 +99,15 @@ namespace PreProcessTool {
         cout << "\t-6, --polyAType   INT       filter poly A type, 0->both two reads are poly a, 1->at least one reads is poly a, then filter  [0]\n";
         cout << "\t-7, --outType:    INT       Add /1, /2 at the end of fastq name, 0:not add, 1:add  [0]\n";
         cout << "\n";
-        cout << "\t  --TtoU		               convert T to U when write data" << endl;
-        cout << "\t  --UtoT		               convert U to T when read data" << endl;
+        cout << "\t  --TtoU                    convert T to U when write data" << endl;
+        cout << "\t  --UtoT                    convert U to T when read data" << endl;
         cout << "\n";
         cout << "\t-h, --help                  help" << endl;
         cout << "\t-v, --version               show version" << endl;
     }
 
     FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), IS_STREAMING(false), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
-                                         qualRate_(0.5), nRate_(0.05), polyA_(0), minMean_(0.0), filterIndex_(false),
+                                         qualRate_(0.5), nRate_(0.05), polyA_(0), polyX_(0), minMean_(0.0), filterIndex_(false),
                                          rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
                                          memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
                                          mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
@@ -143,6 +144,7 @@ namespace PreProcessTool {
                         { "maskLowQual" , 1, NULL, 'N' },
                         { "mean"    , 1, NULL, 'm' },
                         { "polyA"   , 1, NULL, 'p' },
+                        { "polyX"   , 1, NULL, 'X' },
                         { "rmdup"   , 0, NULL, 'd' },
                         { "dupRate" , 0, NULL, '3' },
                         { "cutAdaptor" ,0, NULL, 'E'},
@@ -249,6 +251,9 @@ namespace PreProcessTool {
                     break;
                 case 'p':
                     polyA_ = atof(optarg);
+                    break;
+                case 'X':
+                    polyX_ = atof(optarg);
                     break;
                 case 'd':
                     rmdup_ = true;
@@ -1087,13 +1092,13 @@ namespace PreProcessTool {
                         char tempFile[1024];
                         sprintf(tempFile, "%s/%d.sort.temp", outDir_.c_str(), fileNum);
                         tempOFS.open(tempFile);
-                        outputTempData(tempOFS, reads1, reads2);
+                        outputTempData(tempOFS, reads1, reads2, outType_);
                         if(dupRateOnly_){
                             ofstream tempOFS1;
                             char dupTempFile[1024];
                             sprintf(dupTempFile, "%s/%d.dup.temp", outDir_.c_str(), fileNum);
                             tempOFS1.open(dupTempFile);
-                            outputDupData(tempOFS1, reads1, reads2,size);
+                            outputDupData(tempOFS1, reads1, reads2,size,outType_);
                         }
                         duplications_.clear();
                     }
@@ -1209,10 +1214,11 @@ namespace PreProcessTool {
 
                 while ((reads = buffer.getReads()))
                 {
+            
                     size = buffer.getRealReadSize();
                     if(size==0)
                         break;
-                    //	continue;
+                    //  continue;
 
                     if (size == -1)
                     {
@@ -1677,21 +1683,33 @@ namespace PreProcessTool {
         gzputs(file, "\n");
     }
 
-    void FilterProcessor::outputTempData(ofstream& file, Read* reads1, Read* reads2)
+    void FilterProcessor::outputTempData(ofstream& file, Read* reads1, Read* reads2, int outTypeMark)
     {
         map<string ,int>::iterator iter;
         int index;
         for (iter = duplications_.begin(); iter != duplications_.end(); ++iter)
         {
             index = iter->second;
-            file << reads1[index].readName << '\t'
-                 << reads2[index].readName << '\n'
-                 << reads1[index].baseSequence << '\t'
-                 << reads2[index].baseSequence << '\n'
-                 << reads1[index].optionalName << '\t'
-                 << reads2[index].optionalName << '\n'
-                 << reads1[index].baseQuality << '\t'
-                 << reads2[index].baseQuality << '\n';
+            if(outTypeMark == 0){
+                file << reads1[index].readName << '\t'
+                     << reads2[index].readName << '\n'
+                     << reads1[index].baseSequence << '\t'
+                     << reads2[index].baseSequence << '\n'
+                     << reads1[index].optionalName << '\t'
+                     << reads2[index].optionalName << '\n'
+                     << reads1[index].baseQuality << '\t'
+                     << reads2[index].baseQuality << '\n';
+            }
+            else{
+                file << reads1[index].readName << "/1\t"
+                     << reads2[index].readName << "/2\n"
+                     << reads1[index].baseSequence << '\t'
+                     << reads2[index].baseSequence << '\n'
+                     << reads1[index].optionalName << '\t'
+                     << reads2[index].optionalName << '\n'
+                     << reads1[index].baseQuality << '\t'
+                     << reads2[index].baseQuality << '\n';
+            }   
         }
     }
 
@@ -1709,7 +1727,7 @@ namespace PreProcessTool {
         }
     }
 
-    void FilterProcessor::outputDupData(ofstream& file, Read* reads1, Read* reads2, unsigned int size)
+    void FilterProcessor::outputDupData(ofstream& file, Read* reads1, Read* reads2, unsigned int size, int outTypeMark)
     {
         bool* outIndex = new bool[size];
         map<string ,int>::iterator iter;
@@ -1730,14 +1748,26 @@ namespace PreProcessTool {
             int index = cleanDataIndexs_[i];
             if(!outIndex[index])
             {
-                file << reads1[index].readName << '\t'
-                     << reads2[index].readName << '\n'
-                     << reads1[index].baseSequence << '\t'
-                     << reads2[index].baseSequence << '\n'
-                     << reads1[index].optionalName << '\t'
-                     << reads2[index].optionalName << '\n'
-                     << reads1[index].baseQuality << '\t'
-                     << reads2[index].baseQuality << '\n';
+                if(outTypeMark == 0) {
+                    file << reads1[index].readName << '\t'
+                         << reads2[index].readName << '\n'
+                         << reads1[index].baseSequence << '\t'
+                         << reads2[index].baseSequence << '\n'
+                         << reads1[index].optionalName << '\t'
+                         << reads2[index].optionalName << '\n'
+                         << reads1[index].baseQuality << '\t'
+                         << reads2[index].baseQuality << '\n';
+                }
+                else{
+                    file << reads1[index].readName << "/1\t"
+                         << reads2[index].readName << "/2\n"
+                         << reads1[index].baseSequence << '\t'
+                         << reads2[index].baseSequence << '\n'
+                         << reads1[index].optionalName << '\t'
+                         << reads2[index].optionalName << '\n'
+                         << reads1[index].baseQuality << '\t'
+                         << reads2[index].baseQuality << '\n';
+                }
             }
         }
         delete[] outIndex;
@@ -1895,7 +1925,6 @@ namespace PreProcessTool {
         {
             return;
         }
-
         if (reads2 != NULL) //PE
         {
             for (int i=start; i<end; ++i)
@@ -1948,19 +1977,15 @@ namespace PreProcessTool {
         int index1_ = adaptorIndex(read,adapter1_,adapterLen1_,readsName1_,sr);
 
         if(index1_ != -1 && cutAdaptor){
-            if(index1_ >= minReadLength){
-                int cutLen1_ = strlen(read->baseSequence) - index1_;
-
-                if(cutLen1_ > tailTrim_)
-                    tailTrimTemp1_ = cutLen1_;
-
-                info->totalCutAdaptorNum++;
-            }
+            int cutLen1_ = strlen(read->baseSequence) - index1_;
+            tailTrimTemp1_ = cutLen1_ > tailTrim_ ? cutLen1_ : tailTrim_;
+            info->totalCutAdaptorNum++;
         }
 
         si = auxStatistics(read, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info, sr);
 
         if(strlen(read->baseSequence) < minReadLength){
+            info->shortNum++;
             return false;
         }
 
@@ -1972,50 +1997,57 @@ namespace PreProcessTool {
                 {
                     if (sr.sumQuality >= minMean_ * si.readLen) //not low mean quality
                     {
-                        if(!sr.isPolyA) //not polyA
+                        if (!sr.isPolyX)
                         {
-                            if (rmdup_)
+                            if(!sr.isPolyA) //not polyA
                             {
-                                pair<map<string,int>::iterator,bool> ret;
+                                if (rmdup_)
                                 {
-                                    boost::mutex::scoped_lock lock(dupMutex_);
-                                    MD5((const unsigned char *)(read->baseSequence), strlen(read->baseSequence), md5Seq_);
-                                    ret = duplications_.insert(pair<string, int>(string((const char*)md5Seq_, MD5_DIGEST_LENGTH), index));
-                                }
+                                    pair<map<string,int>::iterator,bool> ret;
+                                    {
+                                        boost::mutex::scoped_lock lock(dupMutex_);
+                                        MD5((const unsigned char *)(read->baseSequence), strlen(read->baseSequence), md5Seq_);
+                                        ret = duplications_.insert(pair<string, int>(string((const char*)md5Seq_, MD5_DIGEST_LENGTH), index));
+                                    }
 
-                                if (ret.second)
-                                {
-                                    info->greyTotalReadNum++;
-                                    return true;
+                                    if (ret.second)
+                                    {
+                                        info->greyTotalReadNum++;
+                                        return true;
+                                    }
+                                    else
+                                    {
+                                        info->duplicationNum++;
+                                        if(dupRateOnly_)
+                                            return true;
+                                    }
                                 }
                                 else
                                 {
-                                    info->duplicationNum++;
-                                    if(dupRateOnly_)
-                                        return true;
+                                    info->cleanBaseA += si.a;
+                                    info->cleanBaseC += si.c;
+                                    info->cleanBaseG += si.g;
+                                    info->cleanBaseT += si.t;
+                                    info->cleanBaseN += si.n;
+                                    info->cleanQ20 += si.q20;
+                                    info->cleanQ30 += si.q30;
+
+                                    info->cleanTotalBaseNum += si.readLen;
+                                    info->cleanTotalReadNum++;
+
+                                    calculateBaseDistribute(read, *info, si.readLen);
+
+                                    return true;
                                 }
                             }
-                            else
+                            else //is polyA
                             {
-                                info->cleanBaseA += si.a;
-                                info->cleanBaseC += si.c;
-                                info->cleanBaseG += si.g;
-                                info->cleanBaseT += si.t;
-                                info->cleanBaseN += si.n;
-                                info->cleanQ20 += si.q20;
-                                info->cleanQ30 += si.q30;
-
-                                info->cleanTotalBaseNum += si.readLen;
-                                info->cleanTotalReadNum++;
-
-                                calculateBaseDistribute(read, *info, si.readLen);
-
-                                return true;
+                                info->polyANum++;
                             }
                         }
-                        else //is polyA
+                        else //is polyX
                         {
-                            info->polyANum++;
+                            info->polyXNum++;
                         }
                     }
                     else
@@ -2051,8 +2083,8 @@ namespace PreProcessTool {
         int tailTrimTemp1_ = tailTrim_ ;
         int tailTrimTemp2_ = tailTrim2_;
 
-//		int headTrimTemp1_ = headTrim_ ;
-//		int headTrimTemp2_ = headTrim2_;
+//      int headTrimTemp1_ = headTrim_ ;
+//      int headTrimTemp2_ = headTrim2_;
 
         int index1_ = adaptorIndex(read1,adapter1_,adapterLen1_,readsName1_,sr1);
         int index2_ = adaptorIndex(read2,adapter2_,adapterLen2_,readsName2_,sr2);
@@ -2065,19 +2097,16 @@ namespace PreProcessTool {
             else
                 minLen = index1_ == -1 ? index2_ : index1_;
 
-            if(minLen >= minReadLength){
+            cutLen1_ = strlen(read1->baseSequence) - minLen;
+            cutLen2_ = strlen(read2->baseSequence) - minLen;
 
-                cutLen1_ = strlen(read1->baseSequence) - minLen;
-                cutLen2_ = strlen(read2->baseSequence) - minLen;
+            if(cutLen1_ > tailTrim_)
+                tailTrimTemp1_ = cutLen1_;
+            if(cutLen2_ > tailTrim2_)
+                tailTrimTemp2_ = cutLen2_;
 
-                if(cutLen1_ > tailTrim_)
-                    tailTrimTemp1_ = cutLen1_;
-                if(cutLen2_ > tailTrim2_)
-                    tailTrimTemp2_ = cutLen2_;
-
-                info1->totalCutAdaptorNum++;
-                info2->totalCutAdaptorNum++;
-            }
+            info1->totalCutAdaptorNum++;
+            info2->totalCutAdaptorNum++;  
         }
 
         //fq1
@@ -2085,7 +2114,12 @@ namespace PreProcessTool {
         //fq2
         StatisInfo si2 = auxStatistics(read2, headTrim2_, tailTrimTemp2_, adapter2_, adapterLen2_, readsName2_, *info2, sr2);
 
-        if(cutLen1_ < minReadLength || cutLen2_ < minReadLength){
+        if(strlen(read1->baseSequence) < minReadLength || strlen(read2->baseSequence) < minReadLength){
+            info1->totalShortNum++;
+            if(strlen(read1->baseSequence) < minReadLength)
+                info1->shortNum++;
+            else
+                info2->shortNum++;
             return false;
         }
 
@@ -2100,72 +2134,83 @@ namespace PreProcessTool {
                         if (!isFilterSmallInsertSize_
                             || !isSmallSize(read1->baseSequence, si1.readLen, read2->baseSequence, si2.readLen))
                         {
-                            if ((polyAType_==0 && (!sr1.isPolyA || !sr2.isPolyA)) ||(polyAType_==1 && !sr1.isPolyA && !sr2.isPolyA)) //not polyA
+                            if (!sr1.isPolyX && !sr2.isPolyX)
                             {
-                                if (rmdup_) // remove duplication
+                                if ((polyAType_==0 && (!sr1.isPolyA || !sr2.isPolyA)) ||(polyAType_==1 && !sr1.isPolyA && !sr2.isPolyA)) //not polyA
                                 {
-                                    pair<map<string,int>::iterator,bool> ret;
+                                    if (rmdup_) // remove duplication
                                     {
-                                        boost::mutex::scoped_lock lock(dupMutex_);
-                                        string temp(read1->baseSequence);
-                                        temp += read2->baseSequence;
-                                        MD5((const unsigned char *)(temp.c_str()), temp.length(), md5Seq_);
-                                        ret = duplications_.insert(pair<string, int>(string((const char*)md5Seq_, MD5_DIGEST_LENGTH), index));
-                                    }
+                                        pair<map<string,int>::iterator,bool> ret;
+                                        {
+                                            boost::mutex::scoped_lock lock(dupMutex_);
+                                            string temp(read1->baseSequence);
+                                            temp += read2->baseSequence;
+                                            MD5((const unsigned char *)(temp.c_str()), temp.length(), md5Seq_);
+                                            ret = duplications_.insert(pair<string, int>(string((const char*)md5Seq_, MD5_DIGEST_LENGTH), index));
+                                        }
 
-                                    if (ret.second) //not duplication
+                                        if (ret.second) //not duplication
+                                        {
+                                            info1->greyTotalReadNum++;
+                                            return true;
+                                        }
+                                        else //duplication
+                                        {
+                                            info1->duplicationNum++;
+                                            info2->duplicationNum++;
+                                            info1->totalDuplicationNum++;
+                                            if(dupRateOnly_)
+                                                return true;
+                                        }
+                                    } // not remove duplication
+                                    else
                                     {
-                                        info1->greyTotalReadNum++;
+                                        info1->cleanBaseA += si1.a;
+                                        info1->cleanBaseC += si1.c;
+                                        info1->cleanBaseG += si1.g;
+                                        info1->cleanBaseT += si1.t;
+                                        info1->cleanBaseN += si1.n;
+                                        info1->cleanQ20 += si1.q20;
+                                        info1->cleanQ30 += si1.q30;
+                                        info1->cleanTotalReadNum++;
+                                        info1->cleanTotalBaseNum += si1.readLen;
+                                        calculateBaseDistribute(read1, *info1, si1.readLen);
+
+                                        info2->cleanBaseA += si2.a;
+                                        info2->cleanBaseC += si2.c;
+                                        info2->cleanBaseG += si2.g;
+                                        info2->cleanBaseT += si2.t;
+                                        info2->cleanBaseN += si2.n;
+                                        info2->cleanQ20 += si2.q20;
+                                        info2->cleanQ30 += si2.q30;
+                                        info2->cleanTotalReadNum++;
+                                        info2->cleanTotalBaseNum += si2.readLen;
+                                        calculateBaseDistribute(read2, *info2, si2.readLen);
+
                                         return true;
                                     }
-                                    else //duplication
-                                    {
-                                        info1->duplicationNum++;
-                                        info2->duplicationNum++;
-                                        info1->totalDuplicationNum++;
-                                        if(dupRateOnly_)
-                                            return true;
-                                    }
-                                } // not remove duplication
-                                else
+                                }
+                                else //has polyA
                                 {
-                                    info1->cleanBaseA += si1.a;
-                                    info1->cleanBaseC += si1.c;
-                                    info1->cleanBaseG += si1.g;
-                                    info1->cleanBaseT += si1.t;
-                                    info1->cleanBaseN += si1.n;
-                                    info1->cleanQ20 += si1.q20;
-                                    info1->cleanQ30 += si1.q30;
-                                    info1->cleanTotalReadNum++;
-                                    info1->cleanTotalBaseNum += si1.readLen;
-                                    calculateBaseDistribute(read1, *info1, si1.readLen);
-
-                                    info2->cleanBaseA += si2.a;
-                                    info2->cleanBaseC += si2.c;
-                                    info2->cleanBaseG += si2.g;
-                                    info2->cleanBaseT += si2.t;
-                                    info2->cleanBaseN += si2.n;
-                                    info2->cleanQ20 += si2.q20;
-                                    info2->cleanQ30 += si2.q30;
-                                    info2->cleanTotalReadNum++;
-                                    info2->cleanTotalBaseNum += si2.readLen;
-                                    calculateBaseDistribute(read2, *info2, si2.readLen);
-
-                                    return true;
+                                    if(polyAType_==0){
+                                        info1->polyANum++;
+                                        info2->polyANum++;
+                                    }else{
+                                        if(sr1.isPolyA)
+                                            info1->polyANum++;
+                                        if(sr2.isPolyA)
+                                            info2->polyANum++;
+                                    }
+                                    info1->totalPolyANum++;
                                 }
                             }
-                            else //has polyA
+                            else  // has PolyX
                             {
-                                if(polyAType_==0){
-                                    info1->polyANum++;
-                                    info2->polyANum++;
-                                }else{
-                                    if(sr1.isPolyA)
-                                        info1->polyANum++;
-                                    if(sr2.isPolyA)
-                                        info2->polyANum++;
-                                }
-                                info1->totalPolyANum++;
+                                info1->totalPolyXNum++;
+                                if(sr1.isPolyX)
+                                    info1->polyXNum++;
+                                if(sr2.isPolyX)
+                                    info2->polyXNum++;
                             }
                         }
                         else  //small insert size
@@ -2339,8 +2384,24 @@ namespace PreProcessTool {
         int right = readLen - tailTrim;
         int sumQual = 0;
 
+        map<char, int> longX;
+        longX['A'] = longX['C'] = longX['G'] = longX['T'] = longX['N'] = 0;
+        map<char, int> tmplongX;
+        tmplongX['A'] = tmplongX['C'] = tmplongX['G'] = tmplongX['T'] = tmplongX['N'] = 0;
+        char lastBase = read->baseSequence[0];
+
         for (int i=0; i<readLen; ++i)
         {
+            if (read->baseSequence[i] == lastBase){
+                tmplongX[read->baseSequence[i]] += 1;
+                if (longX[read->baseSequence[i]] < tmplongX[read->baseSequence[i]])
+                    longX[read->baseSequence[i]] = tmplongX[read->baseSequence[i]];
+            }
+            else{
+                tmplongX[read->baseSequence[i]] = 1;
+            }
+            lastBase = read->baseSequence[i];
+
             switch (read->baseSequence[i])
             {
                 case 'A':
@@ -2440,6 +2501,9 @@ namespace PreProcessTool {
                 }
             }
         }
+
+        int polyXnum = max(max(longX['A'],longX['C']),max(longX['G'],longX['T']));
+        sr.isPolyX = polyXnum >= polyX_;
 
         info.rawBaseA += a;
         info.rawBaseC += c;
