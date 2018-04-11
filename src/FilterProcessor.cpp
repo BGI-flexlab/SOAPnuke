@@ -2503,7 +2503,7 @@ namespace PreProcessTool {
         }
 
         int polyXnum = max(max(longX['A'],longX['C']),max(longX['G'],longX['T']));
-        sr.isPolyX = polyXnum > 0 && polyXnum >= polyX_;
+        sr.isPolyX = polyX_ > 0 && polyXnum >= polyX_;
 
         info.rawBaseA += a;
         info.rawBaseC += c;
