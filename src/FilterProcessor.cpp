@@ -31,7 +31,7 @@ namespace PreProcessTool {
 
     void FilterProcessor::printVersion()
     {
-        cerr << "SOAPnuke filter tools version 1.6.3\n";
+        cerr << "SOAPnuke filter tools version 1.6.4\n";
         cerr << "Author:  chenyuxin\n";
         cerr << "Email:   chenyuxin@genomics.cn\n";
     }
@@ -50,7 +50,7 @@ namespace PreProcessTool {
 //      cout << "\t    --cutAdaptor  INT       cut adaptor sequence, discard the read when the adaptor index of the read is less than INT(depend on -f/-r) [50]\n";
         cout << "\t    --cutAdaptor  INT       cut adaptor sequence\n";
 //      cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
-        cout << "\t    --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
+        cout << "\t-M, --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
         cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
         cout << "\n";
 
@@ -61,11 +61,11 @@ namespace PreProcessTool {
         cout << "\t-m, --mean        FLOAT     filter reads with low average quality, (<) \n";
         cout << "\t-p, --polyA       FLOAT     filter read(s) if ratio of A in a read exceed [FLOAT], 0 means no filtering [0]\n";
         cout << "\t    --polyX       INT       filter read(s) if a read contains polyX longer than [INT], 0 means no filtering [0]\n";
-//      cout << "\t-d, --rmdup                 remove PCR duplications\n";
-//      cout << "\t-3, --dupRate               calculate PCR duplications rate only,but don't remove PCR duplication reads\n";
+        cout << "\t-d, --rmdup                 remove PCR duplications\n";
+        cout << "\t-3, --dupRate               keep PCR duplicated reads and calculate duplications rate\n";
         cout << "\t-i, --index                 remove index\n";
         cout << "\t-c, --cut         FLOAT     the read number you want to keep in each clean fq file, (unit:1024*1024, 0 means not cut reads)\n";
-        cout << "\t-t, --trim        INT,INT,INT,INT" << endl;
+        cout << "\t-t, --trim        INT,INT,INT,INT\n";
         cout << "\t                            trim some bp of the read's head and tail, they means: (read1's head and tail and read2's head and tail  [0,0,0,0]\n";
         cout << "\t  --trimBadTail   INT,INT   Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
         cout << "\t  --trimBadHead   INT,INT   Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
@@ -259,6 +259,7 @@ namespace PreProcessTool {
                     rmdup_ = true;
                     break;
                 case '3':
+                    rmdup_ = true;
                     dupRateOnly_ = true;
                     break;
                 case 'i':
@@ -289,8 +290,10 @@ namespace PreProcessTool {
                     i = trim.find_first_of(',');
                     if (i == string::npos)
                     {
-                        cerr << "-t/--trim options error" << endl;
-                        return 1;
+                        tailTrim_ = atoi(trim.c_str());
+                        headTrim2_ = 0;
+                        tailTrim2_ = 0;
+                        break;
                     }
                     tailTrim_ = atoi(trim.substr(0, i).c_str());
 
@@ -1972,17 +1975,26 @@ namespace PreProcessTool {
 
         Read* read = &reads[index];
 
+        int headTrimType_ = 1; //0:LowQ, 1:FixLen
+        int tailTrimType_ = 2; //0:Adpt, 1:LowQ, 2:FixLen
+
         int tailTrimTemp1_ = tailTrim_ ;
 
         int index1_ = adaptorIndex(read,adapter1_,adapterLen1_,readsName1_,sr);
 
         if(index1_ != -1 && cutAdaptor){
             int cutLen1_ = strlen(read->baseSequence) - index1_;
-            tailTrimTemp1_ = cutLen1_ > tailTrim_ ? cutLen1_ : tailTrim_;
             info->totalCutAdaptorNum++;
+            if (cutLen1_ > tailTrim_){
+                tailTrimTemp1_ = cutLen1_;
+                tailTrimType_ = 0;
+            }
         }
 
-        si = auxStatistics(read, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info, sr);
+        si = auxStatistics(read, headTrim_, tailTrimTemp1_, headTrimType_, tailTrimType_ , adapter1_, adapterLen1_, readsName1_, *info, sr);
+
+        info->trim[headTrimType_ / 10][headTrimType_ % 10]++;
+        info->trim[tailTrimType_ / 10][tailTrimType_ % 10 + 2]++;
 
         if(strlen(read->baseSequence) < minReadLength){
             info->shortNum++;
@@ -1997,7 +2009,7 @@ namespace PreProcessTool {
                 {
                     if (sr.sumQuality >= minMean_ * si.readLen) //not low mean quality
                     {
-                        if (!sr.isPolyX)
+                        if (!sr.isPolyX)    //not polyX
                         {
                             if(!sr.isPolyA) //not polyA
                             {
@@ -2024,6 +2036,9 @@ namespace PreProcessTool {
                                 }
                                 else
                                 {
+                                    info->clean_trim[headTrimType_ / 10][headTrimType_ % 10]++;
+                                    info->clean_trim[tailTrimType_ / 10][tailTrimType_ % 10 + 2]++;
+
                                     info->cleanBaseA += si.a;
                                     info->cleanBaseC += si.c;
                                     info->cleanBaseG += si.g;
@@ -2080,15 +2095,16 @@ namespace PreProcessTool {
         Read* read1 = &reads1[index];
         Read* read2 = &reads2[index];
 
+        int headTrimType1_ = 1; //0:LowQ, 1:FixLen
+        int tailTrimType1_ = 2; //0:Adpt, 1:LowQ, 2:FixLen
+        int headTrimType2_ = 1; 
+        int tailTrimType2_ = 2; 
+
         int tailTrimTemp1_ = tailTrim_ ;
         int tailTrimTemp2_ = tailTrim2_;
 
-//      int headTrimTemp1_ = headTrim_ ;
-//      int headTrimTemp2_ = headTrim2_;
-
         int index1_ = adaptorIndex(read1,adapter1_,adapterLen1_,readsName1_,sr1);
         int index2_ = adaptorIndex(read2,adapter2_,adapterLen2_,readsName2_,sr2);
-        int cutLen1_, cutLen2_;
 
         if(index1_ != -1 || index2_ != -1){
             int minLen;
@@ -2097,22 +2113,31 @@ namespace PreProcessTool {
             else
                 minLen = index1_ == -1 ? index2_ : index1_;
 
-            cutLen1_ = strlen(read1->baseSequence) - minLen;
-            cutLen2_ = strlen(read2->baseSequence) - minLen;
+            int cutLen1_ = strlen(read1->baseSequence) - minLen;
+            int cutLen2_ = strlen(read2->baseSequence) - minLen;
 
-            if(cutLen1_ > tailTrim_)
+            if(cutLen1_ > tailTrim_){
                 tailTrimTemp1_ = cutLen1_;
-            if(cutLen2_ > tailTrim2_)
+                tailTrimType1_ = 0;
+            } 
+            if(cutLen2_ > tailTrim2_){
                 tailTrimTemp2_ = cutLen2_;
+                tailTrimType2_ = 0;
+            }
 
             info1->totalCutAdaptorNum++;
             info2->totalCutAdaptorNum++;  
         }
 
         //fq1
-        StatisInfo si1 = auxStatistics(read1, headTrim_, tailTrimTemp1_, adapter1_, adapterLen1_, readsName1_, *info1, sr1);
+        StatisInfo si1 = auxStatistics(read1, headTrim_, tailTrimTemp1_, headTrimType1_, tailTrimType1_, adapter1_, adapterLen1_, readsName1_, *info1, sr1);
         //fq2
-        StatisInfo si2 = auxStatistics(read2, headTrim2_, tailTrimTemp2_, adapter2_, adapterLen2_, readsName2_, *info2, sr2);
+        StatisInfo si2 = auxStatistics(read2, headTrim2_, tailTrimTemp2_, headTrimType2_, tailTrimType2_, adapter2_, adapterLen2_, readsName2_, *info2, sr2);
+
+        info1->trim[headTrimType1_ / 10][headTrimType1_ % 10]++;
+        info1->trim[tailTrimType1_ / 10][tailTrimType1_ % 10 + 2]++;
+        info2->trim[headTrimType2_ / 10][headTrimType2_ % 10]++;
+        info2->trim[tailTrimType2_ / 10][tailTrimType2_ % 10 + 2]++;
 
         if(strlen(read1->baseSequence) < minReadLength || strlen(read2->baseSequence) < minReadLength){
             info1->totalShortNum++;
@@ -2138,6 +2163,7 @@ namespace PreProcessTool {
                             {
                                 if ((polyAType_==0 && (!sr1.isPolyA || !sr2.isPolyA)) ||(polyAType_==1 && !sr1.isPolyA && !sr2.isPolyA)) //not polyA
                                 {
+
                                     if (rmdup_) // remove duplication
                                     {
                                         pair<map<string,int>::iterator,bool> ret;
@@ -2165,6 +2191,11 @@ namespace PreProcessTool {
                                     } // not remove duplication
                                     else
                                     {
+                                        info1->clean_trim[headTrimType1_ / 10][headTrimType1_ % 10]++;
+                                        info1->clean_trim[tailTrimType1_ / 10][tailTrimType1_ % 10 + 2]++;
+                                        info2->clean_trim[headTrimType2_ / 10][headTrimType2_ % 10]++;
+                                        info2->clean_trim[tailTrimType2_ / 10][tailTrimType2_ % 10 + 2]++;
+
                                         info1->cleanBaseA += si1.a;
                                         info1->cleanBaseC += si1.c;
                                         info1->cleanBaseG += si1.g;
@@ -2330,7 +2361,7 @@ namespace PreProcessTool {
                 index = hasAdapter(read->baseSequence, readLen, adapter.c_str(), adpLen);
                 if(index != -1)
                 {
-                    if(!cutAdaptor || (cutAdaptor && index < minReadLength))
+                    if(!cutAdaptor || (cutAdaptor && (unsigned)index < minReadLength))
                     {
                         sr.hasAdpt = true;
                     }
@@ -2340,7 +2371,7 @@ namespace PreProcessTool {
         return index;
     }
 
-    StatisInfo FilterProcessor::auxStatistics(Read *read, int headTrim, int tailTrim, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr)
+    StatisInfo FilterProcessor::auxStatistics(Read *read, int headTrim, int tailTrim, int & headTrimType, int & tailTrimType, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr)
     {
         int qual;
 
@@ -2361,8 +2392,17 @@ namespace PreProcessTool {
                 break;
         }
 
-        headTrim = headTrim > badHeadTrim ? headTrim : badHeadTrim;
-        tailTrim = tailTrim > badTailTrim ? tailTrim : badTailTrim;
+        if (badHeadTrim > headTrim){
+            headTrim = badHeadTrim;
+            headTrimType = 0;
+        }
+        if (badTailTrim > tailTrim){
+            tailTrim = badTailTrim;
+            tailTrimType = 1;
+        }
+
+        headTrimType += 10 * headTrim;
+        tailTrimType += 10 * (readLen-tailTrim);
 
         /*if (filterAdapter_)
         {
@@ -2588,58 +2628,38 @@ namespace PreProcessTool {
 
     int FilterProcessor::hasAdapter(const char *sequence, int readLen, const char *adapter, int adptLen)
     {
-        int find = -1;
-        int minMatchLen = (int)ceil(adptLen * matchRatio_);
-        int a1 = adptLen - minMatchLen;
-        int r1 = 0;
-        int len, mis;
+        int r1, mis, misMatchTemp;
+        int left = readLen - adptLen;
 
-        int right = readLen - minMatchLen;
-
-        for (r1 = 0; r1 <= right;)
+        for (r1 = 0; r1 <= left; ++r1)
         {
-            int len1 = adptLen - a1;
-            int len2 = readLen - r1;
-            len = (len1 < len2) ? len1 : len2;
-            mis = 0;
-            int map[MAX_LENGTH];
-            map[0] = 0;
-            for (int c = 0; c < len; ++c)
+            int mis = 0;
+            for (int c = 0; c < adptLen; ++c)
             {
-                if (adapter[a1 + c] == sequence[r1 + c])
-                {
-                    map[mis]++;
-                }
-                else
-                {
+                if (adapter[c] != sequence[r1 + c])
                     mis++;
-                    map[mis] = 0;
-                }
             }
-            int max_map = 0;
-            for (int c = 0; c <= mis; ++c)
-            {
-                if (map[c] > max_map)
-                {
-                    max_map = map[c];
-                }
-            }
-            if ((mis <= misMatch_) || (max_map >= minMatchLen))
-            {
-                find = r1;
-                break;
-            }
-            if (a1 > 0)
-            {
-                a1--;
-            }
-            else
-            {
-                r1++;
-            }
+            if (mis <= misMatch_)
+                return r1;
         }
 
-        return find;
+        int minMatchLen = (int)ceil(adptLen * matchRatio_);
+
+        for (r1 = 1; r1 <= adptLen - minMatchLen + 1; ++r1)
+        {
+            mis = 0;
+            misMatchTemp = misMatch_ - (r1 * (misMatch_ + 1) - 1) / (adptLen - minMatchLen);
+            for (int c = 0; c <= adptLen - r1; ++c)
+            {
+                if (adapter[c] != sequence[left + r1 + c])
+                    mis++;
+            }
+
+           if (mis <= misMatchTemp)
+               return left + r1;
+        }
+
+        return -1;
     }
 
     int FilterProcessor::getReadsNameFromFile(string filename, set<string> &readsName)

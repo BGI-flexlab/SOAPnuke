@@ -748,7 +748,7 @@ namespace DGEProcessTool {
 		{
 			string query = adapter;
 			string target = sequence;
-			int offset = smithWatermanAign(query, target) - 1;
+			int offset = smithWatermanAlign(query, target) - 1;
 			for (r1 = tagStart_; r1 <= tagEnd_; r1++)
 			{
 				if (offset == r1){
@@ -763,7 +763,7 @@ namespace DGEProcessTool {
 		sequence[startPos]='\0';
 	}
 
-	int DGEProcessor::smithWatermanAign(string query, string target) { // Smith-Waterman algorithm
+	int DGEProcessor::smithWatermanAlign(string query, string target) { // Smith-Waterman algorithm
 		// the match in query must be started on base 0
 		int queryLen = query.length();
 		int targetLen = target.length();

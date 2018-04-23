@@ -31,7 +31,7 @@ namespace MetaPreProcessTool
 		int q20, q30;
 		int a, c, g, t, n;
 		int lowQual;
-		int readLen;
+		unsigned int readLen;
 
 		StatisInfo()
 		{
@@ -90,7 +90,7 @@ namespace MetaPreProcessTool
 
 			int adapterLen1_;
 			int adapterLen2_;
-			int lengthThreshold_;
+			unsigned int lengthThreshold_;
 			int minAlignLength_;
 			int matchNumber_;
 			int nBaseNumber_;

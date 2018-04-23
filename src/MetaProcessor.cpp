@@ -852,7 +852,7 @@ namespace MetaPreProcessTool
 	StatisInfo MetaProcessor::auxStatistics(PreProcessTool::Read *read, int trimLeft, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr)
 	{
 		int qual;
-		int readLen = strlen(read->baseSequence);
+		unsigned int readLen = strlen(read->baseSequence);
 
 		info.rawTotalBaseNum += readLen;
 		info.rawTotalReadNum++;
@@ -877,7 +877,7 @@ namespace MetaPreProcessTool
 		int a = 0, g = 0, c = 0, t = 0, n = 0;
 		int q20 = 0, q30 = 0;
 
-		for (int i=0; i<readLen; ++i)
+		for (int i=0; i<(signed)readLen; ++i)
 		{
 			switch (read->baseSequence[i])
 			{
@@ -1240,13 +1240,13 @@ namespace MetaPreProcessTool
 
 	void MetaProcessor::statisticsTmp(PreProcessTool::Read *read, FqInfo &info)
 	{
-		int readLen = strlen(read->baseSequence);
+		unsigned int readLen = strlen(read->baseSequence);
 		if(info.rawReadLength < readLen)
 			info.rawReadLength = readLen;
 		info.rawTotalBaseNum += readLen;
 		info.rawTotalReadNum++;
 		int a=0, g=0, c=0, t=0, n=0;
-		for(int i=0; i<readLen; i++)
+		for(int i=0; i<(signed)readLen; i++)
 		{
 			switch(read->baseSequence[i])
 			{

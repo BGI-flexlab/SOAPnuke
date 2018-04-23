@@ -132,7 +132,7 @@ namespace PreProcessTool {
         /**
          * called by statistics
          */
-        StatisInfo auxStatistics(Read *read, int headTrim, int tailTrim, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr);
+        StatisInfo auxStatistics(Read *read, int headTrim, int tailTrim, int & headTrimType, int & tailTrimType, string adapter, int adptLen, set<string> &readsName, FqInfo &info, StatisResult &sr);
 
         //statistics the clean read
         StatisInfo auxStatistics(StrRead *read);
@@ -230,7 +230,7 @@ namespace PreProcessTool {
         bool onlyStat_;
 
         bool isPE_;
-        int minReadLength;
+        unsigned int minReadLength;
         bool cutAdaptor;
         int cutAdaptorOri;
         unsigned long cutBasesNumber;
