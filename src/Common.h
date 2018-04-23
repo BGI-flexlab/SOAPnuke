@@ -106,6 +106,7 @@ namespace PreProcessTool {
     const static string LOG_FILE = "out.log";
     const static string SEQUENCING_QUALITY = "Basic_Statistics_of_Sequencing_Quality";
     const static string FILTERED_READS = "Statistics_of_Filtered_Reads";
+    const static string TRIMMING_DISTRIBUTION = "Statistics_of_Trimming_Position_of_Reads";
     const static string BASE_DISTRIBUTIONS = "Base_distributions_by_read_position";
     const static string DISTRIBUTION_OF_Q20_Q30 = "Distribution_of_Q20_Q30_bases_by_read_position";
     const static string BASE_QUALITY_VALUE_DISTRIBUTION = "Base_quality_value_distribution_by_read_position";
@@ -176,9 +177,13 @@ namespace PreProcessTool {
         unsigned long q20q30[MAX_LENGTH][2];  //Q20 Q30
         unsigned long clean_q20q30[MAX_LENGTH][2];
 
-        //Basequality value distribution by read position(Raw)
+        //BaseQuality value distribution by read position(Raw)
         unsigned long qual[MAX_LENGTH][MAX_QUALITY + 1];
         unsigned long clean_qual[MAX_LENGTH][MAX_QUALITY + 1];
+
+        //Distribution of trimming position(Raw)
+        unsigned long trim[MAX_LENGTH][5]; //Head(LowQual, FixLen), Tail(Adapter, LowQual, FixLen)
+        unsigned long clean_trim[MAX_LENGTH][5];
 
         int maxQualityValue;  //记录fq文件中碱基的最大质量值.
 
@@ -247,6 +252,15 @@ namespace PreProcessTool {
                 for (int j = 0; j <= MAX_QUALITY; ++j)
                 {
                     qual[i][j] += src.qual[i][j];
+                }
+            }
+
+            for (unsigned int i = 0; i <= rawReadLength; ++i)
+            {
+                for (int j = 0; j <= 4; ++j)
+                {
+                    trim[i][j] += src.trim[i][j];
+                    clean_trim[i][j] += src.clean_trim[i][j];
                 }
             }
 

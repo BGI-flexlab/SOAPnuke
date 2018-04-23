@@ -122,7 +122,6 @@ namespace PreProcessTool {
 			cout << "#S\n";
 		}
 
-
 	}
 
 	void printFqInfo(const FqInfo *fqInfo1, const FqInfo *fqInfo2){
@@ -527,6 +526,54 @@ namespace PreProcessTool {
 		out.close();
 		out.clear();
 
+		outFile = outDir + "/" + prefix + TRIMMING_DISTRIBUTION + "_1.txt";
+
+		out.open(outFile.c_str());
+		if (!out)
+		{
+			LOG(ERROR, "open output file: " << outFile);
+			exit(1);
+		}
+
+		baseTmp = fqInfo1->rawTotalReadNum;
+		setwTmp = 1;
+		do
+		{
+			setwTmp++;
+			baseTmp /= 10;
+		}while(baseTmp > 0);
+
+		if (setwTmp < 16)
+			setwTmp = 16;
+		
+		out << fixed;
+		out << std::left << setw(setwTmp) << "Pos" << "\t";
+		out << std::left << setw(setwTmp) << "HeadLowQual" << "\t" << std::left << setw(setwTmp) << "HeadFixLen" << "\t";
+		out << std::left << setw(setwTmp) << "TailAdapter" << "\t" << std::left << setw(setwTmp) << "TailLowQual" << "\t";
+		out << std::left << setw(setwTmp) << "TailFixLen" << "\t";
+		out << std::right << setw(setwTmp) << "CleanHeadLowQual" << "\t" << std::right << setw(setwTmp) << "CleanHeadFixLen" << "\t";
+		out << std::right << setw(setwTmp) << "CleanTailAdapter" << "\t" << std::right << setw(setwTmp) << "CleanTailLowQual" << "\t";
+		out << std::right << setw(setwTmp) << "CleanTailFixLen" << "\t";
+		out << "\n";
+
+		for (unsigned int i=0; i <= fqInfo1->rawReadLength; ++i)
+		{
+			out << std::left << setw(setwTmp) << i << "\t" << std::right
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->trim[i][0] / fqInfo1->rawTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->trim[i][1] / fqInfo1->rawTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->trim[i][2] / fqInfo1->rawTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->trim[i][3] / fqInfo1->rawTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->trim[i][4] / fqInfo1->rawTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->clean_trim[i][0] / fqInfo1->cleanTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->clean_trim[i][1] / fqInfo1->cleanTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->clean_trim[i][2] / fqInfo1->cleanTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->clean_trim[i][3] / fqInfo1->cleanTotalReadNum << "%\t"
+				<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo1->clean_trim[i][4] / fqInfo1->cleanTotalReadNum << "%\n";
+		}
+
+		out.close();
+		out.clear();
+
 		outFile = outDir + "/" + prefix + BASE_DISTRIBUTIONS + "_1.txt";
 		out.open(outFile.c_str());
 		if (!out)
@@ -805,6 +852,52 @@ namespace PreProcessTool {
 		//output fq2 info
 		if (fqInfo2 != NULL)
 		{
+			outFile = outDir + "/" + prefix + TRIMMING_DISTRIBUTION + "_2.txt";
+			out.open(outFile.c_str());
+			if (!out)
+			{
+				LOG(ERROR, "open output file: " << outFile);
+				exit(1);
+			}
+
+			baseTmp = fqInfo2->rawTotalReadNum;
+			setwTmp = 1;
+			do
+			{
+				setwTmp++;
+				baseTmp /= 10;
+			}while(baseTmp > 0);
+			if (setwTmp < 16)
+				setwTmp = 16;
+			
+			out << fixed;
+			out << std::left << setw(setwTmp) << "Pos" << "\t";
+			out << std::left << setw(setwTmp) << "HeadLowQual" << "\t" << std::left << setw(setwTmp) << "HeadFixLen" << "\t";
+			out << std::left << setw(setwTmp) << "TailAdapter" << "\t" << std::left << setw(setwTmp) << "TailLowQual" << "\t";
+			out << std::left << setw(setwTmp) << "TailFixLen" << "\t";
+			out << std::right << setw(setwTmp) << "CleanHeadLowQual" << "\t" << std::right << setw(setwTmp) << "CleanHeadFixLen" << "\t";
+			out << std::right << setw(setwTmp) << "CleanTailAdapter" << "\t" << std::right << setw(setwTmp) << "CleanTailLowQual" << "\t";
+			out << std::right << setw(setwTmp) << "CleanTailFixLen" << "\t";
+			out << "\n";
+
+			for (unsigned int i=0; i <= fqInfo2->rawReadLength; ++i)
+			{
+				out << std::left << setw(setwTmp) << i << "\t" << std::right
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->trim[i][0] / fqInfo2->rawTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->trim[i][1] / fqInfo2->rawTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->trim[i][2] / fqInfo2->rawTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->trim[i][3] / fqInfo2->rawTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->trim[i][4] / fqInfo2->rawTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->clean_trim[i][0] / fqInfo2->cleanTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->clean_trim[i][1] / fqInfo2->cleanTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->clean_trim[i][2] / fqInfo2->cleanTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->clean_trim[i][3] / fqInfo2->cleanTotalReadNum << "%\t"
+					<< std::left << setw(setwTmp) << setprecision(precisionTmp) << 100.0 * fqInfo2->clean_trim[i][4] / fqInfo2->cleanTotalReadNum << "%\n";
+			}
+
+			out.close();
+			out.clear();	
+
 			outFile = outDir + "/" + prefix + BASE_DISTRIBUTIONS + "_2.txt";
 			out.open(outFile.c_str());
 			if (!out)

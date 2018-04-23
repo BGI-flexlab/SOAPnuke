@@ -105,7 +105,7 @@ private:
 	 */
 	void trimAdapter(char *sequence, int startPos);
 	bool findAdapter(const char *sequence, const char *adapter);
-	int smithWatermanAign(string query, string target);
+	int smithWatermanAlign(string query, string target);
 
 	void output(FqInfo *info1, FqInfo *info2);
 

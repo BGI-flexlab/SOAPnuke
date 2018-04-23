@@ -164,7 +164,7 @@ namespace PreProcessTool {
 
 					reads_[realReadSize_].readName = readName;
 					reads_[realReadSize_].baseSequence = buf_ + pos[2] + 1;
-					reads_[realReadSize_].optionalName = "+";
+					reads_[realReadSize_].optionalName = (char *)"+";
 					reads_[realReadSize_].baseQuality = buf_ + pos[3] + 1;
 
 					if (strlen(reads_[realReadSize_].baseSequence) > strlen(reads_[realReadSize_].baseQuality))

@@ -469,23 +469,23 @@ namespace PreProcessTool
 						}
 					}
 
-					if(buf1_ + pos[1] + 1 == "1"){
+					if(buf1_ + pos[1] + 1 == (char *)"1"){
 						reads1_[readNum1].readName = readName1;
 						reads1_[readNum1].baseSequence = buf1_ + pos[2] + 1;
-						reads1_[readNum1].optionalName = "+";
+						reads1_[readNum1].optionalName = (char *)"+";
 						reads1_[readNum1].baseQuality = buf1_ + pos[3] + 1;
 						reads2_[readNum1].readName = buf1_ + pos[5] + 1;
 						reads2_[readNum1].baseSequence = buf1_ + pos[7] + 1;
-						reads2_[readNum1].optionalName = "+";
+						reads2_[readNum1].optionalName = (char *)"+";
 						reads2_[readNum1].baseQuality = buf1_ + pos[8] + 1;
 					}else{
 						reads2_[readNum1].readName = readName1;
 						reads2_[readNum1].baseSequence = buf1_ + pos[2] + 1;
-						reads2_[readNum1].optionalName = "+";
+						reads2_[readNum1].optionalName = (char *)"+";
 						reads2_[readNum1].baseQuality = buf1_ + pos[3] + 1;
 						reads1_[readNum1].readName = buf1_ + pos[5] + 1;
 						reads1_[readNum1].baseSequence = buf1_ + pos[7] + 1;
-						reads1_[readNum1].optionalName = "+";
+						reads1_[readNum1].optionalName = (char *)"+";
 						reads1_[readNum1].baseQuality = buf1_ + pos[8] + 1;
 					}
 
