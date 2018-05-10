@@ -34,6 +34,7 @@ namespace SRNAProcessTool {
 	{
 		int a, c, g, t, n, ns; //ns 是指第1-30个碱基内的N个数//
 		int q20, q30, lowQual1,lowQual2;//lowQual1是1-30碱基q<10的个数, lowQual2是1-30碱基q<13的个数.//
+		int lowQual;//质量值小于lowQual的碱基的个数
 		StatisInfo()
 		{
 			a = 0;
@@ -46,6 +47,7 @@ namespace SRNAProcessTool {
 			q30 = 0;
 			lowQual1 = 0;
 			lowQual2 = 0;
+			lowQual = 0;
 		}
 	}StatisInfo;
 
@@ -78,6 +80,8 @@ namespace SRNAProcessTool {
 				lowQualSeed1Num_(4),
 				lowQualSeed2_(13),
 				lowQualSeed2Num_(6),
+				lowQual_(10),
+				lowQualRate_(0.5),
 				error_(0.01),
 				removeBad_(false),
 				trim_(true),
@@ -199,6 +203,8 @@ namespace SRNAProcessTool {
 			int lowQualSeed1Num_;
 			int lowQualSeed2_;
 			int lowQualSeed2Num_;
+			int lowQual_;
+			float lowQualRate_;
 			float error_;
 			bool removeBad_;
 			bool trim_;
