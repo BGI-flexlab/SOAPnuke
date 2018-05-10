@@ -48,7 +48,7 @@ namespace PreProcessTool {
         cout << "\t-r, --adapter2    STR       5' adapter sequence of fq2 file (only for PE reads)\n";
 //      cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
 //      cout << "\t    --cutAdaptor  INT       cut adaptor sequence, discard the read when the adaptor index of the read is less than INT(depend on -f/-r) [50]\n";
-        cout << "\t    --cutAdaptor  INT       cut adaptor sequence\n";
+        cout << "\t-E, --cutAdaptor  INT       cut adaptor sequence\n";
 //      cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
         cout << "\t-M, --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
         cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
@@ -1982,6 +1982,9 @@ namespace PreProcessTool {
 
         int index1_ = adaptorIndex(read,adapter1_,adapterLen1_,readsName1_,sr);
 
+        if (index1_ >= tailTrimTemp1_)
+            sr.hasAdpt = false;
+        
         if(index1_ != -1 && cutAdaptor){
             int cutLen1_ = strlen(read->baseSequence) - index1_;
             info->totalCutAdaptorNum++;
@@ -2106,6 +2109,11 @@ namespace PreProcessTool {
         int index1_ = adaptorIndex(read1,adapter1_,adapterLen1_,readsName1_,sr1);
         int index2_ = adaptorIndex(read2,adapter2_,adapterLen2_,readsName2_,sr2);
 
+        if (index1_ >= tailTrimTemp1_)
+            sr1.hasAdpt = false;
+        if (index2_ >= tailTrimTemp2_)
+            sr2.hasAdpt = false;
+        
         if(index1_ != -1 || index2_ != -1){
             int minLen;
             if(index1_ != -1 && index2_ != -1)
