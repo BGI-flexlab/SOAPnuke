@@ -288,7 +288,7 @@ namespace SRNAProcessTool {
 	int RNAProcessor::statisticsFA(PreProcessTool::Read &read, FqInfo &info)
 	{
 		StatisInfo si = auxStatistics(read, info);
-		if (filterLowQual_ && (si.n > nRead_ || si.ns > nSeed_ || si.lowQual2 > lowQualSeed2Num_ || si.lowQual1 > lowQualSeed1Num_))
+		if (filterLowQual_ && (si.n > nRead_ || si.ns > nSeed_ || si.lowQual2 > lowQualSeed2Num_ || si.lowQual1 > lowQualSeed1Num_ || si.lowQual))
 		{
 			info.readsWithLowQual++;
 			return 1;

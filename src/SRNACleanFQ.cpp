@@ -254,7 +254,7 @@ namespace SRNAProcessTool {
 	{	
 		StatisInfo si = auxStatistics(read, info);
 
-		bool low = (filterLowQual_ && (si.n > nRead_ || si.ns > nSeed_ || si.lowQual2 > lowQualSeed2Num_ || si.lowQual1 > lowQualSeed1Num_));
+		bool low = (filterLowQual_ && (si.n > nRead_ || si.ns > nSeed_ || si.lowQual2 > lowQualSeed2Num_ || si.lowQual1 > lowQualSeed1Num_ || si.lowQual));
 		if (low) //filter low quality
 		{
 			info.readsWithLowQual++;

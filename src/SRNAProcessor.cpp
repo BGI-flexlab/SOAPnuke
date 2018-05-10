@@ -20,51 +20,61 @@ namespace SRNAProcessTool {
 
 	void RNAProcessor::printUsage()
 	{
-		cout << "Useage: [OPTION]... FILE [FILE]\n";
-		cout << "must arg:\n";
+		cout << "Usage: [OPTION]... FILE [FILE]\n";
+		cout << "compulsory args:\n";
 		cout << "\t-f, --fq         STR       fastq file\n";
+		cout << "\n";
 
-		cout << "\nusual args:\n";
-		cout << "\t-m, --mrna                 mrna filter(default: off)\n";
-		cout << "\t\t-n, --polyN    FLOAT     remove polyN[A, T, G, C], 0 means do not filter, (default: 0.7)\n";
-		cout << "\t-F, --outfq      STR       prefix of out orignal fq name, Eg. if set -F XXX, will print out XXX.fq.gz, otherwise will not print\n";
-		cout << "\t-3, --adapter3   STR       3' adaptor sequence (default: TCGTATGCCGTCTTCTGCTTG)\n";
-		cout << "\t-5, --adapter5   STR       5' adaptor sequence (default: GTTCAGAGTTCTACAGTCCGACGATC)\n";
-		cout << "\t--tile           STR       tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "usual args:\n";
 		cout << "\t-o, --outDir     STR       out directory (default: current directory)\n";
 		cout << "\t-x, --outPfx     STR       out file prefix (default: clean)\n";
-		cout << "\t-s, --strict               filter low quality reads strictly (default: off)\n";
-		cout << "\t-z, --minSize    INT       small insert size (default: 18)\n";
-		cout << "\t-p, --polyA      FLOAT     filter poly A, percent of A, 0 means do not filter, (default: 0.7)\n";
+		cout << "\t-F, --outfq      STR       prefix of out orignal fq name, Eg. if set -F XXX, will print out XXX.fq.gz, otherwise will not print\n";
 		cout << "\t-Q, --qualSys    INT       quality system, 1:illumina, 2:sanger (default: 1)\n";
 		cout << "\t-q, --fastq                out file type: on:fastq, off:fasta (default: off)\n";
-		cout << "\t\t-i, --index              remove index\n";
-		cout << "\t\t-G, --sanger             out put sanger quality score system fq. (defaul: off illumina)\n";
-		cout << "\t-u, --untrim               do not trim 3' adapter (default: off)\n";
-		cout << "\t-w, --unlowQ               do not filter low quality reads (default: off)\n";
+		cout << "\t-y, --seqType    INT       Sequence fq name type, 0->old fastq name, 1->new fastq name HighSeq4000[default: 0]\n";
+		cout << "\t-c, --cut        FLOAT     the read number you want to keep in each orignal fq file.\n"
+			 << "\t                           Eg. if set -c N, read number = N * 1024; default: N = 0, means reserve whole orignal fq;\n";
+		cout << "\n";
+
+		cout << "\t-5, --adapter5   STR       5' adaptor sequence (default: GTTCAGAGTTCTACAGTCCGACGATC)\n";
+		cout << "\t-3, --adapter3   STR       3' adaptor sequence (default: TCGTATGCCGTCTTCTGCTTG)\n";
+		cout << "\t    --tile       STR       tile number to ignore reads , such as [1101-1104,1205]\n";
+		cout << "\t-z, --minSize    INT       small insert size (default: 18)\n";
+		cout << "\t-p, --polyA      FLOAT     filter poly A, percent of A, 0 means do not filter, (default: 0.7)\n";
+		cout << "\t-n, --polyN      FLOAT     remove polyN[A, T, G, C], 0 means do not filter, (default: 0.7)\n";
 		cout << "\t-L, --readLen    INT       Max read length in fq file (default: 49)\n";
 		cout << "\t-t, --trim       INT,INT   trim some bp of the read's head and tail (default: [0,0])\n";
-		cout << "\t-c, --cut        FLOAT     the read number you want to keep in each orignal fq file.\n"
-			<< "\t                             Eg.: if set -c N, read number = N * 1024; default: N = 0, means reserve whole orignal fq;\n";
-		cout << "\t-y, --seqType    INT       Sequence fq name type, 0->old fastq name, 1->new fastq name HighSeq4000[default: 0]\n";
-		cout << "\nhelp args:\n";
-		cout << "\t-a, --append     STR       logger's appender: console or file [console]\n";
-		cout << "\t-h, --help                 help\n";
-		cout << "\t-v, --version              version information\n";
+		cout << "\t    --lowQual    INT       low quality threshold [10]\n";
+        cout << "\t    --qualRate   FLOAT     low quality rate [0.5]\n";
+		cout << "\n";
 
-		cout << "\nunusual arg:\n";
-		cout << " find 5' adapter\n";
+		cout << "\t-m, --mrna                 mrna filter(default: off)\n";
+		cout << "\t-i, --index                remove index\n";
+		cout << "\t-G, --sanger               out put sanger quality score system fq. (defaul: off illumina)\n";
+		cout << "\t-u, --untrim               do not trim 3' adapter (default: off)\n";
+		cout << "\t-w, --unlowQ               do not filter low quality reads (default: off)\n";
+		cout << "\t-s, --strict               filter low quality reads strictly (default: off)\n";
+		cout << "\n";
+
+		cout << "unusual args:\n";
+		cout << "  find 5' adapter\n";
 		cout << "\t-C, --continuous INT       mini 5' adapter continuous alignment length (default: 6)\n";
 		cout << "\t-A, --alignRate  FLOAT     mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)\n";
-		cout << " find 3' adapter\n";
+		cout << "  find 3' adapter\n";
 		cout << "\t-l, --miniAlign  INT       mini alignment length when find 3' adapter (default: 5)\n";
 		cout << "\t-E, --errorRate  FLOAT     Max error rate when find 3' adapter (mismatch/match) (dfault: 0.4)\n";
 		cout << "\t-M, --misMatch   INT       Max mismatch number when find 3' adapter (dfault: 4)" << endl;
+		
+		cout << "help args:\n";
+		cout << "\t-a, --append     STR       logger's appender: console or file [console]\n";
+		cout << "\t-h, --help                 help\n";
+		cout << "\t-v, --version              version information\n";
+		cout << "\n";
 	}
 
 	int RNAProcessor::processParams(int argc, char **argv)
 	{
-		const char *shortOptions = "f:mn:F:3:5:K:o:x:sz:p:Q:qy:GiuwL:t:c:a:hvC:A:l:E:M:";
+		const char *shortOptions = "f:mn:F:3:5:K:o:x:sz:p:Q:qy:GiuwL:t:c:a:hvC:A:l:E:M:R:r:";
 		const struct option longOptions[] =
 		{
 			{ "fq",       1, NULL, 'f' },
@@ -97,6 +107,8 @@ namespace SRNAProcessTool {
 			{ "append",    1, NULL, 'a' },
 			{ "help", 	   0, NULL, 'h' },
 			{ "version",   0, NULL, 'v' },
+			{ "lowQual",   1, NULL, 'R' },
+			{ "qualRate",   1, NULL, 'r' },
 		};
 
 		string append;
@@ -197,6 +209,12 @@ namespace SRNAProcessTool {
 					}
 					headTrim_ = atoi(trim.substr(0, trim.find(',')).c_str());
 					tailTrim_ = atoi(trim.substr(trim.find(',') + 1).c_str());
+					break;
+				case 'R':
+					lowQual_ = atoi(optarg);
+					break;
+				case 'r':
+					lowQualRate_ = atof(optarg);
 					break;
 				case 'L':
 					readLen_ = atoi(optarg);
@@ -408,6 +426,10 @@ namespace SRNAProcessTool {
 			qual = read.baseQuality[i] - qualSystem_;
 			info.qual[i][qual]++;
 
+			if (qual < lowQual_){
+				si.lowQual++;
+			}
+
 			if (i < seedLength_)
 			{
 				if (qual < lowQualSeed2_)
@@ -429,6 +451,11 @@ namespace SRNAProcessTool {
 				}
 			}
 		}
+
+		if (si.lowQual > readLen * lowQualRate_)
+			si.lowQual = 1;
+		else
+			si.lowQual = 0;
 
 		info.rawBaseA += si.a;
 		info.rawBaseC += si.c;
