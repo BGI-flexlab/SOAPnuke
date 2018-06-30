@@ -20,15 +20,15 @@ using namespace DGEProcessTool;
 using namespace MetaPreProcessTool;
 
 #ifndef PACKAGEVERSION
-#define PACKAGEVERSION "1.6.4"
+#define PACKAGEVERSION "1.6.5"
 #endif
 
 int usage()
 {
 	cout << endl;
-	cout << "Prpgram: soapnuke\n";
+	cout << "Prpgram: SOAPnuke\n";
 	cout << "Version: " << PACKAGEVERSION <<endl;
-	cout << "Contact: YoungChan<chenyuxin@genomics.cn>\n";
+	cout << "Contact: Young Chan <chenyuxin@genomics.cn>\n";
 	cout << "Command:\n";
 	cout << "         filter        preprocessing sequences\n";
 	cout << "         filtersRNA    preprocessing sRNA sequences\n";
