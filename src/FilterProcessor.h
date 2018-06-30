@@ -149,6 +149,11 @@ namespace PreProcessTool {
         int hasAdapter(const char *sequence, int readLen, const char *adapter, int adptLen);
 
         /**
+         * 判断是否含contaminant
+         */
+        int hasContam(const char *sequence, int readLen, const char *contam, int contamLen);
+
+        /**
          * 判断insert size是否过小
          */
         bool isSmallSize(const char *sequence1, int readLen1, const char *sequence2, int readLen2);
@@ -188,11 +193,18 @@ namespace PreProcessTool {
         string adapter1_;
         string adapter2_;
 
+        int contamNum1_;
+        int contamNum2_;
+        string contam1_[10];
+        string contam2_[10];
+
         string fqFile1_;
         string fqFile2_;
 
-        int misMatch_;  //接头允许错配数
-        float matchRatio_;  //接头比对比列
+        int misMatch_;  //允许错配数
+        float matchRatio1_;  //Adpt最短连续匹配比例
+        float matchRatio2_;  //Contam最短连续匹配比例
+        int minEdge_; //部分比对最短长度
 
         int lowQual_;    //low quality
         float qualRate_;
@@ -265,8 +277,8 @@ namespace PreProcessTool {
         string rawFq2_;
 
         int seqType_;
-        int outType_;
         int polyAType_;
+        int outType_;
     };
 
 }  // namespace PreProcessTool

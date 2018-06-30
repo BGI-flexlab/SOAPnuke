@@ -41,17 +41,21 @@ namespace PreProcessTool {
         cout << "Usage: filter [OPTION]... \n";
         cout << "\t-1, --fq1         FILE      fq1 file\n";
         cout << "\t-2, --fq2         FILE      fq2 file, used to pe\n";
-        cout << "\t  --tile          STR       tile number to ignore reads, such as [1101-1104,1205]\n";
-        cout << "\t  --fov           STR       fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
+        cout << "\t    --tile        STR       tile number to ignore reads, such as [1101-1104,1205]\n";
+        cout << "\t    --fov         STR       fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
         cout << "\n";
         cout << "\t-f, --adapter1    STR       3' adapter sequence of fq1 file\n";
         cout << "\t-r, --adapter2    STR       5' adapter sequence of fq2 file (only for PE reads)\n";
 //      cout << "\t    --cutAdaptor  INT[,INT] cut adaptor sequence, discard the read when the adaptor index of the read is less than INT, cut 3'-end or 5'-end (depend on -f/-r) [50,3]\n";
 //      cout << "\t    --cutAdaptor  INT       cut adaptor sequence, discard the read when the adaptor index of the read is less than INT(depend on -f/-r) [50]\n";
-        cout << "\t-E, --cutAdaptor  INT       cut adaptor sequence\n";
+        cout << "\t-E, --cutAdaptor            cut adaptor sequence instead of filtering the whole read\n";
 //      cout << "\t    --BaseNum     INT       the base number you want to keep in each clean fq file, (depend on --cutAdaptor)\n";
-        cout << "\t-M, --misMatch    INT       the max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
-        cout << "\t    --matchRatio  FLOAT     adapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
+        cout << "\t    --contam1     STR       contaminant sequence(s) for fq1 file, split by comma\n";
+        cout << "\t    --contam2     STR       contaminant sequence(s) for fq2 file, split by comma\n";
+        cout << "\t-M, --misMatch    INT       max mismatch number accepted when matching the adapter/contam [2]\n";
+        cout << "\t    --minEdge     INT       the min length for segmental alignment [7]\n";
+        cout << "\t-A  --matchRatio1 FLOAT     adapter 's shortest consistent matching ratio [0.5]\n";
+        cout << "\t    --matchRatio2 FLOAT     contam 's shortest consistent matching ratio [0.2]\n";
         cout << "\n";
 
         cout << "\t-l, --lowQual     INT       low quality threshold  [5]\n";
@@ -67,14 +71,15 @@ namespace PreProcessTool {
         cout << "\t-c, --cut         FLOAT     the read number you want to keep in each clean fq file, (unit:1024*1024, 0 means not cut reads)\n";
         cout << "\t-t, --trim        INT,INT,INT,INT\n";
         cout << "\t                            trim some bp of the read's head and tail, they means: (read1's head and tail and read2's head and tail  [0,0,0,0]\n";
-        cout << "\t  --trimBadTail   INT,INT   Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
-        cout << "\t  --trimBadHead   INT,INT   Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+        cout << "\t    --trimBadTail INT,INT   trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+        cout << "\t    --trimBadHead INT,INT   trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
         cout << "\n";
 
         cout << "\t-S, --small                 filter the small insert size\n";
         cout << "\t    --overlap     INT       minimun match length (depend on -S)  [10]\n";
         cout << "\t    --mis         FLOAT     the maximum miss match ratio (depend on -S)  [0.1]\n";
         cout << "\n";
+
         cout << "\t-e, --mem         INT       memory limit (MB default: [1024]MB), if rmdup was set, this memory limit has no effect\n";
         cout << "\t-T, --thread      INT       process thread number (default: [2])" << endl;
         cout << "\n";
@@ -99,19 +104,20 @@ namespace PreProcessTool {
         cout << "\t-6, --polyAType   INT       filter poly A type, 0->both two reads are poly a, 1->at least one reads is poly a, then filter  [0]\n";
         cout << "\t-7, --outType:    INT       Add /1, /2 at the end of fastq name, 0:not add, 1:add  [0]\n";
         cout << "\n";
-        cout << "\t  --TtoU                    convert T to U when write data" << endl;
-        cout << "\t  --UtoT                    convert U to T when read data" << endl;
+        cout << "\t    --TtoU                  convert T to U when write data" << endl;
+        cout << "\t    --UtoT                  convert U to T when read data" << endl;
         cout << "\n";
+
         cout << "\t-h, --help                  help" << endl;
         cout << "\t-v, --version               show version" << endl;
     }
 
-    FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), IS_STREAMING(false), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
+    FilterProcessor::FilterProcessor() : PROCESS_THREAD_NUM(2), IS_STREAMING(false), filterTile_(false), tileIsFov_(false), misMatch_(2), matchRatio1_(0.5), matchRatio2_(0.2), minEdge_(7), lowQual_(5),
                                          qualRate_(0.5), nRate_(0.05), polyA_(0), polyX_(0), minMean_(0.0), filterIndex_(false),
                                          rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
                                          memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
                                          mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
-                                         isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),polyAType_(0)
+                                         isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),polyAType_(0),outType_(0),contamNum1_(0),contamNum2_(0)
     {
     }
 
@@ -127,20 +133,24 @@ namespace PreProcessTool {
         UtoT = 0;
         cutAdaptorOri = 3;  //cut sequence from adaptor index
 
-        const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:Eb:x:y:z:hv";
+        const char *shortOptions = "f:r:U:V:1:2:K:F:M:A:B:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:Ga:o:C:D:R:W:5:6:7:Eb:x:y:z:hv";
         const struct option longOptions[] =
                 {
-                        { "adapter1", 1, NULL, 'f' },
-                        { "adapter2", 1, NULL, 'r' },
-                        { "fq1"     , 1, NULL, '1' },
-                        { "fq2"     , 1, NULL, '2' },
-                        { "tile"    , 1, NULL, 'K' },
-                        { "fov"    , 1, NULL, 'F' },
-                        { "misMatch", 1, NULL, 'M' },
-                        { "matchRatio", 1, NULL, 'A' },
-                        { "lowQual" , 1, NULL, 'l' },
-                        { "qualRate", 1, NULL, 'q' },
-                        { "nRate"   , 1, NULL, 'n' },
+                        { "adapter1"  , 1, NULL, 'f' },
+                        { "adapter2"  , 1, NULL, 'r' },
+                        { "contam1"   , 1, NULL, 'U' },
+                        { "contam2"   , 1, NULL, 'V' },
+                        { "fq1"       , 1, NULL, '1' },
+                        { "fq2"       , 1, NULL, '2' },
+                        { "tile"      , 1, NULL, 'K' },
+                        { "fov"       , 1, NULL, 'F' },
+                        { "misMatch"  , 1, NULL, 'M' },
+                        { "matchRatio1", 1, NULL, 'A' },
+                        { "matchRatio2", 1, NULL, 'J' },
+                        { "minEdge"   , 1, NULL, 'B' },
+                        { "lowQual"   , 1, NULL, 'l' },
+                        { "qualRate"  , 1, NULL, 'q' },
+                        { "nRate"     , 1, NULL, 'n' },
                         { "maskLowQual" , 1, NULL, 'N' },
                         { "mean"    , 1, NULL, 'm' },
                         { "polyA"   , 1, NULL, 'p' },
@@ -199,6 +209,9 @@ namespace PreProcessTool {
         size_t i;
         float num;
         string tiles;
+        string contam1;
+        string contam2;
+        int find, found;
 
         while (-1 != (nextOpt = getopt_long(argc, argv, shortOptions, longOptions, NULL)))
         {
@@ -210,6 +223,32 @@ namespace PreProcessTool {
                 case 'r':
                     adapter2_.assign(optarg);
                     break;
+                case 'U':{
+                    contam1.assign(optarg);
+                    contamNum1_ = count(contam1.begin(),contam1.end(),',') + 1;
+                    if (contamNum1_ > 10)
+                        contamNum1_ = 10;
+                    found = -1;
+                    for (int a = 0; a < contamNum1_; a++) {
+                        find = contam1.find_first_of(",", found+1);
+                        contam1_[a] = contam1.substr(found+1, find-found-1);
+                        found = find;
+                    }
+                    break;
+                }
+                case 'V':{
+                    contam2.assign(optarg);
+                    contamNum2_ = count(contam2.begin(),contam2.end(),',') + 1;
+                    if (contamNum2_ > 10)
+                        contamNum2_ = 10;
+                    found = -1;
+                    for (int a = 0; a < contamNum2_; a++) {
+                        find = contam2.find_first_of(",", found+1);
+                        contam2_[a] = contam2.substr(found+1, find-found-1);
+                        found = find;
+                    }
+                    break;
+                }
                 case '1':
                     fqFile1_.assign(optarg);
                     break;
@@ -229,7 +268,13 @@ namespace PreProcessTool {
                     misMatch_ = atoi(optarg);
                     break;
                 case 'A':
-                    matchRatio_ = atof(optarg);
+                    matchRatio1_ = atof(optarg);
+                    break;
+                case 'J':
+                    matchRatio2_ = atof(optarg);
+                    break;
+                case 'B':
+                    minEdge_ = atoi(optarg);
                     break;
                 case 'l':
                     lowQual_ = atoi(optarg);
@@ -1985,6 +2030,20 @@ namespace PreProcessTool {
         if (index1_ >= tailTrimTemp1_)
             sr.hasAdpt = false;
         
+        int i, index3_;
+
+        if (contamNum1_ > 0){
+            for (i = 0; i < contamNum1_; i++){
+                if (!sr.hasAdpt){
+                    index3_ = hasContam(read->baseSequence, strlen(read->baseSequence), contam1_[i].c_str(), contam1_[i].length());
+                    if (index3_ >= 0 && index3_ < (int)strlen(read->baseSequence) - tailTrimTemp1_)
+                        sr.hasAdpt = true;
+                }
+                else
+                    break;
+            }
+        }
+
         if(index1_ != -1 && cutAdaptor){
             int cutLen1_ = strlen(read->baseSequence) - index1_;
             info->totalCutAdaptorNum++;
@@ -2114,6 +2173,31 @@ namespace PreProcessTool {
         if (index2_ >= tailTrimTemp2_)
             sr2.hasAdpt = false;
         
+        int i, index3_, index4_;
+
+        if (contamNum1_ > 0){
+            for (i = 0; i < contamNum1_; i++){
+                if (!sr1.hasAdpt){
+                    index3_ = hasContam(read1->baseSequence, strlen(read1->baseSequence), contam1_[i].c_str(), contam1_[i].length());
+                    if (index3_ >= 0 && index3_ < (int)strlen(read1->baseSequence) - tailTrimTemp1_)
+                        sr1.hasAdpt = true;
+                }
+                else
+                    break;
+            }
+        }
+        if (contamNum2_ > 0){
+            for (i = 0; i < contamNum2_; i++){
+                if (!sr2.hasAdpt){
+                    index4_ = hasContam(read2->baseSequence, strlen(read2->baseSequence), contam2_[i].c_str(), contam2_[i].length());
+                    if (index4_ >= 0 && index4_ < (int)strlen(read2->baseSequence) - tailTrimTemp2_)
+                        sr2.hasAdpt = true;
+                }
+                else
+                    break;
+            }
+        }
+
         if(index1_ != -1 || index2_ != -1){
             int minLen;
             if(index1_ != -1 && index2_ != -1)
@@ -2636,37 +2720,173 @@ namespace PreProcessTool {
 
     int FilterProcessor::hasAdapter(const char *sequence, int readLen, const char *adapter, int adptLen)
     {
-        int r1, mis, misMatchTemp;
-        int left = readLen - adptLen;
+        float misGrad = (adptLen-minEdge_)/(misMatch_+1);
+        int r1, mis, maxSegMatch;
+        int segMatchThr = (int)ceil(adptLen * matchRatio1_);
+        int misMatchTemp, segMatchTemp;
+        int minEdge5 = adptLen - 5;
 
-        for (r1 = 0; r1 <= left; ++r1)
+        for (r1 = 0; r1 < adptLen - minEdge_; ++r1)
         {
-            int mis = 0;
+            mis = 0;
+            maxSegMatch = 0;
+            misMatchTemp = r1/misGrad;
+
+            for (int c = 0; c < r1+minEdge_; ++c)
+            {
+                if (adapter[c] == sequence[readLen-r1-minEdge_+c]){
+                    maxSegMatch++;
+                    if (maxSegMatch >= segMatchThr)
+                        return readLen-r1-minEdge_;
+                }
+                else{
+                    mis++;
+                    maxSegMatch = 0;
+                    if (mis > misMatchTemp)
+                        break;
+                }
+            }
+
+            if (mis <= misMatchTemp)
+                return readLen-r1-minEdge_;
+        }
+
+        for (r1 = 0; r1 <= readLen - adptLen; ++r1)
+        {
+            maxSegMatch = 0;
+            mis = 0;
+
             for (int c = 0; c < adptLen; ++c)
             {
-                if (adapter[c] != sequence[r1 + c])
+                if (adapter[c] == sequence[r1 + c]){
+                    maxSegMatch ++;
+                    if (maxSegMatch >= segMatchThr)
+                        return r1;
+                }
+                else{
                     mis++;
+                    maxSegMatch = 0;
+                    if (mis > misMatch_)
+                        break;
+                }
             }
             if (mis <= misMatch_)
                 return r1;
         }
 
-        int minMatchLen = (int)ceil(adptLen * matchRatio_);
-
-        for (r1 = 1; r1 <= adptLen - minMatchLen + 1; ++r1)
+        for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
         {
             mis = 0;
-            misMatchTemp = misMatch_ - (r1 * (misMatch_ + 1) - 1) / (adptLen - minMatchLen);
-            for (int c = 0; c <= adptLen - r1; ++c)
-            {
-                if (adapter[c] != sequence[left + r1 + c])
-                    mis++;
-            }
+            maxSegMatch = 0;
+            misMatchTemp = r1/misGrad;
 
-           if (mis <= misMatchTemp)
-               return left + r1;
+            for (int c = 0; c < r1+minEdge5; ++c)
+            {
+                if (adapter[adptLen-r1-minEdge5+c] == sequence[c]){
+                    maxSegMatch++;
+                    if (maxSegMatch >= segMatchThr)
+                        return 0;
+                }
+                else{
+                    mis++;
+                    maxSegMatch = 0;
+                    if (mis > misMatchTemp)
+                        break;
+                }
+            }
+            if (mis <= misMatchTemp)
+                return 0;
         }
 
+        return -1;
+    }
+
+    int FilterProcessor::hasContam(const char *sequence, int readLen, const char *contam, int contamLen)
+    {
+        float misGrad = (contamLen-minEdge_)/(misMatch_+1);
+        int r1, mis, maxSegMatch;
+        int segMatchThr = (int)ceil(contamLen * matchRatio2_);
+        float segGrad = (contamLen-minEdge_)/(segMatchThr-7+1); 
+        int misMatchTemp, segMatchTemp;
+
+        for (r1 = 0; r1 < contamLen - minEdge_; ++r1)
+        {
+            mis = 0;
+            maxSegMatch = 0;
+            misMatchTemp = r1/misGrad;
+            segMatchTemp = 7 + r1/segGrad;
+
+            for (int c = 0; c < r1+minEdge_; ++c)
+            {
+                if (contam[contamLen-r1-minEdge_+c] == sequence[c]){
+                    maxSegMatch++;
+                    if (maxSegMatch >= segMatchTemp)
+                        return 0;
+                }
+                else{
+                    if (sequence[c] != 'N'){
+                        mis++;
+                        maxSegMatch = 0;
+                        if (mis > misMatchTemp)
+                            break;
+                    }
+                }
+            }
+            if (mis <= misMatchTemp)
+                return 0;
+        }
+
+        for (r1 = 0; r1 <= readLen - contamLen; ++r1)
+        {
+            maxSegMatch = 0;
+            mis = 0;
+
+            for (int c = 0; c < contamLen; ++c)
+            {
+                if (contam[c] == sequence[r1 + c]){
+                    maxSegMatch ++;
+                    if (maxSegMatch >= segMatchThr)
+                        return r1;
+                }
+                else{
+                    if (sequence[r1 + c] != 'N'){
+                        mis++;
+                        maxSegMatch = 0;
+                        if (mis > misMatch_)
+                            break;
+                    }
+                }
+            }
+            if (mis <= misMatch_)
+                return r1;
+        }
+
+        for (r1 = 0; r1 < contamLen - minEdge_; ++r1)
+        {
+            mis = 0;
+            maxSegMatch = 0;
+            misMatchTemp = r1/misGrad;
+            segMatchTemp = 7 + r1/segGrad;
+
+            for (int c = 0; c < r1+minEdge_; ++c)
+            {
+                if (contam[c] == sequence[readLen-r1-minEdge_+c]){
+                    maxSegMatch++;
+                    if (maxSegMatch >= segMatchTemp)
+                        return readLen-r1-minEdge_;
+                }
+                else{
+                    if (sequence[readLen-r1-minEdge_+c] != 'N'){
+                        mis++;
+                        maxSegMatch = 0;
+                        if (mis > misMatchTemp)
+                            break;
+                    }
+                }
+            }
+            if (mis <= misMatchTemp)
+                return readLen-r1-minEdge_;
+        }
         return -1;
     }
 
