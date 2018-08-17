@@ -1,16 +1,16 @@
 args <- commandArgs(TRUE)
 if(length(args) != 6){
-	cat ("Usage:\n\tRscript quality.R <Base_quality_value_distribution_by_read_position_1.txt> <Base_quality_value_distribution_by_read_position_2.txt> <output raw png file> <output clean png file> <read1 trim> <read2 trim>\n")
-	q(save="no")
+    cat ("Usage:\n\tRscript quality.R <Base_quality_value_distribution_by_read_position_1.txt> <Base_quality_value_distribution_by_read_position_2.txt> <output raw png file> <output clean png file> <read1 trim> <read2 trim>\n")
+    q(save="no")
 }
 line1 <- as.numeric(system(paste("wc -l ",args[[1]],"|awk '{print $1}'"),intern=T))
-line1 <- (line1+as.numeric(args[[5]])-3)/2
-rawrt1 <- read.table(args[[1]],skip=1,nrows=line1)
-cleanrt1 <- read.table(args[[1]],skip=line1+3)
+line1 <- (line1+as.numeric(args[[5]])-4)/2
+rawrt1 <- read.table(args[[1]],skip=2,nrows=line1)
+cleanrt1 <- read.table(args[[1]],skip=line1+4)
 line2 <- as.numeric(system(paste("wc -l ",args[[2]],"|awk '{print $1}'"),intern=T))
-line2 <- (line2+as.numeric(args[[6]])-3)/2
-rawrt2 <- read.table(args[[2]],skip=1,nrows=line2)
-cleanrt2 <- read.table(args[[2]],skip=line2+3)
+line2 <- (line2+as.numeric(args[[6]])-4)/2
+rawrt2 <- read.table(args[[2]],skip=2,nrows=line2)
+cleanrt2 <- read.table(args[[2]],skip=line2+4)
 rawrt1 <- rev(rawrt1)
 cleanrt1 <- rev(cleanrt1)
 rawrt2 <- rev(rawrt2)
@@ -60,3 +60,4 @@ mtext(seq(0,40,10),side=2,las=1,at=seq(0,40,10),line=0.3,cex=1.5)
 mtext("Position along reads",side=1, line=2, at=(line1+line2-as.numeric(args[[5]])-as.numeric(args[[6]]))/2, cex=1.5)
 mtext("Quality",side=2, line=2.5, at=21, cex=1.5)
 d <- dev.off()
+

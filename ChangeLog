@@ -90,3 +90,33 @@ SOAPnuke Change Log
 	* CMake已无需手动修改CMakeList，可自动在环境变量中查找所需库文件
 	* 增加Python脚本辅助完成Streaming处理
 	* 增加QC结果文件的画图脚本
+
+2018-4-11 <chenyuxin@genomics.cn>
+	* 版本升级为1.6.3
+	* 修复了outType和Rmdup的不兼容问题
+	* 修复了同时进行Adapter切除和长度过滤时引发的问题
+	* 添加了PolyX过滤功能
+
+2018-4-23 <chenyuxin@genomics.cn>
+	* 版本升级为1.6.4
+	* 完善了CMakeList
+	* 添加了Trimming位置分布的QC结果
+	* 优化了Trimming算法
+	* 修复了大多数编译时的wanrning
+
+2018-6-30 <chenyuxin@genomics.cn>
+	* 版本升级为1.6.5
+	* 给sRNA模块添加了低质量值过滤功能
+	* 修复了Adapter过滤的bug
+	* 添加了污染物过滤功能
+
+2018-8-17 <chenyuxin@genomics.cn>
+	* 版本升级为2.0 beta
+	* 保留了之前的filter，filterMeta和filtersRNA模块，删除了filterDGE模块，如有需求，后续添加。
+	* 统一了模块间的运行逻辑，除了adapter检测部分的算法差异，其它类似。主要步骤包括统计原始数据，过滤原始数据，统计过滤后的原始数据。
+	* 整合了模块间的参数，默认值主要继承了filter模块，所以在使用其它模块时，留意按需调整，可以参考参数说明文档。
+	* filter和filterMeta支持单端测序（SE）和双端测序（PE）数据，filtersRNA支持SE数据。
+	* filter和filterMeta模块的adapter检测算法做了更新
+	* 有两种运行模式：ssd和非ssd模式。当存储类型为高速IO（如固态硬盘）时，可以选择ssd模式，从而加速程序运行周期，该模式下会产生临时文件，运行结束后自动删除。默认为非ssd模式。
+	* 去除了rmdup去重复功能
+	* 当增加线程数时，运行效率得到显著提升。1.3G reads（PE50）在非ssd模式16线程下运行时间为70min左右

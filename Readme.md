@@ -1,5 +1,9 @@
 ## Getting started
+	For 2.X:
+	make
+	./SOAPnuke
 
+	For 1.X:
 	# Make sure libraries like boost, zlib, log4cplus (1.0.3), openssl have been installed.
 	git clone https://github.com/BGI-flexlab/SOAPnuke.git
 	cd SOAPnuke/src
