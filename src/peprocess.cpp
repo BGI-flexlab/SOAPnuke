@@ -835,8 +835,8 @@ void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	a.tail_lqcut=-1;
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
-	b.tail_hdcut=-1;
-	b.tail_lqcut=-1;
+	b.head_hdcut=-1;
+	b.head_lqcut=-1;
 	b.tail_hdcut=-1;
 	b.tail_lqcut=-1;
 	b.adacut_pos=-1;
