@@ -134,7 +134,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
             exit(1);
         }
         for(int j=0;j!=8;j++){
-            return_value.read_fov.insert(gp.fov.end(),fq_read.seq_id[i+j]);
+            return_value.read_fov.insert(return_value.read_fov.end(),fq_read.seq_id[i+j]);
         }
         if(return_value.read_fov.size()!=8){
         	cerr<<"Warning:input fastq maybe not include fov information\n"<<endl;
