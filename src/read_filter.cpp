@@ -286,7 +286,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 		ht_flag=1;
 	if(!low_qual_head_trim.empty() && !low_qual_tail_trim.empty())
 		lqt_flag=1;
-	if(!gp.index_remove)
+	if(gp.index_remove)
 		index_flag=1;
 	if(gp.adapter_discard_or_trim=="trim")
 		ada_trim_flag=1;
@@ -299,7 +299,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			if(gp.seq_type=="0"){
 			/* old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
         cout << "\t                                  new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
-        */
+        */	
                 read.seq_id=read.seq_id.substr(0,read.seq_id.find("#")-0);
             }else{
             	read.seq_id=read.seq_id.substr(0,read.seq_id.find_last_of("#")-0);

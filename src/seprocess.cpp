@@ -540,6 +540,9 @@ void seProcess::seWrite(vector<C_fastq>& pe1,string type,gzFile out1){
 	}
 }
 void seProcess::C_fastq_init(C_fastq& a){
+	a.seq_id="";
+	a.sequence="";
+	a.qual_seq="";
 	a.adapter_seq=gp.adapter1_seq;
 	a.contam_seq=gp.contam1_seq;
 	a.head_hdcut=-1;
@@ -612,6 +615,7 @@ int seProcess::read_gz(vector<C_fastq>& pe1){
 	}
 }
 void* seProcess::sub_thread_nonssd(int index){
+	/*
 	se_local_fs[index]=C_filter_stat();
 	se_local_raw_stat1[index]=C_fastq_file_stat();
 	if(!gp.trim_fq1.empty()){
@@ -620,6 +624,7 @@ void* seProcess::sub_thread_nonssd(int index){
 	if(!gp.clean_fq1.empty()){
 		se_local_clean_stat1[index]=C_fastq_file_stat();
 	}
+	*/
 	vector<C_fastq> fq1s;
 	vector<C_fastq> trim_result1,clean_result1;
 	int done(0);
@@ -684,9 +689,11 @@ void* seProcess::sub_thread_nonssd(int index){
 			break;
 		}
 		if(gp.is_streaming){
+			/*
 			se_local_fs[index]=C_filter_stat();
 			se_local_raw_stat1[index]=C_fastq_file_stat();
 			se_local_clean_stat1[index]=C_fastq_file_stat();
+			*/
 		}
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
@@ -708,6 +715,7 @@ void* seProcess::sub_thread(SEthreadOpt opt){
 		gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
 		gzbuffer(gz_clean_out1[index],1024*1024*160);
 	}
+	/*
 	se_local_fs[index]=C_filter_stat();
 	se_local_raw_stat1[index]=C_fastq_file_stat();
 	if(!gp.trim_fq1.empty()){
@@ -716,6 +724,7 @@ void* seProcess::sub_thread(SEthreadOpt opt){
 	if(!gp.clean_fq1.empty()){
 		se_local_clean_stat1[index]=C_fastq_file_stat();
 	}
+	*/
 	for(vector<string>::iterator ix=opt.files.begin();ix!=opt.files.end();ix++){
 		ifstream fp1((*ix).c_str());
 		int done=0;
@@ -773,9 +782,11 @@ void* seProcess::sub_thread(SEthreadOpt opt){
 			if(done==1)
 				break;
 			if(gp.is_streaming){
+				/*
 				se_local_fs[index]=C_filter_stat();
 				se_local_raw_stat1[index]=C_fastq_file_stat();
 				se_local_clean_stat1[index]=C_fastq_file_stat();
+				*/
 			}
 		}
 		fp1.close();
