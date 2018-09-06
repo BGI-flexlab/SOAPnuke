@@ -7,6 +7,10 @@
 #include <mutex>
 #include <queue>
 #include <thread>
+#include <sys/types.h>
+#include <sys/stat.h>
+#include <fcntl.h>
+#include <sys/mman.h>
 #include "process_argv.h"
 #include "global_parameter.h"
 #include "global_variable.h"
@@ -39,7 +43,7 @@ public:
 	void update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s_stat,C_filter_stat& fs_stat,string type);
 	void* stat_pe_fqs(PEstatOption opt);
 	void* filter_pe_fqs(PEcalOption opt);
-	void* sub_thread(PEthreadOpt opt);
+	void* sub_thread(int index);
 	int read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,ifstream& infile2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2);
 	//void peRead();
@@ -48,7 +52,7 @@ public:
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
 	void peWrite(int num);
-	void run_pigz_split(int type);
+	void run_pigz(int type);
 	void get_line_number(int* line_num);
 	void merge_stat();
 	void merge_data();
@@ -58,6 +62,7 @@ public:
 	int read_gz(vector<C_fastq>& pe1,vector<C_fastq>& pe2);
 	void merge_stat_nonssd();
 	void peStreaming_stat(C_global_variable& local_gv);
+	void* gzread_(int index,gzFile a);
 	//void peOutput(outputOption opt);
 public:
 	C_global_parameter gp;
@@ -77,6 +82,10 @@ public:
 	gzFile gz_clean_out1[max_thread],gz_clean_out2[max_thread];
 	gzFile gz_trim_out1_nonssd,gz_trim_out2_nonssd,gz_clean_out1_nonssd,gz_clean_out2_nonssd;
 	ofstream of_log;
+	off_t t_start_pos[max_thread];
+	off_t t_end_pos[max_thread];
+	char* src1,*src2;
+	int fq1fd,fq2fd;
 private:
 	vector<C_fastq> fq1s,fq2s;
 	vector<C_fastq> trim_output_fq1,trim_output_fq2;
