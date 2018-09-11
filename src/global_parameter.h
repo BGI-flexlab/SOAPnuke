@@ -1,6 +1,7 @@
 #ifndef _GLOBAL_PARAMETER_H
 #define _GLOBAL_PARAMETER_H
 #include <string>
+#include <functional>
 using namespace::std;
 class C_global_parameter{
 //common parameter
