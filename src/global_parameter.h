@@ -8,13 +8,13 @@ class C_global_parameter{
 public:
 	/*
 	PROCESS_THREAD_NUM(2), IS_STREAMING(false), filterTile_(false), tileIsFov_(false), misMatch_(1), matchRatio_(0.5), lowQual_(5),
-                                         qualRate_(0.5), nRate_(0.05), polyA_(0), polyX_(0), minMean_(0.0), filterIndex_(false),
+                                         qualRate_(0.5), nRate_(0.05), highA_(0), polyX_(0), minMean_(0.0), filterIndex_(false),
                                          rmdup_(false), dupRateOnly_(false), cutReadNum_(0), headTrim_(0), tailTrim_(0), headTrim2_(0), tailTrim2_(0),
                                          memLimit_(700 * MEM_UNIT), qualSys_(ILLUMINA_), isFilterSmallInsertSize_(false), overlap_(10),
                                          mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
-                                         isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),polyAType_(0)
+                                         isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),highAType_(0)
 	*/
-	C_global_parameter():is_streaming(false),total_reads_num(-1),seq_type("0"),index_remove(false),qualityPhred(64),outputQualityPhred(64),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),polyA_ratio(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),adaMis(2),adaMR(0.5),ctMatchR(0.2),adaEdge(7),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),output_reads_num(0),threads_num(4),patchSize(400000),split_line(10000000),mode("nonssd"){};
+	C_global_parameter():is_streaming(false),total_reads_num(-1),seq_type("0"),index_remove(false),qualityPhred(64),outputQualityPhred(64),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),highA_ratio(-1),polyG_tail(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),adaMis(2),adaMR(0.5),ctMatchR(0.2),adaEdge(7),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),output_reads_num(0),threads_num(4),patchSize(400000),split_line(10000000),mode("nonssd"){};
 	C_global_parameter(int argc,char* argv[]);
 
 	string mode;
@@ -50,7 +50,7 @@ public:
 	int meanQuality;
 	string trimBadHead,trimBadTail;
 	//base content
-	float n_ratio,polyA_ratio;
+	float n_ratio,highA_ratio,polyG_tail;
 	int polyX_num;
 	string trim;	//pe trim and se trim
 	string base_convert;

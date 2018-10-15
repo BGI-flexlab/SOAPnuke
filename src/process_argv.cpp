@@ -38,7 +38,7 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:X:t:B:O:P:7e:T:6:3:4:c:M:A:S:s:U:u:b:0:hv";
+    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:M:A:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
@@ -77,7 +77,8 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     { "trimBadTail" , 1, NULL, 'y' },
                     //base content
                     { "nRate"   , 1, NULL, 'n' },
-                    { "polyA"   , 1, NULL, 'p' },
+                    { "highA"   , 1, NULL, 'p' },
+                    { "polyG_tail"   , 1, NULL, 'g' },
                     { "polyX"   , 1, NULL, 'X' },
                     { "trim"    , 1, NULL, 't' },
                     //  { "TtoU" , 0, &TtoU, 1 },
@@ -172,7 +173,8 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
             case 'x':gp.trimBadHead.assign(optarg);break;
             case 'y':gp.trimBadTail.assign(optarg);break;
             case 'n':gp.n_ratio=atof(optarg);break;
-            case 'p':gp.polyA_ratio=atof(optarg);break;
+            case 'p':gp.highA_ratio=atof(optarg);break;
+            case 'g':gp.polyG_tail=atof(optarg);break;
             case 'X':gp.polyX_num=atof(optarg);break;
             case 't':gp.trim.assign(optarg);break;
             case 'B':gp.base_convert.assign(optarg);break;
@@ -463,8 +465,9 @@ void printUsage(string c_module){
     cout << "\t-n, --nRate\t\tFLOAT\t\tN rate threshold  [0.05]\n";
     //cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
     cout << "\t-m, --mean\t\tFLOAT\t\tfilter reads with low average quality\n";
-    cout << "\t-p, --polyA\t\tFLOAT\t\tfilter reads if ratio of A in a read exceed [FLOAT], 0 means no filtering [0]\n";
-    cout << "\t-X, --polyX\t\tINT\t\tfilter reads if a read contains polyX longer than [INT], 0 means no filtering [0]\n";
+    cout << "\t-p, --highA\t\tFLOAT\t\tfilter reads if ratio of A in a read exceed [FLOAT]\n";
+    cout << "\t-g, --polyG_tail\tFLOAT\t\tfilter reads if found polyG in tail [INT]\n";
+    cout << "\t-X, --polyX\t\tINT\t\tfilter reads if a read contains polyX [INT]\n";
     //cout << "\t-d, --rmdup                 remove PCR duplications\n";
     //cout << "\t-3, --dupRate               keep PCR duplicated reads and calculate duplications rate\n";
     cout << "\t-i, --index\t\t\t\tremove index\n";
@@ -479,7 +482,7 @@ void printUsage(string c_module){
     cout << "\t-O, --overlap\t\tINT\t\tfilter the small insert size.Not filter until the value exceed 1[-1]\n";
     cout << "\t-P, --mis\t\tFLOAT\t\tthe maximum mismatch ratio when find overlap between PE reads(depend on -O)[0.1]\n";
     cout << "\n";
-    cout << "\t-6, --split_line\tINT\t\tsplit raw fastq by <split_line>, default 10M reads per file (if ssd mode is open)\n";
+    //cout << "\t-6, --split_line\tINT\t\tsplit raw fastq by <split_line>, default 10M reads per file (if ssd mode is open)\n";
     cout << "\t-e, --patch\t\tINT\t\treads number of a patch processed[400000]\n";
     cout << "\t-T, --thread\t\tINT\t\tprocess thread number[4]" << endl;
     cout << "\n";
@@ -499,7 +502,7 @@ void printUsage(string c_module){
     cout << "\t-h, --help\t\t\t\thelp" << endl;
     cout << "\t-v, --version\t\t\t\tshow version" << endl;
     if(c_module=="filter"){
-        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01 -Q 1 -G 1 -M 2 --adaMR 0.5 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 16 -e 300000"<<endl;
+        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01 -Q 1 -G 1 -M 2 --adaMR 0.5 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 16"<<endl;
     }
     exit(1);
 }

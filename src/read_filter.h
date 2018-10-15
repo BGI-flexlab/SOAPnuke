@@ -15,6 +15,7 @@ string reversecomplementary(string a);
 C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp);
 bool whether_over_overlapped(C_fastq fastq1,C_fastq fastq2,C_global_parameter& gp);
 void fastq_trim(C_fastq& read,C_global_parameter& gp);
+int polyG_number(string& ref_sequence);
 int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp);
 int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp);
 int sRNA_findAdapter(string sequence,string adapter,C_global_parameter& gp);

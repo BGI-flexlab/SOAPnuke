@@ -228,6 +228,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 			}
 		}
 	}
+
 	return_value.contig_base=max_contig;
 	return_value.a_ratio=float(return_value.a_num)/(fq_read.sequence).size();
 	return_value.c_ratio=float(return_value.c_num)/(fq_read.sequence).size();
@@ -292,7 +293,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 		ada_trim_flag=1;
 	if(gp.contam_discard_or_trim=="trim")
 		contam_trim_flag=1;
-	if(!ht_flag && !lqt_flag && !index_flag && !ada_trim_flag && !contam_trim_flag){
+	if(!ht_flag && !lqt_flag && !index_flag && !ada_trim_flag && !contam_trim_flag && gp.polyG_tail==-1){
 		return;
 	}else{
 		if(index_flag){	//remove index. Code is similar to SOAP nuke
@@ -365,9 +366,29 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut)
 				tail_cut=read.sequence.size()-read.contam_pos;
 		}
+		if(gp.polyG_tail!=-1){
+			int polyG_n=polyG_number(read.sequence);
+			if(polyG_n>=gp.polyG_tail){
+				if(polyG_n>tail_cut){
+					tail_cut=polyG_n;
+				}
+			}
+		}
 		read.sequence=read.sequence.substr(head_cut,read.sequence.size()-head_cut-tail_cut);
 		read.qual_seq=read.qual_seq.substr(head_cut,read.qual_seq.size()-head_cut-tail_cut);
+
 	}
+}
+int polyG_number(string& ref_sequence){
+	int polyG_tail_number(0);
+	for(int i=ref_sequence.size()-1;i>=0;i--){
+		if(ref_sequence[i]=='G' || ref_sequence[i]=='g'){
+			polyG_tail_number++;
+		}else{
+			break;
+		}
+	}
+	return polyG_tail_number;
 }
 int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp){
 	int readLen=ref_sequence.size();

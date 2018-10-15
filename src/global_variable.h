@@ -9,15 +9,17 @@ using namespace::std;
 #define MIN_QUAL -10
 class C_filter_stat{
 public:
-	C_filter_stat():output_reads_num(0),in_adapter_list_num(0),include_adapter_seq_num(0),include_contam_seq_num(0),n_ratio_num(0),polyA_num(0),polyX_num(0),tile_num(0),fov_num(0),low_qual_base_ratio_num(0),mean_quality_num(0),short_len_num(0),long_len_num(0),over_lapped_num(0),no_3_adapter_num(0),int_insertNull_num(0),include_adapter_seq_num1(0),include_adapter_seq_num2(0),include_adapter_seq_num_overlap(0),include_contam_seq_num1(0),include_contam_seq_num2(0),include_contam_seq_num_overlap(0),n_ratio_num1(0),n_ratio_num2(0),n_ratio_num_overlap(0),polyA_num1(0),polyA_num2(0),polyA_num_overlap(0),polyX_num1(0),polyX_num2(0),polyX_num_overlap(0),low_qual_base_ratio_num1(0),low_qual_base_ratio_num2(0),low_qual_base_ratio_num_overlap(0),mean_quality_num1(0),mean_quality_num2(0),mean_quality_num_overlap(0),short_len_num1(0),short_len_num2(0),short_len_num_overlap(0),long_len_num1(0),long_len_num2(0),long_len_num_overlap(0){};
+	C_filter_stat():output_reads_num(0),in_adapter_list_num(0),include_adapter_seq_num(0),include_contam_seq_num(0),n_ratio_num(0),highA_num(0),polyX_num(0),tile_num(0),fov_num(0),low_qual_base_ratio_num(0),mean_quality_num(0),short_len_num(0),long_len_num(0),over_lapped_num(0),no_3_adapter_num(0),int_insertNull_num(0),include_adapter_seq_num1(0),include_adapter_seq_num2(0),include_adapter_seq_num_overlap(0),include_contam_seq_num1(0),include_contam_seq_num2(0),include_contam_seq_num_overlap(0),n_ratio_num1(0),n_ratio_num2(0),n_ratio_num_overlap(0),highA_num1(0),highA_num2(0),highA_num_overlap(0),polyX_num1(0),polyX_num2(0),polyX_num_overlap(0),low_qual_base_ratio_num1(0),low_qual_base_ratio_num2(0),low_qual_base_ratio_num_overlap(0),mean_quality_num1(0),mean_quality_num2(0),mean_quality_num_overlap(0),short_len_num1(0),short_len_num2(0),short_len_num_overlap(0),long_len_num1(0),long_len_num2(0),long_len_num_overlap(0){};
 	int output_reads_num;
 	int in_adapter_list_num;
 	int include_adapter_seq_num,include_adapter_seq_num1,include_adapter_seq_num2,include_adapter_seq_num_overlap;
 	int include_contam_seq_num,include_contam_seq_num1,include_contam_seq_num2,include_contam_seq_num_overlap;
 	int n_ratio_num,n_ratio_num1,n_ratio_num2,n_ratio_num_overlap;
-	int polyA_num,polyX_num;
-	int polyA_num1,polyA_num2,polyA_num_overlap;
+	int highA_num,polyX_num;
+	int highA_num1,highA_num2,highA_num_overlap;
 	int polyX_num1,polyX_num2,polyX_num_overlap;
+	int polyG_num;
+	int polyG_num1,polyG_num2,polyG_num_overlap;
 	int tile_num,fov_num;
 	int low_qual_base_ratio_num,low_qual_base_ratio_num1,low_qual_base_ratio_num2,low_qual_base_ratio_num_overlap;
 	int mean_quality_num,mean_quality_num1,mean_quality_num2,mean_quality_num_overlap;

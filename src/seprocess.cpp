@@ -62,15 +62,53 @@ void seProcess::print_stat(){
 		exit(1);
 	}
 	of_filter_stat<<"Item\tTotal\tPercentage"<<endl;
-	int total_filter_fq1_num=gv.fs.output_reads_num+gv.fs.include_contam_seq_num+gv.fs.include_adapter_seq_num+gv.fs.n_ratio_num+gv.fs.polyA_num+gv.fs.tile_num+gv.fs.low_qual_base_ratio_num+gv.fs.mean_quality_num+gv.fs.short_len_num;
+	vector<string> filter_items;
+	filter_items.push_back("Reads limited to output number");
+	filter_items.push_back("Reads with filtered tile");
+	filter_items.push_back("Reads with filtered fov");
+	filter_items.push_back("Reads too short");
+	filter_items.push_back("Reads too long");
+	filter_items.push_back("Reads with contam sequence");
+	filter_items.push_back("Reads with n rate exceed");
+	filter_items.push_back("Reads with highA");
+	filter_items.push_back("Reads with polyX");
+	filter_items.push_back("Reads with low quality");
+	filter_items.push_back("Reads with low mean quality");
+	filter_items.push_back("Reads with adapter");
+
+	map<string,unsigned long long> filter_number;
+	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
+	filter_number["Reads too short"]=gv.fs.short_len_num;
+	filter_number["Reads with adapter"]=gv.fs.include_adapter_seq_num;
+	filter_number["Reads with low quality"]=gv.fs.low_qual_base_ratio_num;
+	filter_number["Reads with low mean quality"]=gv.fs.mean_quality_num;
+	filter_number["Reads with n rate exceed"]=gv.fs.n_ratio_num;
+	filter_number["Reads with highA"]=gv.fs.highA_num;
+	filter_number["Reads with polyX"]=gv.fs.polyX_num;
+	filter_number["Reads with filtered tile"]=gv.fs.tile_num;
+	filter_number["Reads with filtered fov"]=gv.fs.fov_num;
+	filter_number["Reads too long"]=gv.fs.long_len_num;
+	filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
+	unsigned long long total_filter_fq1_num=0;
+	for(map<string,unsigned long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
+		total_filter_fq1_num+=ix->second;
+	}
+	//int total_filter_fq1_num=gv.fs.output_reads_num+gv.fs.include_contam_seq_num+gv.fs.include_adapter_seq_num+gv.fs.n_ratio_num+gv.fs.highA_num+gv.fs.tile_num+gv.fs.low_qual_base_ratio_num+gv.fs.mean_quality_num+gv.fs.short_len_num;
 	of_filter_stat<<setiosflags(ios::fixed);
 	of_filter_stat<<"Total filtered read pair number\t"<<total_filter_fq1_num<<"\t100.00%"<<endl;
-	of_filter_stat<<"Reads too short\t\t\t"<<gv.fs.short_len_num<<"\t";
+	for(vector<string>::iterator ix=filter_items.begin();ix!=filter_items.end();ix++){
+		if(filter_number[*ix]>0){
+			of_filter_stat<<*ix<<"\t"<<filter_number[*ix]<<"\t";
+			of_filter_stat<<setprecision(2)<<100*(float)filter_number[*ix]/total_filter_fq1_num<<"%"<<endl;
+		}
+	}
+	/*of_filter_stat<<"Reads too short\t\t\t"<<gv.fs.short_len_num<<"\t";
 	if(total_filter_fq1_num==0){
 		of_filter_stat<<"0%"<<"\t\t";
 	}else{
 		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.short_len_num/total_filter_fq1_num<<"%"<<endl;
 	}
+	of_filter_stat<<"Reads with contam sequence\t"<<gv.fs.include_contam_seq_num<<"\t";
 	if(gv.fs.include_contam_seq_num==0){
 		of_filter_stat<<"0%"<<endl;
 	}else{
@@ -107,35 +145,56 @@ void seProcess::print_stat(){
 	}else{
 		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.over_lapped_num/total_filter_fq1_num<<"%"<<endl;
 	}
-	of_filter_stat<<"Reads with PolyA\t"<<gv.fs.polyA_num<<"\t";
+	of_filter_stat<<"Reads with highA\t"<<gv.fs.highA_num<<"\t";
 	if(gv.fs.include_adapter_seq_num==0){
 		of_filter_stat<<"0%"<<endl;
 	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.polyA_num/total_filter_fq1_num<<"%"<<endl;
+		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.highA_num/total_filter_fq1_num<<"%"<<endl;
 	}
 	of_filter_stat.close();
-
+	*/
 	of_general_stat<<"Item\traw reads(fq1)\tclean reads(fq1)"<<endl;
+
 	float raw1_rl(0),clean1_rl(0);
-	if(gv.raw1_stat.gs.reads_number!=0)
+	char filter_r1_ratio[100];
+	char raw_r1[7][100];
+	char clean_r1[7][100];
+	if(gv.raw1_stat.gs.reads_number!=0){
 		raw1_rl=(float)gv.raw1_stat.gs.base_number/gv.raw1_stat.gs.reads_number;
-	if(gv.clean1_stat.gs.reads_number!=0)
+		sprintf(filter_r1_ratio,"%.2f",100*(float)total_filter_fq1_num/gv.raw1_stat.gs.reads_number);
+		sprintf(raw_r1[0],"%.2f",100*(float)gv.raw1_stat.gs.a_number/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[1],"%.2f",100*(float)gv.raw1_stat.gs.c_number/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[2],"%.2f",100*(float)gv.raw1_stat.gs.g_number/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[3],"%.2f",100*(float)gv.raw1_stat.gs.t_number/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[4],"%.2f",100*(float)gv.raw1_stat.gs.n_number/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[5],"%.2f",100*(float)gv.raw1_stat.gs.q20_num/gv.raw1_stat.gs.base_number);
+		sprintf(raw_r1[6],"%.2f",100*(float)gv.raw1_stat.gs.q30_num/gv.raw1_stat.gs.base_number);
+	}
+	if(gv.clean1_stat.gs.reads_number!=0){
 		clean1_rl=(float)gv.clean1_stat.gs.base_number/gv.clean1_stat.gs.reads_number;
+		sprintf(clean_r1[0],"%.2f",100*(float)gv.clean1_stat.gs.a_number/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[1],"%.2f",100*(float)gv.clean1_stat.gs.c_number/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[2],"%.2f",100*(float)gv.clean1_stat.gs.g_number/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[3],"%.2f",100*(float)gv.clean1_stat.gs.t_number/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[4],"%.2f",100*(float)gv.clean1_stat.gs.n_number/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[5],"%.2f",100*(float)gv.clean1_stat.gs.q20_num/gv.clean1_stat.gs.base_number);
+		sprintf(clean_r1[6],"%.2f",100*(float)gv.clean1_stat.gs.q30_num/gv.clean1_stat.gs.base_number);
+	}
 	of_general_stat<<setiosflags(ios::fixed)<<setprecision(1)<<"Read length\t"<<raw1_rl<<"\t"<<clean1_rl<<endl;
-	of_general_stat<<"Total number of reads\t"<<setprecision(15)<<gv.raw1_stat.gs.reads_number<<"\t"<<gv.clean1_stat.gs.reads_number<<"\t"<<endl;
-	of_general_stat<<"Number of filtered reads\t"<<total_filter_fq1_num<<"\t-"<<endl;
-	
-	of_general_stat<<"Total number of bases\t"<<setprecision(15)<<gv.raw1_stat.gs.base_number<<"\t"<<gv.clean1_stat.gs.base_number<<"\t"<<endl;
-	of_general_stat<<"Number of filtered bases\t"<<setprecision(15)<<(float)total_filter_fq1_num*(float)gv.raw1_stat.gs.read_length<<"\t-"<<endl;
-	of_general_stat<<"Number of base A\t"<<setprecision(15)<<gv.raw1_stat.gs.a_number<<"\t"<<gv.clean1_stat.gs.a_number<<"\t"<<endl;
-	of_general_stat<<"Number of base C\t"<<setprecision(15)<<gv.raw1_stat.gs.c_number<<"\t"<<gv.clean1_stat.gs.c_number<<"\t"<<endl;
-	of_general_stat<<"Number of base G\t"<<setprecision(15)<<gv.raw1_stat.gs.g_number<<"\t"<<gv.clean1_stat.gs.g_number<<"\t"<<endl;
-	of_general_stat<<"Number of base T\t"<<setprecision(15)<<gv.raw1_stat.gs.t_number<<"\t"<<gv.clean1_stat.gs.t_number<<"\t"<<endl;
-	of_general_stat<<"Number of base N\t"<<setprecision(15)<<gv.raw1_stat.gs.n_number<<"\t"<<gv.clean1_stat.gs.n_number<<"\t"<<endl;
-	of_general_stat<<"Q20 number\t"<<setprecision(15)<<gv.raw1_stat.gs.q20_num<<"\t"<<gv.clean1_stat.gs.q20_num<<endl;
-	of_general_stat<<"Q20 ratio\t"<<setprecision(4)<<(float)gv.raw1_stat.gs.q20_num/gv.raw1_stat.gs.base_number<<"\t"<<(float)gv.clean1_stat.gs.q20_num/gv.clean1_stat.gs.base_number<<"\t"<<endl;
-	of_general_stat<<"Q30 number\t"<<setprecision(15)<<gv.raw1_stat.gs.q30_num<<"\t"<<gv.clean1_stat.gs.q30_num<<"\t"<<endl;
-	of_general_stat<<"Q30 ratio\t"<<setprecision(4)<<(float)gv.raw1_stat.gs.q30_num/gv.raw1_stat.gs.base_number<<"\t"<<(float)gv.clean1_stat.gs.q30_num/gv.clean1_stat.gs.base_number<<"\t"<<endl;
+	of_general_stat<<"Total number of reads\t"<<setprecision(15)<<gv.raw1_stat.gs.reads_number<<" (100.00%)\t"<<gv.clean1_stat.gs.reads_number<<" (100.00%)"<<endl;
+	of_general_stat<<"Number of filtered reads\t"<<total_filter_fq1_num<<" ("<<filter_r1_ratio<<"%)\t-"<<endl;
+	unsigned long long filter_base1=total_filter_fq1_num*gv.raw1_stat.gs.read_length;
+	of_general_stat<<"Total number of bases\t"<<setprecision(15)<<gv.raw1_stat.gs.base_number<<" (100.00%)\t"<<gv.clean1_stat.gs.base_number<<" (100.00%)"<<endl;
+	of_general_stat<<"Number of filtered bases\t"<<setprecision(15)<<filter_base1<<" ("<<filter_r1_ratio<<"%)\t-"<<endl;
+	of_general_stat<<"Number of base A\t"<<setprecision(15)<<gv.raw1_stat.gs.a_number<<" ("<<raw_r1[0]<<"%)\t"<<gv.clean1_stat.gs.a_number<<" ("<<clean_r1[0]<<"%)\t"<<endl;
+	of_general_stat<<"Number of base C\t"<<setprecision(15)<<gv.raw1_stat.gs.c_number<<" ("<<raw_r1[1]<<"%)\t"<<gv.clean1_stat.gs.c_number<<" ("<<clean_r1[1]<<"%)\t"<<endl;
+	of_general_stat<<"Number of base G\t"<<setprecision(15)<<gv.raw1_stat.gs.g_number<<" ("<<raw_r1[2]<<"%)\t"<<gv.clean1_stat.gs.g_number<<" ("<<clean_r1[2]<<"%)\t"<<endl;
+	of_general_stat<<"Number of base T\t"<<setprecision(15)<<gv.raw1_stat.gs.t_number<<" ("<<raw_r1[3]<<"%)\t"<<gv.clean1_stat.gs.t_number<<" ("<<clean_r1[3]<<"%)\t"<<endl;
+	of_general_stat<<"Number of base N\t"<<setprecision(15)<<gv.raw1_stat.gs.n_number<<" ("<<raw_r1[4]<<"%)\t"<<gv.clean1_stat.gs.n_number<<" ("<<clean_r1[4]<<"%)\t"<<endl;
+	of_general_stat<<"Q20 number\t"<<setprecision(15)<<gv.raw1_stat.gs.q20_num<<" ("<<raw_r1[5]<<"%)\t"<<gv.clean1_stat.gs.q20_num<<" ("<<clean_r1[5]<<"%)"<<endl;
+	//of_general_stat<<"Q20 ratio\t"<<setprecision(4)<<(float)gv.raw1_stat.gs.q20_num/gv.raw1_stat.gs.base_number<<"\t"<<(float)gv.clean1_stat.gs.q20_num/gv.clean1_stat.gs.base_number<<"\t"<<endl;
+	of_general_stat<<"Q30 number\t"<<setprecision(15)<<gv.raw1_stat.gs.q30_num<<" ("<<raw_r1[6]<<"%)\t"<<gv.clean1_stat.gs.q30_num<<" ("<<clean_r1[6]<<"%)"<<endl;
+	//of_general_stat<<"Q30 ratio\t"<<setprecision(4)<<(float)gv.raw1_stat.gs.q30_num/gv.raw1_stat.gs.base_number<<"\t"<<(float)gv.clean1_stat.gs.q30_num/gv.clean1_stat.gs.base_number<<"\t"<<endl;
 	of_general_stat.close();
 
 	of_readPos_base_stat1<<"Pos\tA\tC\tG\tT\tN\tclean A\tclean C\tclean G\tclean T\tclean N"<<endl;
@@ -323,7 +382,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		gv.fs.in_adapter_list_num+=fs_stat.in_adapter_list_num;
 		gv.fs.include_adapter_seq_num+=fs_stat.include_adapter_seq_num;
 		gv.fs.n_ratio_num+=fs_stat.n_ratio_num;
-		gv.fs.polyA_num+=fs_stat.polyA_num;
+		gv.fs.highA_num+=fs_stat.highA_num;
 		gv.fs.polyX_num+=fs_stat.polyX_num;
 		gv.fs.tile_num+=fs_stat.tile_num;
 		gv.fs.low_qual_base_ratio_num+=fs_stat.low_qual_base_ratio_num;
@@ -631,7 +690,7 @@ void* seProcess::sub_thread_nonssd(int index){
 
 	while(1){
 		se_read_m.lock();
-		if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+		if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
 			if(read_gz(fq1s)==-1){		//read fastqs from raw files
 				done=1;
 			}
@@ -810,7 +869,7 @@ void seProcess::run_pigz_split(int type){
 	int pigz_thread=gp.threads_num>16?gp.threads_num:16;
 	int split_line_num=gp.split_line*4;
 	if(type==1){
-		if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+		if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
 			cmd1<<"pigz -c -d -p "<<pigz_thread<<" "<<gp.fq1_path<<" | split -l "<<split_line_num<<" -d - "<<gp.output_dir<<"/tmp"<<random_num<<".r1.fq.";
 		}else{
 			cmd1<<"split -l "<<split_line_num<<" -d "<<gp.fq1_path<<" "<<gp.output_dir<<"/tmp"<<random_num<<".r1.fq.";
@@ -900,7 +959,7 @@ void seProcess::process_nonssd(){
 		gzbuffer(gz_clean_out1_nonssd,1024*1024*160);
 
 	}
-	if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
 		gzfp1=gzopen((gp.fq1_path).c_str(),"rb");
 		gzsetparams(gzfp1, 2, Z_DEFAULT_STRATEGY);
 		gzbuffer(gzfp1,2048*2048);
@@ -1056,7 +1115,7 @@ void seProcess::seStreaming_stat(C_global_variable& local_gv){
 	int include_adapter_seq_num;
 	int include_contam_seq_num;
 	int n_ratio_num;
-	int polyA_num,polyX_num;
+	int highA_num,polyX_num;
 	int tile_num,fov_num;
 	int low_qual_base_ratio_num;
 	int mean_quality_num;
@@ -1064,8 +1123,8 @@ void seProcess::seStreaming_stat(C_global_variable& local_gv){
 	int over_lapped_num;
 	int no_3_adapter_num,int_insertNull_num;
 	*/
-	int total=local_gv.fs.include_adapter_seq_num+local_gv.fs.include_contam_seq_num+local_gv.fs.low_qual_base_ratio_num+local_gv.fs.mean_quality_num+local_gv.fs.n_ratio_num+local_gv.fs.over_lapped_num+local_gv.fs.polyA_num+local_gv.fs.polyX_num;
-	cout<<total<<" "<<local_gv.fs.include_adapter_seq_num<<" "<<local_gv.fs.include_contam_seq_num<<" "<<local_gv.fs.low_qual_base_ratio_num<<" "<<local_gv.fs.mean_quality_num<<" "<<local_gv.fs.n_ratio_num<<" "<<local_gv.fs.over_lapped_num<<" "<<local_gv.fs.polyA_num<<" "<<local_gv.fs.polyX_num<<"\n";
+	int total=local_gv.fs.include_adapter_seq_num+local_gv.fs.include_contam_seq_num+local_gv.fs.low_qual_base_ratio_num+local_gv.fs.mean_quality_num+local_gv.fs.n_ratio_num+local_gv.fs.over_lapped_num+local_gv.fs.highA_num+local_gv.fs.polyX_num;
+	cout<<total<<" "<<local_gv.fs.include_adapter_seq_num<<" "<<local_gv.fs.include_contam_seq_num<<" "<<local_gv.fs.low_qual_base_ratio_num<<" "<<local_gv.fs.mean_quality_num<<" "<<local_gv.fs.n_ratio_num<<" "<<local_gv.fs.over_lapped_num<<" "<<local_gv.fs.highA_num<<" "<<local_gv.fs.polyX_num<<"\n";
 	/*int read_max_length;
 	int read_length;
 	int reads_number;

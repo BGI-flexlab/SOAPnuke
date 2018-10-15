@@ -71,14 +71,15 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 		min_value=1;
 		return min_value;
 	}
-	if(gp.polyA_ratio!=-1){
-		if(read_result.a_ratio>=gp.polyA_ratio){	//check polyA ratio whether is too high
-			fs->polyA_num++;
+	if(gp.highA_ratio!=-1){
+		if(read_result.a_ratio>=gp.highA_ratio){	//check highA ratio whether is too high
+			fs->highA_num++;
 			min_value=1;
 			return min_value;
-			//cout<<"polyA_ratio discard"<<endl;
+			//cout<<"highA_ratio discard"<<endl;
 		}
 	}
+	
 	if(gp.polyX_num!=-1){
 		if(read_result.contig_base>gp.polyX_num){	//check polyX ratio whether is too high
 			fs->polyX_num++;
@@ -161,12 +162,12 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 		}
 	}
 	//cout<<"a_ratio\t"<<read_result.a_ratio<<"\t"<<read_result.fastq2_result.a_ratio<<endl;
-	if(gp.polyA_ratio!=-1){
-		if(read_result.a_ratio>=gp.polyA_ratio){	//check polyA ratio whether is too high
-			fs->polyA_num++;
+	if(gp.highA_ratio!=-1){
+		if(read_result.a_ratio>=gp.highA_ratio){	//check highA ratio whether is too high
+			fs->highA_num++;
 			min_value=1;
 			return min_value;
-			//cout<<"polyA_ratio discard"<<endl;
+			//cout<<"highA_ratio discard"<<endl;
 		}
 	}
 	if(gp.polyX_num!=-1){
@@ -310,16 +311,16 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 		}
 	}
 	//cout<<"a_ratio\t"<<reads_result.fastq1_result.a_ratio<<"\t"<<reads_result.fastq2_result.a_ratio<<endl;
-	if(gp.polyA_ratio!=-1){
-		int v=pe_dis(reads_result.fastq1_result.a_ratio>=gp.polyA_ratio,reads_result.fastq2_result.a_ratio>=gp.polyA_ratio);	//check polyA ratio whether is too high
+	if(gp.highA_ratio!=-1){
+		int v=pe_dis(reads_result.fastq1_result.a_ratio>=gp.highA_ratio,reads_result.fastq2_result.a_ratio>=gp.highA_ratio);	//check highA ratio whether is too high
 		if(v>0){
 			switch(v){
-				case 1:fs->polyA_num1++;break;
-				case 2:fs->polyA_num2++;break;
-				case 3:fs->polyA_num1++;fs->polyA_num2++;fs->polyA_num_overlap++;break;
+				case 1:fs->highA_num1++;break;
+				case 2:fs->highA_num2++;break;
+				case 3:fs->highA_num1++;fs->highA_num2++;fs->highA_num_overlap++;break;
 				default:break;
 			}
-			fs->polyA_num++;
+			fs->highA_num++;
 			return 1;
 		}
 	}
