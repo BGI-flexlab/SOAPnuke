@@ -38,7 +38,7 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:M:A:S:s:U:u:b:0:hv";
+    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:w:M:A:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
@@ -98,7 +98,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     {"minReadLen",1,NULL,'4'},
                     //reads number limit
                     { "totalReadsNum"     , 1, NULL, 'c' },
-                    
+                    {"output_clean",1,NULL,'w'},
                     {"adaMis",1,NULL,'M'},
                     {"adaMR",1,NULL,'A'},
                     {"adaEdge",1,NULL,'9'},
@@ -187,6 +187,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
             case '3':gp.max_read_length=atoi(optarg);break;
             case '4':gp.min_read_length=atoi(optarg);break;
             case 'c':gp.total_reads_num=atof(optarg)*1000*1000;break;
+            case 'w':gp.output_clean=atoi(optarg);break;
             case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].push_back("-M|--adaMis");break;
             case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].push_back("-A|adaMR");break;
             case '9':gp.adaEdge=atoi(optarg);wrong_paras["filtersRNA"].push_back("-9|--adaEdge");break;
@@ -487,10 +488,10 @@ void printUsage(string c_module){
     cout << "\t-T, --thread\t\tINT\t\tprocess thread number[4]" << endl;
     cout << "\n";
     cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:illumina, 2:sanger[1]\n";
-    cout << "\t-G, --outQualSys\t\t\tout quality system 1:illumina, 2:sanger[1]\n";
+    cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:illumina, 2:sanger[1]\n";
     cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
     cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
-
+    cout << "\t-w, --output_clean\tINT\t\tmax reads number in output clean fastq file, other reads will be output in another file\n";
 //      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
     
     

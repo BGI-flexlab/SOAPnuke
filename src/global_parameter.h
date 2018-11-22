@@ -14,7 +14,7 @@ public:
                                          mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
                                          isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),highAType_(0)
 	*/
-	C_global_parameter():is_streaming(false),total_reads_num(-1),seq_type("0"),index_remove(false),qualityPhred(64),outputQualityPhred(64),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),highA_ratio(-1),polyG_tail(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),adaMis(2),adaMR(0.5),ctMatchR(0.2),adaEdge(7),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),output_reads_num(0),threads_num(4),patchSize(400000),split_line(10000000),mode("nonssd"){};
+	C_global_parameter():is_streaming(false),total_reads_num(-1),seq_type("0"),index_remove(false),qualityPhred(64),outputQualityPhred(64),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),highA_ratio(-1),polyG_tail(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),output_clean(0),have_output1(0),have_output2(0),adaMis(2),adaMR(0.5),ctMatchR(0.2),adaEdge(7),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),output_reads_num(0),threads_num(4),patchSize(400000),split_line(10000000),mode("nonssd"){};
 	C_global_parameter(int argc,char* argv[]);
 
 	string mode;
@@ -71,6 +71,8 @@ public:
 	int total_reads_num;
 	//output reads number,the only variable
 	int output_reads_num;
+	int output_clean;
+	unsigned long long have_output1,have_output2;
 //special parameter
 	//filtersRNA module
 		//adapter find method2 parameter

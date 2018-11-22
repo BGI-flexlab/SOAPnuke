@@ -51,6 +51,7 @@ public:
 	void  preOutput(int type,C_fastq& a);
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
+	void output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
 	void peWrite(int num);
 	void run_pigz(int type);
 	void get_line_number(int* line_num);
