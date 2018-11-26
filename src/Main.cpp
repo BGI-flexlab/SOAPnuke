@@ -28,5 +28,5 @@ int main(int argc,char* argv[]){
 			new_task.process_nonssd();
 		}
 	}
-	return 1;
+	return 0;
 }

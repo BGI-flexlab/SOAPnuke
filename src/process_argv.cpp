@@ -38,7 +38,7 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:w:M:A:S:s:U:u:b:0:hv";
+    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:w:M:A:9:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
@@ -97,7 +97,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     {"maxReadLen",1,NULL,'3'},
                     {"minReadLen",1,NULL,'4'},
                     //reads number limit
-                    { "totalReadsNum"     , 1, NULL, 'c' },
+                    {"totalReadsNum"     , 1, NULL, 'c' },
                     {"output_clean",1,NULL,'w'},
                     {"adaMis",1,NULL,'M'},
                     {"adaMR",1,NULL,'A'},
@@ -213,11 +213,12 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
     if(gp.log.find("/")==string::npos){
         gp.log=gp.output_dir+"/"+gp.log;
     }
+    /*
     int min_adapter_length=gp.adapter1_seq.size()>gp.adapter2_seq.size()?gp.adapter2_seq.size():gp.adapter1_seq.size();
     if(min_adapter_length>20){
         gp.adaEdge=min_adapter_length*ADA_RATIO;
     }
-
+    */
 }
 bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
     if(!gp.fq1_path.empty()){
@@ -325,6 +326,10 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
                 exit(1);
             }
         }
+    }
+    if(gp.output_clean!=0 && gp.output_clean<gp.patchSize){
+        cerr<<"Error: output reads in each clean fastq file(-w) should be more than patch size(-e)"<<endl;
+        exit(1);
     }
     if(!gp.trim.empty()){
         vector<string> tmp_eles;
@@ -448,7 +453,7 @@ void printUsage(string c_module){
         //cout << "filter and filtermeta module adapter related parameter\n";
         cout << "\t-M, --adaMis\t\tINT\t\tthe max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
         cout << "\t-A, --adaMR\t\tFLOAT\t\tadapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
-        cout << "\t-9, --adaEdge\t\tINT\t\tthe min length for segmental alignment [7]\n";
+        cout << "\t-9, --adaEdge\t\tINT\t\tthe min length for segmental alignment [6]\n";
     }else if(c_module=="filtersRNA"){
         //cout << "filtersRNA module adapter related parameter\n";
     cout << "  find 5' adapter\n";
@@ -491,14 +496,14 @@ void printUsage(string c_module){
     cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:illumina, 2:sanger[1]\n";
     cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
     cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
-    cout << "\t-w, --output_clean\tINT\t\tmax reads number in output clean fastq file, other reads will be output in another file\n";
+    cout << "\t-w, --output_clean\tINT\t\tmax reads number in each output clean fastq file, only available in non-ssd mode\n";
 //      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
     
     
     cout << "\n";
     
-    cout << "\t-7, --pe_info:\t\tINT\t\tAdd /1, /2 at the end of fastq name, 0:not add, 1:add  [0]\n";
-    cout << "\t-B, --baseConvert\tSTR\t\tconvert base when write data,eg.:TtoU\n";
+    cout << "\t-7, --pe_info\t\t\t\tAdd /1, /2 at the end of fastq name.[default:not add]\n";
+    cout << "\t-B, --baseConvert\tSTR\t\tconvert base when write data,example:TtoU\n";
     cout << "\n";
     cout << "\t-h, --help\t\t\t\thelp" << endl;
     cout << "\t-v, --version\t\t\t\tshow version" << endl;

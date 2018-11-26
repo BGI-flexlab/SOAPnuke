@@ -18,6 +18,7 @@ mutex se_read_m,se_stat_m,se_write_m;
 C_filter_stat se_local_fs[max_thread];
 C_fastq_file_stat se_local_raw_stat1[max_thread],se_local_raw_stat2[max_thread],se_local_trim_stat1[max_thread],se_local_trim_stat2[max_thread],se_local_clean_stat1[max_thread],se_local_clean_stat2[max_thread];
 gzFile gz_fq_se;
+map<int,int> se_out;
 int exceed_output_se(0);
 seProcess::seProcess(C_global_parameter m_gp){
 	gp=m_gp;
@@ -979,6 +980,7 @@ void seProcess::process_nonssd(){
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
+	gzclose(gz_fq_se);
 	merge_stat_nonssd();
 	print_stat();
 	if(!gp.trim_fq1.empty()){
@@ -1142,31 +1144,30 @@ void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outf
 	if(gp.is_streaming){
 		cout<<streaming_out;
 	}else{
-		if(exceed_output_se==0){
-			gp.have_output1+=fq1.size();
-			if(gp.have_output1>gp.output_clean){
-				string out_fq1=gp.output_dir+"/rest."+gp.clean_fq1;
-				gz_fq_se=gzopen(out_fq1.c_str(),"wb");
-				gzsetparams(gz_fq_se, 2, Z_DEFAULT_STRATEGY);
-				gzbuffer(gz_fq_se,1024*1024*160);
-				exceed_output_se=1;
-				int to_output=fq1.size()-(gp.have_output1-gp.output_clean);
-				string sticky_tail,sticky_head;
-				for(int i=0;i!=to_output;i++){
-					sticky_tail+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
-				}
-				for(int i=to_output;i!=fq1.size();i++){
-					sticky_head+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
-				}
-				if(!sticky_tail.empty()){
-					gzwrite(outfile,sticky_tail.c_str(),sticky_tail.size());
-					gzclose(outfile);
-				}
-				if(!sticky_head.empty()){
-					gzwrite(gz_fq_se,sticky_head.c_str(),sticky_head.size());
-				}
-			}else{
-				gzwrite(outfile,out_content.c_str(),out_content.size());
+		gp.have_output1+=fq1.size();
+		int idx=(gp.have_output1-1)/gp.output_clean;
+		se_out[idx]++;
+		int mod=gp.have_output1%gp.output_clean;
+		if(se_out[idx]==1){
+			int to_output=fq1.size()-mod;
+			string sticky_tail,sticky_head;
+			for(int i=0;i!=to_output;i++){
+				sticky_tail+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
+			}
+			for(int i=to_output;i!=fq1.size();i++){
+				sticky_head+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
+			}
+			if(!sticky_tail.empty()){
+				gzwrite(gz_fq_se,sticky_tail.c_str(),sticky_tail.size());
+				gzclose(gz_fq_se);
+			}
+			ostringstream out_fq1;
+			out_fq1<<gp.output_dir<<"/split."<<idx<<"."<<gp.clean_fq1;
+			gz_fq_se=gzopen(out_fq1.str().c_str(),"wb");
+			gzsetparams(gz_fq_se, 2, Z_DEFAULT_STRATEGY);
+			gzbuffer(gz_fq_se,1024*1024*160);
+			if(!sticky_head.empty()){
+				gzwrite(gz_fq_se,sticky_head.c_str(),sticky_head.size());
 			}
 		}else{
 			gzwrite(gz_fq_se,out_content.c_str(),out_content.size());
