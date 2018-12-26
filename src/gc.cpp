@@ -65,7 +65,11 @@ quartile_result cal_quar_from_array(unsigned long long data[],int len){
 		total_num+=i*data[i];
 		data_num+=data[i];
 	}
-	return_value.mean=total_num/data_num;
+	if(data_num==0){
+		return_value.mean=0;
+	}else{
+		return_value.mean=total_num/data_num;
+	}
 	int lower_pos=data_num/4;
 	int upper_pos=data_num*3/4;
 	int first10_pos=data_num/10;

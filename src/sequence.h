@@ -19,12 +19,12 @@ public:
 };
 class C_fastq_stat_result:public C_sequence_stat_result{	//fastq stat information
 public:
-	C_fastq_stat_result():in_adapter_list(0),include_contam(-1),include_5_adapter(false),include_3_adapter(-1),include_adapter_seq(-1),qual_len(0),low_qual_base_num(0){};
+	C_fastq_stat_result():in_adapter_list(0),include_contam(-1),include_global_contam(-1),include_5_adapter(false),include_3_adapter(-1),include_adapter_seq(-1),qual_len(0),low_qual_base_num(0){};
 	bool in_adapter_list;
 	int include_adapter_seq;
 	bool include_5_adapter;	//only used in sRNA
 	int include_3_adapter;	//only used in sRNA
-	int include_contam;
+	int include_contam,include_global_contam;
 	string read_tile,read_fov;
 	int qual_len;
 	int low_qual_base_num;
@@ -62,10 +62,12 @@ public:
 	string adapter_seq;
 	string adapter_seq2;
 	string contam_seq;
+	//string global_contams;
 	string adapter_orientation,adapter_orientation2;
 	string head_trim_len,tail_trim_len;
 	int head_hdcut,head_lqcut,tail_hdcut,tail_lqcut,adacut_pos;
 	int contam_pos;
+	int global_contam_pos;
 };
 class C_pe_fastq{	//pe fastq
 public:

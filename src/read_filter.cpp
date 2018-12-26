@@ -170,27 +170,41 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	    	fq_read.adacut_pos=fq_read.sequence.size()-ada_pos;
 	    	//cout<<"find adapter:"<<ada_pos<<"\t"<<fq_read.adacut_pos<<endl;
 	    }
-	    int contam_pos(-1);
 	    if(fq_read.contam_seq.find(",")==string::npos){
 	    	fq_read.contam_pos=hasContam(fq_read.sequence,fq_read.contam_seq,gp);
 	    	if(fq_read.contam_pos>=0)
 	    		return_value.include_contam=1;
 	    }else{
-	    	vector<string> tmp_contams;
-	    	line_split(fq_read.contam_seq,',',tmp_contams);
-	    	for(vector<string>::iterator ix=tmp_contams.begin();ix!=tmp_contams.end();ix++){
-	    		contam_pos=hasContam(fq_read.sequence,fq_read.contam_seq,gp);
-	    		if(contam_pos>=0){
+	    	vector<int> contam_poses=hasContams(fq_read.sequence,fq_read.contam_seq,gp);
+	    	for(vector<int>::iterator ix=contam_poses.begin();ix!=contam_poses.end();ix++){
+	    		if(*ix>=0){
 	    			return_value.include_contam=1;
-	    			if(contam_pos>=fq_read.contam_pos){
-		    			fq_read.contam_pos=contam_pos;
-		    		}
+	    			if(fq_read.contam_pos!=-1){
+	    				if(*ix<=fq_read.contam_pos){
+			    			fq_read.contam_pos=*ix;
+			    		}
+	    			}else{
+	    				fq_read.contam_pos=*ix;
+	    			}
 	    		}
-	    		
+	    	}
+	    }
+	    if(!gp.global_contams.empty()){
+	    	vector<int> global_contam_poses=hasGlobalContams(fq_read.sequence,gp);
+	    	for(vector<int>::iterator ix=global_contam_poses.begin();ix!=global_contam_poses.end();ix++){
+	    		if(*ix>=0){
+	    			return_value.include_global_contam=1;
+	    			if(fq_read.global_contam_pos!=-1){
+	    				if(*ix<=fq_read.global_contam_pos){
+			    			fq_read.global_contam_pos=*ix;
+			    		}
+	    			}else{
+	    				fq_read.global_contam_pos=*ix;
+	    			}
+	    		}
 	    	}
 	    }
     }
-    
 	if((fq_read.sequence).size()==0){
 		cerr<<"Error:empty sequence"<<endl;
 		exit(1);
@@ -363,8 +377,12 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			}
 		}
 		if(contam_trim_flag){
-			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut)
+			if(read.global_contam_pos>=0 && read.sequence.size()-read.global_contam_pos>tail_cut){
+				tail_cut=read.sequence.size()-read.global_contam_pos;
+			}
+			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut){
 				tail_cut=read.sequence.size()-read.contam_pos;
+			}
 		}
 		if(gp.polyG_tail!=-1){
 			int polyG_n=polyG_number(read.sequence);
@@ -390,6 +408,129 @@ int polyG_number(string& ref_sequence){
 	}
 	return polyG_tail_number;
 }
+vector<int> hasContams(string& ref_sequence,string& contam,C_global_parameter& gp){
+	if(gp.ctMatchR.find(",")==string::npos){
+		cerr<<"Error:the number of ctMatchR value should equal to that of contam sequences"<<endl;
+		exit(1);
+	}else{
+		vector<string> contams,mrs;
+		line_split(contam,',',contams);
+		line_split(gp.ctMatchR,',',mrs);
+		if(contams.size()!=mrs.size()){
+			cerr<<"Error:the number of ctMatchR value should equal to that of contam sequences,"<<contams.size()<<".vs."<<mrs.size()<<endl;
+			exit(1);
+		}
+		vector<int> return_poses;
+		for(int i=0;i!=contams.size();i++){
+			float tmp_mr=atof(mrs[i].c_str());
+			int tmp_pos=hasContam(ref_sequence,contams[i],gp,tmp_mr);
+			return_poses.push_back(tmp_pos);
+			if(tmp_pos>=0 && tmp_pos<gp.min_read_length){
+				break;
+			}
+		}
+		return return_poses;
+	}
+}
+int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp,float mr){
+	int readLen=ref_sequence.size();
+	int contamLen=contam.size();
+	if(contamLen==0){
+		return -1;
+	}
+	float misGrad = (contamLen-gp.adaEdge)/(gp.adaMis+1);
+    int r1, mis, maxSegMatch;
+    int segMatchThr = (int)ceil(contamLen * mr);
+    float segGrad;
+    if(segMatchThr-7+1==0){
+    	segGrad=0;
+    }else{
+    	segGrad = (contamLen-gp.adaEdge)/(segMatchThr-7+1);
+    }
+    int misMatchTemp, segMatchTemp;
+    for (r1 = 0; r1 < contamLen - gp.adaEdge; ++r1)
+    {
+        mis = 0;
+        maxSegMatch = 0;
+        misMatchTemp = r1/misGrad;
+        if(segGrad!=0){
+        	segMatchTemp = 7 + r1/segGrad;
+        }else{
+        	segMatchTemp=7;
+        }
+        for (int c = 0; c < r1+gp.adaEdge; ++c)
+        {
+            if (contam[contamLen-r1-gp.adaEdge+c] == ref_sequence[c]){
+                maxSegMatch++;
+                if (maxSegMatch >= segMatchTemp)
+                    return 0;
+            }
+            else{
+                if (ref_sequence[c] != 'N'){
+                    mis++;
+                    maxSegMatch = 0;
+                    if (mis > misMatchTemp)
+                        break;
+                }
+            }
+        }
+        if (mis <= misMatchTemp)
+            return 0;
+    }
+
+    for (r1 = 0; r1 <= readLen - contamLen; ++r1)
+    {
+        maxSegMatch = 0;
+        mis = 0;
+
+        for (int c = 0; c < contamLen; ++c)
+        {
+            if (contam[c] == ref_sequence[r1 + c]){
+                maxSegMatch ++;
+                if (maxSegMatch >= segMatchThr)
+                    return r1;
+            }
+            else{
+                if (ref_sequence[r1 + c] != 'N'){
+                    mis++;
+                    maxSegMatch = 0;
+                    if (mis > gp.adaMis)
+                        break;
+                }
+            }
+        }
+        if (mis <= gp.adaMis)
+            return r1;
+    }
+
+    for (r1 = 0; r1 < contamLen - gp.adaEdge; ++r1)
+    {
+        mis = 0;
+        maxSegMatch = 0;
+        misMatchTemp = r1/misGrad;
+        segMatchTemp = 7 + r1/segGrad;
+
+        for (int c = 0; c < r1+gp.adaEdge; ++c)
+        {
+            if (contam[c] == ref_sequence[readLen-r1-gp.adaEdge+c]){
+                maxSegMatch++;
+                if (maxSegMatch >= segMatchTemp)
+                    return readLen-r1-gp.adaEdge;
+            }
+            else{
+                if (ref_sequence[readLen-r1-gp.adaEdge+c] != 'N'){
+                    mis++;
+                    maxSegMatch = 0;
+                    if (mis > misMatchTemp)
+                        break;
+                }
+            }
+        }
+        if (mis <= misMatchTemp)
+            return readLen-r1-gp.adaEdge;
+    }
+    return -1;
+}
 int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp){
 	int readLen=ref_sequence.size();
 	int contamLen=contam.size();
@@ -398,15 +539,25 @@ int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp){
 	}
 	float misGrad = (contamLen-gp.adaEdge)/(gp.adaMis+1);
     int r1, mis, maxSegMatch;
-    int segMatchThr = (int)ceil(contamLen * gp.ctMatchR);
-    float segGrad = (contamLen-gp.adaEdge)/(segMatchThr-7+1); 
+    int segMatchThr = (int)ceil(contamLen * atof(gp.ctMatchR.c_str()));
+    float segGrad(0);
+    if(segMatchThr-7+1==0){
+    	segGrad=0;
+    }else{
+    	segGrad = (contamLen-gp.adaEdge)/(segMatchThr-7+1);
+    }
     int misMatchTemp, segMatchTemp;
     for (r1 = 0; r1 < contamLen - gp.adaEdge; ++r1)
     {
         mis = 0;
         maxSegMatch = 0;
         misMatchTemp = r1/misGrad;
-        segMatchTemp = 7 + r1/segGrad;
+        if(segGrad!=0){
+        	segMatchTemp = 7 + r1/segGrad;
+        }else{
+        	segMatchTemp=7;
+        }
+        
 
         for (int c = 0; c < r1+gp.adaEdge; ++c)
         {
@@ -493,18 +644,18 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
         int segMatchThr = (int)ceil(adptLen * gp.adaMR);
         int misMatchTemp, segMatchTemp;
         int minEdge5 = adptLen - 5;
-        for (r1 = 0; r1 < adptLen - gp.adaEdge; ++r1)
+        for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
         {
             mis = 0;
             maxSegMatch = 0;
             misMatchTemp = r1/misGrad;
 
-            for (int c = 0; c < r1+gp.adaEdge; ++c)
+            for (int c = 0; c < r1+minEdge5; ++c)
             {
-                if (adapter[c] == ref_sequence[readLen-r1-gp.adaEdge+c]){
+                if (adapter[adptLen-r1-minEdge5+c] == ref_sequence[c]){
                     maxSegMatch++;
                     if (maxSegMatch >= segMatchThr)
-                        return readLen-r1-gp.adaEdge;
+                        return 0;
                 }
                 else{
                     mis++;
@@ -513,9 +664,8 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
                         break;
                 }
             }
-
             if (mis <= misMatchTemp)
-                return readLen-r1-gp.adaEdge;
+                return 0;
         }
         for (r1 = 0; r1 <= readLen - adptLen; ++r1)
         {
@@ -539,18 +689,18 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
             if (mis <= gp.adaMis)
                 return r1;
         }
-        for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
+        for (r1 = 0; r1 < adptLen - gp.adaEdge; ++r1)
         {
             mis = 0;
             maxSegMatch = 0;
             misMatchTemp = r1/misGrad;
 
-            for (int c = 0; c < r1+minEdge5; ++c)
+            for (int c = 0; c < r1+gp.adaEdge; ++c)
             {
-                if (adapter[adptLen-r1-minEdge5+c] == ref_sequence[c]){
+                if (adapter[c] == ref_sequence[readLen-r1-gp.adaEdge+c]){
                     maxSegMatch++;
                     if (maxSegMatch >= segMatchThr)
-                        return 0;
+                        return readLen-r1-gp.adaEdge;
                 }
                 else{
                     mis++;
@@ -559,8 +709,9 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
                         break;
                 }
             }
+
             if (mis <= misMatchTemp)
-                return 0;
+                return readLen-r1-gp.adaEdge;
         }
         return -1;
 	}
@@ -701,6 +852,123 @@ bool sRNA_hasAdapter(string sequence, string adapter,C_global_parameter& gp)
 
 	return find;
 }
+vector<int> hasGlobalContams(string& ref_sequence,C_global_parameter& gp){
+	vector<int> return_poses;
+	vector<string> g_contams,g_mr,g_mm;
+	line_split(gp.global_contams,',',g_contams);
+	line_split(gp.g_mrs,',',g_mr);
+	line_split(gp.g_mms,',',g_mm);
+	if(g_contams.size()!=g_mr.size() || g_contams.size()!=g_mm.size()){
+		cerr<<"Error:the number of global contamination sequences should equal to that of related parameters"<<endl;
+		exit(1);
+	}
+	for(int i=0;i!=g_contams.size();i++){
+		float mr=atof(g_mr[i].c_str());
+		int mm=atoi(g_mm[i].c_str());
+		int pos=global_contam_pos(ref_sequence,g_contams[i],mr,mm);
+		string reverse_contam=reversecomplementary(g_contams[i]);
+		int reverse_pos=global_contam_pos(ref_sequence,reverse_contam,mr,mm);
+		int push_pos;
+		if(pos>=0){
+			if(reverse_pos>=0){
+				push_pos=pos<reverse_pos?pos:reverse_pos;
+			}else{
+				push_pos=pos;
+			}
+		}else{
+			push_pos=reverse_pos;
+		}
+		return_poses.push_back(push_pos);
+		if(push_pos>=0 && push_pos<gp.min_read_length){
+			break;
+		}
+	}
+	return return_poses;
+}
+int global_contam_pos(string& ref_sequence,string& global_contam,float min_matchRatio,int mismatch_number){
+	int mismatch_score=-200;
+	int match_score=1;
+	//float min_matchRatio=0.3;
+	//int mismatch_number=1;
+	int rl=ref_sequence.size();
+	int cl=global_contam.size();
+	int min_match_len=int(cl*min_matchRatio);
+	int lower_score=(min_match_len-mismatch_number)-mismatch_number*mismatch_score;
+	int total_score(-1000),overlap(0);
+	//contam sequence is at front of read sequence
+	for(int i=cl-min_match_len;i>=0;i--){
+		int j_max=cl-i>rl?rl:cl-i;
+		for(int j=0;j!=j_max;j++){
+			if(ref_sequence[j]==global_contam[i+j]){
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=match_score;
+					overlap++;
+				}else{
+					total_score=match_score;
+					overlap=1;
+				}
+			}else{
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=mismatch_score;
+					overlap++;
+				}
+			}
+			if(total_score>=lower_score && overlap>=min_match_len){
+				return 0;
+			}
+		}
+	}
+	//contam sequence is at middle of read sequence
+	total_score=-1000;
+	overlap=0;
+	for(int i=0;i<=rl-cl;i++){
+		for(int j=0;j!=cl;j++){
+			if(ref_sequence[i+j]==global_contam[j]){
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=match_score;
+					overlap++;
+				}else{
+					total_score=match_score;
+					overlap=1;
+				}
+			}else{
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=mismatch_score;
+					overlap++;
+				}
+			}
+			if(total_score>=lower_score && overlap>=min_match_len){
+				return i+j-overlap+1;
+			}
+		}
+	}
+	//contam sequence is at tail of read sequence
+	total_score=-1000;
+	overlap=0;
+	int i_min=cl>rl?cl-rl:0;
+	for(int i=i_min;i<=cl-min_match_len;i++){
+		for(int j=0;j!=cl-i;j++){
+			if(ref_sequence[rl-(cl-i)+j]==global_contam[j]){
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=match_score;
+					overlap++;
+				}else{
+					total_score=match_score;
+					overlap=1;
+				}
+			}else{
+				if(total_score>mismatch_number*mismatch_score){
+					total_score+=mismatch_score;
+					overlap++;
+				}
+			}
+			if(total_score>=lower_score && overlap>=min_match_len){
+				return rl-cl+i+j-overlap+1;
+			}
+		}
+	}
+	return -1;
+}
 int smithWatermanAlign(string query, string target) { // Smith-Waterman algorithm
 		// the match in query must be started on base 0
 	float match_[5][5];
@@ -801,7 +1069,7 @@ int smithWatermanAlign(string query, string target) { // Smith-Waterman algorith
 	return targetS;
 	
 }
-string reversecomplementary(string a){	//get reverse complementary sequence
+string reversecomplementary(string& a){	//get reverse complementary sequence
 	string b;
 	map<char,char> dna_base_pair;
 	dna_base_pair['A']='T';

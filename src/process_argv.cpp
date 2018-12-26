@@ -38,7 +38,7 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:6:3:4:c:w:M:A:9:S:s:U:u:b:0:hv";
+    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:Z:z:c:d:k:Y:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:3:4:w:M:A:9:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
@@ -63,6 +63,9 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     { "contam1"   , 1, NULL, 'Z' },
                     { "contam2"   , 1, NULL, 'z' },
                     { "ctMatchR"  , 1,NULL,'Y'},
+                    { "global_contams",1,NULL,'c'},
+                    { "glob_cotm_mR",1,NULL,'d'},
+                    { "glob_cotm_mM",1,NULL,'k'},
                     { "tile"    , 1, NULL, 'K' },
                     { "fov"    , 1, NULL, 'F' },
                     //index remove
@@ -92,12 +95,12 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     //computer resource
                     { "patch"     , 1, NULL, 'e' },
                     { "thread"  , 1, NULL, 'T' },
-                    { "split_line",1,NULL, '6'},
+                    //{ "split_line",1,NULL, '6'},
                     //read length limit
                     {"maxReadLen",1,NULL,'3'},
                     {"minReadLen",1,NULL,'4'},
                     //reads number limit
-                    {"totalReadsNum"     , 1, NULL, 'c' },
+                   // {"'totalReadsNum'"     , 1, NULL, 'c' },
                     {"output_clean",1,NULL,'w'},
                     {"adaMis",1,NULL,'M'},
                     {"adaMR",1,NULL,'A'},
@@ -145,7 +148,10 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
             case 'r':gp.adapter2_seq.assign(optarg);break;
             case 'Z':gp.contam1_seq.assign(optarg);break;
             case 'z':gp.contam2_seq.assign(optarg);break;
-            case 'Y':gp.ctMatchR=atof(optarg);break;
+            case 'c':gp.global_contams.assign(optarg);break;
+            case 'd':gp.g_mrs.assign(optarg);break;
+            case 'k':gp.g_mms.assign(optarg);break;
+            case 'Y':gp.ctMatchR.assign(optarg);break;
             case 'K':gp.tile.assign(optarg);break;
             case 'F':gp.fov.assign(optarg);break;
             case 'i':gp.index_remove = true;break;
@@ -183,10 +189,10 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
             case '7':gp.whether_add_pe_info=true;break;
             case 'e':gp.patchSize=atoi(optarg);break;
             case 'T':gp.threads_num=atoi(optarg);break;
-            case '6':gp.split_line=atoi(optarg);break;
+           // case '6':gp.split_line=atoi(optarg);break;
             case '3':gp.max_read_length=atoi(optarg);break;
             case '4':gp.min_read_length=atoi(optarg);break;
-            case 'c':gp.total_reads_num=atof(optarg)*1000*1000;break;
+            //case 'c':gp.total_reads_num=atof(optarg)*1000*1000;break;
             case 'w':gp.output_clean=atoi(optarg);break;
             case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].push_back("-M|--adaMis");break;
             case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].push_back("-A|adaMR");break;
@@ -212,6 +218,13 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
     }
     if(gp.log.find("/")==string::npos){
         gp.log=gp.output_dir+"/"+gp.log;
+    }
+    
+    if(gp.fq1_path.rfind(".gz")!=gp.fq1_path.size()-3){
+        gp.mode="ssd";
+    }
+    if(gp.patchSize==0){
+        gp.patchSize=gp.threads_num*10000/8;
     }
     /*
     int min_adapter_length=gp.adapter1_seq.size()>gp.adapter2_seq.size()?gp.adapter2_seq.size():gp.adapter1_seq.size();
@@ -300,7 +313,7 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
         }
         for(string::size_type ix=0;ix!=gp.tile.size();ix++){
             if(!isalnum(gp.tile[ix]) && gp.tile[ix]!='-' && gp.tile[ix]!=','){
-                cerr<<"Error,tile value format error"<<endl;
+                cerr<<"Error:tile value format error"<<endl;
                 exit(1);
             }
         }
@@ -425,7 +438,7 @@ void printModule(){
 void printUsage(string c_module){
     cout << "Usage: "<<c_module<<" [OPTION]... \n";
     cout<<"\ncommon options\n";
-    cout << "\t-E, --mode\t\tSTR\t\tif your hard disk type is ssd, you can assign ssd mode for accelerate(-E ssd). Default is non SSD\n";
+    cout << "\t-E, --mode\t\tSTR\t\tif pigz software is available,you can assign ssd mode for accelerate(-E ssd). Default is non SSD\n";
     cout << "\t-1, --fq1\t\tFILE\t\tfq1 file(required)\n";
     cout << "\t-2, --fq2\t\tFILE\t\tfq2 file, used when pe\n";
     cout << "\t-C, --cleanFq1\t\tSTR\t\tclean fq1 file name(required,gz format)\n";
@@ -438,7 +451,10 @@ void printUsage(string c_module){
     cout << "\t-r, --adapter2\t\tSTR\t\tadapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)\n";
     cout << "\t-Z, --contam1\t\tSTR\t\tcontaminant sequence(s) for fq1 file, split by comma\n";
     cout << "\t-z, --contam2\t\tSTR\t\tcontaminant sequence(s) for fq2 file, split by comma\n";
-    cout << "\t-Y, --ctMatchR\t\tFLOAT\t\tcontam 's shortest consistent matching ratio [0.2]\n";
+    cout << "\t-Y, --ctMatchR\t\tFLOAT/STR\tcontam's shortest consistent matching ratio [0.2]\n";
+    cout << "\t-c, --global_contams\tSTR\t\tglobal contaminant sequences which need to be detected, split by comma if more than 1\n";
+    cout << "\t-d, --glob_cotm_mR\tSTR\t\tminimum match ratio in global contaminant sequences detection\n";
+    cout << "\t-k, --glob_cotm_mM\tSTR\t\tmaximum mismatch number in global contaminant sequences detection\n";
     cout << "\t-5, --seqType\t\tINT\t\tSequence fq name type, 0->old fastq name, 1->new fastq name [0]\n";
     cout << "\t\t\t\t\t\t\t\told fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
     cout << "\t\t\t\t\t\t\t\tnew fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
@@ -477,7 +493,7 @@ void printUsage(string c_module){
     //cout << "\t-d, --rmdup                 remove PCR duplications\n";
     //cout << "\t-3, --dupRate               keep PCR duplicated reads and calculate duplications rate\n";
     cout << "\t-i, --index\t\t\t\tremove index\n";
-    cout << "\t-c, --totalReadsNum\tFLOAT\t\tthe read number you want to keep in each clean fq file, (unit:1000*1000, 0 means not cut reads)\n";
+    //cout << "\t-c, --'totalReadsNum'\tFLOAT\t\tthe read number you want to keep in each clean fq file, (unit:1000*1000, 0 means not cut reads)\n";
     cout << "\t-t, --trim\t\tINT,INT,INT,INT\n";
     cout << "\t    \t\t\t\t\ttrim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])\n";
     
@@ -492,8 +508,8 @@ void printUsage(string c_module){
     cout << "\t-e, --patch\t\tINT\t\treads number of a patch processed[400000]\n";
     cout << "\t-T, --thread\t\tINT\t\tprocess thread number[4]" << endl;
     cout << "\n";
-    cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:illumina, 2:sanger[1]\n";
-    cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:illumina, 2:sanger[1]\n";
+    cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:64, 2:33[default:2]\n";
+    cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";
     cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
     cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
     cout << "\t-w, --output_clean\tINT\t\tmax reads number in each output clean fastq file, only available in non-ssd mode\n";
@@ -508,7 +524,7 @@ void printUsage(string c_module){
     cout << "\t-h, --help\t\t\t\thelp" << endl;
     cout << "\t-v, --version\t\t\t\tshow version" << endl;
     if(c_module=="filter"){
-        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01 -Q 1 -G 1 -M 2 --adaMR 0.5 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 16"<<endl;
+        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01 -M 2 --adaMR 0.5 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 16"<<endl;
     }
     exit(1);
 }

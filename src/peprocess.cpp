@@ -9,6 +9,7 @@
 #include <iomanip>
 #include <sstream>
 #include <time.h>
+#include <dirent.h>
 #include "peprocess.h"
 #include "process_argv.h"
 #include "zlib.h"
@@ -16,15 +17,18 @@
 #include "sequence.h"
 using namespace::std;
 #define READBUF 500
+#define random(x) (rand()%x)
 mutex pe_cal_m;
 mutex read_m,stat_m,write_m;
-unsigned long long buffer(1024*1024*10);
+unsigned long long buffer(1024*1024*2);
 string new_fq1_path,new_fq2_path;
 C_filter_stat local_fs[max_thread];
 C_fastq_file_stat local_raw_stat1[max_thread],local_raw_stat2[max_thread],local_trim_stat1[max_thread],local_trim_stat2[max_thread],local_clean_stat1[max_thread],local_clean_stat2[max_thread];
+queue<vector<C_fastq> > thread_read_buffer1[max_thread],thread_read_buffer2[max_thread],thread_write_buffer1[max_thread],thread_write_buffer2[max_thread];
 string sticky_reads1[max_thread],sticky_reads2[max_thread];
 gzFile gz_fq1,gz_fq2;
 map<int,int> pe1_out,pe2_out;
+int queue_buffer=50;
 int exceed_output1(0);
 int exceed_output2(0);
 peProcess::peProcess(C_global_parameter m_gp){ //initialize
@@ -36,7 +40,7 @@ peProcess::peProcess(C_global_parameter m_gp){ //initialize
 	ostringstream tmpstring;
 	tmpstring<<rand()%100;
 	random_num=tmpstring.str();
-	of_log.open(gp.log.c_str());
+	file_end=false;
 }
 void peProcess::print_stat(){	//print statistic information to the file
 	string filter_out=gp.output_dir+"/Statistics_of_Filtered_Reads.txt";
@@ -86,6 +90,7 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_items.push_back("Reads with filtered fov");
 	filter_items.push_back("Reads too short");
 	filter_items.push_back("Reads too long");
+	filter_items.push_back("Reads with global contam sequence");
 	filter_items.push_back("Reads with contam sequence");
 	filter_items.push_back("Reads with n rate exceed");
 	filter_items.push_back("Reads with highA");
@@ -96,6 +101,7 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_items.push_back("Reads with adapter");
 
 	map<string,unsigned long long> filter_number,filter_pe1,filter_pe2,filter_overlap;
+	filter_number["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num;
 	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
 	filter_number["Reads too short"]=gv.fs.short_len_num;
 	filter_number["Reads with adapter"]=gv.fs.include_adapter_seq_num;
@@ -108,9 +114,10 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_number["Reads with filtered tile"]=gv.fs.tile_num;
 	filter_number["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_number["Reads too long"]=gv.fs.long_len_num;
-	filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
+	//filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
 
 	filter_pe1["Reads with contam sequence"]=gv.fs.include_contam_seq_num1;
+	filter_pe1["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num1;
 	filter_pe1["Reads too short"]=gv.fs.short_len_num1;
 	filter_pe1["Reads with adapter"]=gv.fs.include_adapter_seq_num1;
 	filter_pe1["Reads with low quality"]=gv.fs.low_qual_base_ratio_num1;
@@ -122,9 +129,10 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_pe1["Reads with filtered tile"]=gv.fs.tile_num;
 	filter_pe1["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_pe1["Reads too long"]=gv.fs.long_len_num1;
-	filter_pe1["Reads limited to output number"]=gv.fs.output_reads_num;
+	//filter_pe1["Reads limited to output number"]=gv.fs.output_reads_num;
 
 	filter_pe2["Reads with contam sequence"]=gv.fs.include_contam_seq_num2;
+	filter_pe2["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num2;
 	filter_pe2["Reads too short"]=gv.fs.short_len_num2;
 	filter_pe2["Reads with adapter"]=gv.fs.include_adapter_seq_num2;
 	filter_pe2["Reads with low quality"]=gv.fs.low_qual_base_ratio_num2;
@@ -136,9 +144,10 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_pe2["Reads with filtered tile"]=gv.fs.tile_num;
 	filter_pe2["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_pe2["Reads too long"]=gv.fs.long_len_num2;
-	filter_pe2["Reads limited to output number"]=gv.fs.output_reads_num;
+	//filter_pe2["Reads limited to output number"]=gv.fs.output_reads_num;
 
 	filter_overlap["Reads with contam sequence"]=gv.fs.include_contam_seq_num_overlap;
+	filter_overlap["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num_overlap;
 	filter_overlap["Reads too short"]=gv.fs.short_len_num_overlap;
 	filter_overlap["Reads with adapter"]=gv.fs.include_adapter_seq_num_overlap;
 	filter_overlap["Reads with low quality"]=gv.fs.low_qual_base_ratio_num_overlap;
@@ -150,7 +159,7 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_overlap["Reads with filtered tile"]=gv.fs.tile_num;
 	filter_overlap["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_overlap["Reads too long"]=gv.fs.long_len_num_overlap;
-	filter_overlap["Reads limited to output number"]=gv.fs.output_reads_num;
+	//filter_overlap["Reads limited to output number"]=gv.fs.output_reads_num;
 	unsigned long long total_filter_fq1_num=0;
 	for(map<string,unsigned long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
 		total_filter_fq1_num+=ix->second;
@@ -612,7 +621,7 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 			}
 		}
 		
-		gv.fs.output_reads_num+=fs_stat.output_reads_num;	//filter stat
+		//gv.fs.output_reads_num+=fs_stat.output_reads_num;	//filter stat
 		gv.fs.in_adapter_list_num+=fs_stat.in_adapter_list_num;
 		gv.fs.include_adapter_seq_num+=fs_stat.include_adapter_seq_num;
 		gv.fs.include_adapter_seq_num1+=fs_stat.include_adapter_seq_num1;
@@ -660,6 +669,11 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 		gv.fs.include_contam_seq_num1+=fs_stat.include_contam_seq_num1;
 		gv.fs.include_contam_seq_num2+=fs_stat.include_contam_seq_num2;
 		gv.fs.include_contam_seq_num_overlap+=fs_stat.include_contam_seq_num_overlap;
+
+		gv.fs.include_global_contam_seq_num+=fs_stat.include_global_contam_seq_num;
+		gv.fs.include_global_contam_seq_num1+=fs_stat.include_global_contam_seq_num1;
+		gv.fs.include_global_contam_seq_num2+=fs_stat.include_global_contam_seq_num2;
+		gv.fs.include_global_contam_seq_num_overlap+=fs_stat.include_global_contam_seq_num_overlap;
 
 		gv.fs.over_lapped_num+=fs_stat.over_lapped_num;
 	}else if(type=="trim"){
@@ -722,7 +736,8 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 			}
 		}
 	}else if(type=="clean"){
-		gp.output_reads_num+=gv.clean1_stat.gs.reads_number;
+		//gp.output_reads_num+=fq1s_stat.gs.reads_number;
+		//cout<<gp.output_reads_num<<"\t"<<gp.total_reads_num<<endl;
 		//if(gv.clean1_stat.gs.read_length==0)
 		//	gv.clean1_stat.gs.read_length=fq1s_stat.gs.read_length;	//generate stat
 		gv.clean1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;
@@ -968,11 +983,25 @@ void  peProcess::preOutput(int type,C_fastq& a){	//modify the sequences before o
 		}
 	}
 }
+void peProcess::peWrite_split(vector<C_fastq>& pe1,vector<C_fastq>& pe2){
+	/*if(gp.threads_num==1){
+		output_split_fastqs("1",pe1);
+		output_split_fastqs("2",pe2);
+	}else{
+		thread write1(bind(&peProcess::output_split_fastqs,this,"1",pe1));
+		thread write2(bind(&peProcess::output_split_fastqs,this,"2",pe2));
+		write1.join();
+		write2.join();
+	}
+	*/
+	output_split_fastqs("1",pe1);
+	output_split_fastqs("2",pe2);
+}
 void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2){	//output the sequences to  files
-	if(gp.threads_num==1){
+	/*if(gp.threads_num==1){
 		if(gp.mode=="nonssd" && gp.output_clean>0 && type=="clean"){
-			output_split_fastqs("1",pe1,out1);
-			output_split_fastqs("2",pe2,out2);
+			output_split_fastqs("1",pe1);
+			output_split_fastqs("2",pe2);
 		}else{
 			output_fastqs("1",pe1,out1);
 			output_fastqs("2",pe2,out2);
@@ -980,8 +1009,8 @@ void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gz
 		
 	}else{
 		if(gp.mode=="nonssd" && gp.output_clean>0 && type=="clean"){
-			thread write1(bind(&peProcess::output_split_fastqs,this,"1",pe1,out1));
-			thread write2(bind(&peProcess::output_split_fastqs,this,"2",pe2,out2));
+			thread write1(bind(&peProcess::output_split_fastqs,this,"1",pe1));
+			thread write2(bind(&peProcess::output_split_fastqs,this,"2",pe2));
 			write1.join();
 			write2.join();
 		}else{
@@ -991,6 +1020,9 @@ void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gz
 			write2.join();
 		}
 	}
+	*/
+	output_fastqs("1",pe1,out1);
+	output_fastqs("2",pe2,out2);
 }
 void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	a.seq_id="";
@@ -1003,18 +1035,22 @@ void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	b.adapter_seq=gp.adapter2_seq;
 	a.contam_seq=gp.contam1_seq;
 	b.contam_seq=gp.contam2_seq;
+	//a.global_contams=gp.global_contams;
+	//b.global_contams=gp.global_contams;
 	a.head_hdcut=-1;
 	a.head_lqcut=-1;
 	a.tail_hdcut=-1;
 	a.tail_lqcut=-1;
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
+	a.global_contam_pos=-1;
 	b.head_hdcut=-1;
 	b.head_lqcut=-1;
 	b.tail_hdcut=-1;
 	b.tail_lqcut=-1;
 	b.adacut_pos=-1;
 	b.contam_pos=-1;
+	b.global_contam_pos=-1;
 	if(!gp.trim.empty()){
 		vector<string> tmp_eles=get_pe_hard_trim(gp.trim);
 		a.head_trim_len=tmp_eles[0];
@@ -1110,6 +1146,199 @@ int peProcess::read_gz(vector<C_fastq>& pe1,vector<C_fastq>& pe2){	//read file f
 		}
 	}
 	return 0;
+}
+void peProcess::create_thread_outputFile(int index){
+	if(!gp.trim_fq1.empty()){	//create output trim files handle
+		ostringstream trim_outfile1,trim_outfile2;
+		trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r1.fq.gz";
+		trim_outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r2.fq.gz";
+		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
+		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_trim_out1[index],1024*1024*16);
+		gz_trim_out2[index]=gzopen(trim_outfile2.str().c_str(),"wb");
+		gzsetparams(gz_trim_out2[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_trim_out2[index],1024*1024*16);
+	}
+	if(gp.output_clean<=0){
+		if(!gp.clean_fq1.empty()){	//create output clean files handle
+			ostringstream outfile1,outfile2;
+			outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
+			outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r2.fq.gz";
+			gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
+			gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
+			gzbuffer(gz_clean_out1[index],1024*1024*16);
+			gz_clean_out2[index]=gzopen(outfile2.str().c_str(),"wb");
+			gzsetparams(gz_clean_out2[index], 2, Z_DEFAULT_STRATEGY);
+			gzbuffer(gz_clean_out2[index],1024*1024*16);
+		}
+	}
+}
+void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s){
+	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
+	PEcalOption opt2;
+	opt2.local_fs=&local_fs[index];
+	opt2.fq1s=&fq1s;
+	opt2.fq2s=&fq2s;
+	opt2.trim_result1=&trim_result1;
+	opt2.trim_result2=&trim_result2;
+	opt2.clean_result1=&clean_result1;
+	opt2.clean_result2=&clean_result2;
+	filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
+	PEstatOption opt_raw;
+	opt_raw.fq1s=&fq1s;
+	opt_raw.stat1=&local_raw_stat1[index];
+	opt_raw.fq2s=&fq2s;
+	opt_raw.stat2=&local_raw_stat2[index];
+	stat_pe_fqs(opt_raw);		//statistic raw fastqs
+	fq1s.clear();
+	fq2s.clear();
+	PEstatOption opt_trim,opt_clean;
+	if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
+		opt_trim.fq1s=&trim_result1;
+		opt_trim.stat1=&local_trim_stat1[index];
+		opt_trim.fq2s=&trim_result2;
+		opt_trim.stat2=&local_trim_stat2[index];
+		stat_pe_fqs(opt_trim);	//statistic trim fastqs
+	}
+	if(!gp.clean_fq1.empty()){
+		opt_clean.fq1s=&clean_result1;
+		opt_clean.stat1=&local_clean_stat1[index];
+		opt_clean.fq2s=&clean_result2;
+		opt_clean.stat2=&local_clean_stat2[index];
+		stat_pe_fqs(opt_clean);	//statistic clean fastqs
+	}
+
+	//write_m.lock();
+	if(!gp.trim_fq1.empty()){
+		peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[index],gz_trim_out2[index]);	//output trim files
+		trim_result1.clear();
+		trim_result2.clear();
+	}
+	if(!gp.clean_fq1.empty()){
+		if(gp.output_clean>0){
+			write_m.lock();
+			peWrite_split(clean_result1,clean_result2);
+			write_m.unlock();
+		}else{
+			peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]);//output clean files
+		}
+			
+		clean_result1.clear();
+		clean_result2.clear();
+		/*thread_write_m[index].lock();
+		thread pewrite_t(bind(&peProcess::peWrite,this,clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]));
+		thread_write_m[index].unlock();*/
+		if(gp.is_streaming){
+			write_m.lock();
+			C_global_variable tmp_gv;
+			tmp_gv.fs=*(opt2.local_fs);
+			tmp_gv.raw1_stat=*(opt_raw.stat1);
+			tmp_gv.raw2_stat=*(opt_raw.stat2);
+			//tmp_gv.trim1_stat=local_trim_stat1[index];
+			//tmp_gv.trim2_stat=local_trim_stat2[index];
+			tmp_gv.clean1_stat=*(opt_clean.stat1);
+			tmp_gv.clean2_stat=*(opt_clean.stat2);
+			peStreaming_stat(tmp_gv);
+			write_m.unlock();
+		}
+	}
+}
+void* peProcess::sub_thread_nonssd_multiOut(int index){	//sub thread process in non-ssd mode 
+	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+	create_thread_outputFile(index);
+	vector<C_fastq> fq1s,fq2s;
+	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
+	int done(0);
+	while(1){
+		read_m.lock();
+		if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+			if(read_gz(fq1s,fq2s)==-1){		//read fastqs from raw files
+				done=1;
+			}
+		}else{
+			if(read(fq1s,fq2s,nongzfp1,nongzfp2)==-1){		
+				done=1;
+			}
+		}
+		processed_reads+=fq1s.size();
+		if(processed_reads%(gp.patchSize*gp.threads_num)==0){
+			of_log<<get_local_time()<<"\tprocessed reads number:"<<processed_reads<<endl;
+		}
+		read_m.unlock();
+		PEcalOption opt2;
+		opt2.local_fs=&local_fs[index];
+		opt2.fq1s=&fq1s;
+		opt2.fq2s=&fq2s;
+		opt2.trim_result1=&trim_result1;
+		opt2.trim_result2=&trim_result2;
+		opt2.clean_result1=&clean_result1;
+		opt2.clean_result2=&clean_result2;
+		filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
+		PEstatOption opt_raw;
+		opt_raw.fq1s=&fq1s;
+		opt_raw.stat1=&local_raw_stat1[index];
+		opt_raw.fq2s=&fq2s;
+		opt_raw.stat2=&local_raw_stat2[index];
+		stat_pe_fqs(opt_raw);		//statistic raw fastqs
+		fq1s.clear();
+		fq2s.clear();
+		PEstatOption opt_trim,opt_clean;
+		if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
+			opt_trim.fq1s=&trim_result1;
+			opt_trim.stat1=&local_trim_stat1[index];
+			opt_trim.fq2s=&trim_result2;
+			opt_trim.stat2=&local_trim_stat2[index];
+			stat_pe_fqs(opt_trim);	//statistic trim fastqs
+		}
+		if(!gp.clean_fq1.empty()){
+			opt_clean.fq1s=&clean_result1;
+			opt_clean.stat1=&local_clean_stat1[index];
+			opt_clean.fq2s=&clean_result2;
+			opt_clean.stat2=&local_clean_stat2[index];
+			stat_pe_fqs(opt_clean);	//statistic clean fastqs
+		}
+		//write_m.lock();
+		if(!gp.trim_fq1.empty()){
+			peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[index],gz_trim_out2[index]);	//output trim files
+		}
+		if(!gp.clean_fq1.empty()){
+			peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]);	//output clean files
+			if(gp.is_streaming){
+				write_m.lock();
+				C_global_variable tmp_gv;
+				tmp_gv.fs=*(opt2.local_fs);
+				tmp_gv.raw1_stat=*(opt_raw.stat1);
+				tmp_gv.raw2_stat=*(opt_raw.stat2);
+				//tmp_gv.trim1_stat=local_trim_stat1[index];
+				//tmp_gv.trim2_stat=local_trim_stat2[index];
+				tmp_gv.clean1_stat=*(opt_clean.stat1);
+				tmp_gv.clean2_stat=*(opt_clean.stat2);
+				peStreaming_stat(tmp_gv);
+				write_m.unlock();
+			}
+		}
+		//write_m.unlock();
+		if(!gp.trim_fq1.empty()){
+			trim_result1.clear();
+			trim_result2.clear();
+		}
+		if(!gp.clean_fq1.empty()){
+			clean_result1.clear();
+			clean_result2.clear();
+		}
+		if(done==1){
+			break;
+		}
+	}
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[index]);
+		gzclose(gz_trim_out2[index]);
+	}
+	if(!gp.clean_fq1.empty()){
+		gzclose(gz_clean_out1[index]);
+		gzclose(gz_clean_out2[index]);
+	}
+	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 void* peProcess::sub_thread_nonssd(int index){	//sub thread process in non-ssd mode 
 	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
@@ -1227,28 +1456,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	int self_fq1fd=open(new_fq1_path.c_str(),O_RDONLY);
 	int self_fq2fd=open(new_fq2_path.c_str(),O_RDONLY);
 	int min_len=1024*4*10;
-	if(!gp.trim_fq1.empty()){	//create output trim files handle
-		ostringstream trim_outfile1,trim_outfile2;
-		trim_outfile1<<gp.output_dir<<"/thread."<<index<<".trim.r1.fq.gz";
-		trim_outfile2<<gp.output_dir<<"/thread."<<index<<".trim.r2.fq.gz";
-		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
-		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out1[index],1024*1024*64);
-		gz_trim_out2[index]=gzopen(trim_outfile2.str().c_str(),"wb");
-		gzsetparams(gz_trim_out2[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out2[index],1024*1024*64);
-	}
-	if(!gp.clean_fq1.empty()){	//create output clean files handle
-		ostringstream outfile1,outfile2;
-		outfile1<<gp.output_dir<<"/thread."<<index<<".clean.r1.fq.gz";
-		outfile2<<gp.output_dir<<"/thread."<<index<<".clean.r2.fq.gz";
-		gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
-		gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out1[index],1024*1024*64);
-		gz_clean_out2[index]=gzopen(outfile2.str().c_str(),"wb");
-		gzsetparams(gz_clean_out2[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out2[index],1024*1024*64);
-	}
+	create_thread_outputFile(index);
 	
 	//char *fq1_buf,*fq2_buf;
 	unsigned long long mmap_start(start_pos);
@@ -1270,15 +1478,13 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 			}else{
 				copysz=buffer;
 			}
-			
 		}
-		
 		if((buf1=(char*)mmap(0,copysz,PROT_READ,MAP_SHARED,self_fq1fd,mmap_start))==MAP_FAILED){
-			cerr<<"mmap error"<<endl;
+			cerr<<"Error:mmap error"<<endl;
 			exit(1);
 		}
 		if((buf2=(char*)mmap(0,copysz,PROT_READ,MAP_SHARED,self_fq2fd,mmap_start))==MAP_FAILED){
-			cerr<<"mmap error"<<endl;
+			cerr<<"Error:mmap error"<<endl;
 			exit(1);
 		}
 		string tmp_head1,tmp_tail1;
@@ -1287,13 +1493,13 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 		for(;head_idx<copysz;head_idx++){
 			if(head_idx==0 || head_idx==1){
 				tmp_head1.insert(tmp_head1.end(),buf1[head_idx]);
-				tmp_head2.insert(tmp_head2.end(),buf1[head_idx]);
+				tmp_head2.insert(tmp_head2.end(),buf2[head_idx]);
 			}else{
 				if(buf1[head_idx]=='@' && buf1[head_idx-1]=='\n' && buf1[head_idx-2]!='+'){
 					break;
 				}else{
 					tmp_head1.insert(tmp_head1.end(),buf1[head_idx]);
-					tmp_head2.insert(tmp_head2.end(),buf1[head_idx]);
+					tmp_head2.insert(tmp_head2.end(),buf2[head_idx]);
 				}
 			}
 		}
@@ -1301,13 +1507,13 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 		for(;tail_idx>1;tail_idx--){
 			if(tail_idx==copysz-1){
 				tmp_tail1.insert(tmp_tail1.begin(),buf1[tail_idx]);
-				tmp_tail2.insert(tmp_tail2.begin(),buf1[tail_idx]);
+				tmp_tail2.insert(tmp_tail2.begin(),buf2[tail_idx]);
 			}else{
 				if(buf1[tail_idx]=='\n' && buf1[tail_idx+1]=='@' && buf1[tail_idx-1]!='+'){
 					break;
 				}else{
 					tmp_tail1.insert(tmp_tail1.begin(),buf1[tail_idx]);
-					tmp_tail2.insert(tmp_tail2.begin(),buf1[tail_idx]);
+					tmp_tail2.insert(tmp_tail2.begin(),buf2[tail_idx]);
 				}
 			}
 		}
@@ -1346,52 +1552,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 				fastq2.qual_seq.insert(fastq2.qual_seq.end(),buf2[i]);
 			}
 		}
-		PEstatOption opt_raw;
-		opt_raw.fq1s=&fq1s;
-		opt_raw.stat1=&local_raw_stat1[index];
-		opt_raw.fq2s=&fq2s;
-		opt_raw.stat2=&local_raw_stat2[index];
-		stat_pe_fqs(opt_raw);		//statistic raw fastqs
-		
-		PEcalOption opt2;
-		opt2.local_fs=&local_fs[index];
-		opt2.fq1s=&fq1s;
-		opt2.fq2s=&fq2s;
-		opt2.trim_result1=&trim_result1;
-		opt2.trim_result2=&trim_result2;
-		opt2.clean_result1=&clean_result1;
-		opt2.clean_result2=&clean_result2;
-		filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
-		fq1s.clear();
-		fq2s.clear();
-		long long clean_size(0);
-		if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
-			PEstatOption opt_trim;
-			opt_trim.fq1s=&trim_result1;
-			opt_trim.stat1=&local_trim_stat1[index];
-			opt_trim.fq2s=&trim_result2;
-			opt_trim.stat2=&local_trim_stat2[index];
-			stat_pe_fqs(opt_trim);	//statistic trim fastqs
-
-		}
-		if(!gp.clean_fq1.empty()){
-			PEstatOption opt_clean;
-			opt_clean.fq1s=&clean_result1;
-			opt_clean.stat1=&local_clean_stat1[index];
-			opt_clean.fq2s=&clean_result2;
-			opt_clean.stat2=&local_clean_stat2[index];
-			stat_pe_fqs(opt_clean);	//statistic clean fastqs
-		}
-		if(!gp.trim_fq1.empty()){
-			peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[index],gz_trim_out2[index]);
-			trim_result1.clear();
-			trim_result2.clear();
-		}
-		if(!gp.clean_fq1.empty()){
-			peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]);
-			clean_result1.clear();
-			clean_result2.clear();
-		}
+		thread_process_reads(index,fq1s,fq2s);
 		mmap_start+=copysz;
 		munmap(buf1,copysz);
 		munmap(buf2,copysz);
@@ -1404,13 +1565,15 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 			gzclose(gz_trim_out1[index]);
 			gzclose(gz_trim_out2[index]);
 		}
+		
 	}
 	if(!gp.clean_fq1.empty()){
 		if(index!=0){
-			gzclose(gz_clean_out1[index]);
-			gzclose(gz_clean_out2[index]);
+			if(gp.output_clean<=0){
+				gzclose(gz_clean_out1[index]);
+				gzclose(gz_clean_out2[index]);
+			}
 		}
-		
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
@@ -1450,6 +1613,12 @@ void peProcess::merge_stat_nonssd(){
 		}
 	}
 }
+void peProcess::run_cmd(string cmd){
+	if(system(cmd.c_str())==-1){
+		cerr<<"Error:when running "<<cmd<<endl;
+		exit(1);
+	}
+}
 void peProcess::merge_data(){	//cat all output files generated by multi-threads to a single large file
 	if(!gp.trim_fq1.empty()){
 		string trim_file1,trim_file2;
@@ -1479,104 +1648,395 @@ void peProcess::merge_data(){	//cat all output files generated by multi-threads 
 	}
 	for(int i=0;i!=gp.threads_num;i++){
 		if(!gp.trim_fq1.empty()){
-			ostringstream cat_cmd1,cat_cmd2;
-			cat_cmd1<<"cat "<<gp.output_dir<<"/thread."<<i<<".trim.r1.fq.gz >>"<<gp.trim_fq1<<";rm thread."<<i<<".trim.r1.fq.gz";
-			cat_cmd2<<"cat "<<gp.output_dir<<"/thread."<<i<<".trim.r2.fq.gz >>"<<gp.trim_fq2<<";rm thread."<<i<<".trim.r2.fq.gz";
-			if(system(cat_cmd1.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
+			ostringstream trim_out_fq1_tmp,trim_out_fq2_tmp;
+			trim_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r1.fq.gz";
+			trim_out_fq2_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r2.fq.gz";
+			
+			if(access(trim_out_fq1_tmp.str().c_str(),0)!=-1 && access(trim_out_fq2_tmp.str().c_str(),0)!=-1){
+
+				ostringstream cat_cmd1,cat_cmd2;
+				cat_cmd1<<"cat "<<trim_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq1<<";rm "<<trim_out_fq1_tmp.str();
+				cat_cmd2<<"cat "<<trim_out_fq2_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq2<<";rm "<<trim_out_fq2_tmp.str();
+				if(gp.threads_num>1){
+					thread cat_t1(bind(&peProcess::run_cmd,this,cat_cmd1.str()));
+					thread cat_t2(bind(&peProcess::run_cmd,this,cat_cmd2.str()));
+					cat_t1.join();
+					cat_t2.join();
+				}else{
+					run_cmd(cat_cmd1.str());
+					run_cmd(cat_cmd2.str());
+				}
 			}
-			if(system(cat_cmd2.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
-			}
+			
 		}
 		if(!gp.clean_fq1.empty()){
-			ostringstream cat_cmd1,cat_cmd2;
-			cat_cmd1<<"cat "<<gp.output_dir<<"/thread."<<i<<".clean.r1.fq.gz >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<gp.output_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-			cat_cmd2<<"cat "<<gp.output_dir<<"/thread."<<i<<".clean.r2.fq.gz >>"<<gp.output_dir<<"/"<<gp.clean_fq2<<";rm "<<gp.output_dir<<"/thread."<<i<<".clean.r2.fq.gz";
-			if(system(cat_cmd1.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
+			ostringstream clean_out_fq1_tmp,clean_out_fq2_tmp;
+			clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
+			clean_out_fq2_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r2.fq.gz";
+			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1 && access(clean_out_fq2_tmp.str().c_str(),0)!=-1){
+				ostringstream cat_cmd1,cat_cmd2;
+				cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
+				cat_cmd2<<"cat "<<clean_out_fq2_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq2<<";rm "<<clean_out_fq2_tmp.str();
+				if(gp.threads_num>1){
+					thread cat_t1(bind(&peProcess::run_cmd,this,cat_cmd1.str()));
+					thread cat_t2(bind(&peProcess::run_cmd,this,cat_cmd2.str()));
+					cat_t1.join();
+					cat_t2.join();
+				}else{
+					run_cmd(cat_cmd1.str());
+					run_cmd(cat_cmd2.str());
+				}
 			}
-			if(system(cat_cmd2.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
+		}
+	}
+	
+}
+void peProcess::create_thread_read(int index){
+	multi_gzfq1[index]=gzopen((gp.fq1_path).c_str(),"rb");
+	gzsetparams(multi_gzfq1[index], 2, Z_DEFAULT_STRATEGY);
+	gzbuffer(multi_gzfq1[index],2048*2048);
+	multi_gzfq2[index]=gzopen((gp.fq2_path).c_str(),"rb");
+	gzsetparams(multi_gzfq2[index], 2, Z_DEFAULT_STRATEGY);
+	gzbuffer(multi_gzfq2[index],2048*2048);
+}
+void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
+	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+	create_thread_outputFile(index);
+	create_thread_read(index);
+	
+	char buf1[READBUF],buf2[READBUF];
+	C_fastq fastq1,fastq2;
+	C_fastq_init(fastq1,fastq2);
+	unsigned long long file1_line_num(0),file2_line_num(0);
+	unsigned long long block_line_num1(0),block_line_num2(0);
+	int thread_read_block=4*gp.patchSize;
+	vector<C_fastq> fq1s,fq2s;
+	while(1){
+		if(gzgets(multi_gzfq1[index],buf1,READBUF)!=NULL){
+			if((file1_line_num/thread_read_block)%gp.threads_num==index){
+				block_line_num1++;
+				if(block_line_num1%4==1){
+					fastq1.seq_id.assign(buf1);
+					fastq1.seq_id.erase(fastq1.seq_id.size()-1);
+				}
+				if(block_line_num1%4==2){
+					fastq1.sequence.assign(buf1);
+					fastq1.sequence.erase(fastq1.sequence.size()-1);
+				}
+				if(block_line_num1%4==0){
+					fastq1.qual_seq.assign(buf1);
+					fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
+				}
+			}
+			file1_line_num++;
+		}
+		if(gzgets(multi_gzfq2[index],buf2,READBUF)!=NULL){
+			if((file2_line_num/thread_read_block)%gp.threads_num==index){
+				block_line_num2++;
+				if(block_line_num2%4==1){
+					fastq2.seq_id.assign(buf2);
+					fastq2.seq_id.erase(fastq2.seq_id.size()-1);
+				}else if(block_line_num2%4==2){
+					fastq2.sequence.assign(buf2);
+					fastq2.sequence.erase(fastq2.sequence.size()-1);
+				}else if(block_line_num2%4==0){
+					fastq2.qual_seq.assign(buf2);
+					fastq2.qual_seq.erase(fastq2.qual_seq.size()-1);
+					fq1s.push_back(fastq1);
+					fq2s.push_back(fastq2);
+					if(fq1s.size()==gp.patchSize){
+						if(index==0)
+							of_log<<get_local_time()<<" processed_reads:\t"<<file1_line_num/4<<endl;
+						thread_process_reads(index,fq1s,fq2s);
+					}
+				}
+			}
+			file2_line_num++;
+		}else{
+			gzclose(multi_gzfq1[index]);
+			gzclose(multi_gzfq2[index]);
+			if(fq1s.size()>0){
+				thread_process_reads(index,fq1s,fq2s);
+			}
+			break;
+		}
+	}
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[index]);
+		gzclose(gz_trim_out2[index]);
+	}
+	if(!gp.clean_fq1.empty()){
+		if(gp.output_clean<=0){
+			gzclose(gz_clean_out1[index]);
+			gzclose(gz_clean_out2[index]);
+		}
+	}
+	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+}
+void* peProcess::sub_thread_nonssd_threadBuffer(int index){
+	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+	if(!gp.trim_fq1.empty()){	//create output trim files handle
+		ostringstream trim_outfile1,trim_outfile2;
+		trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r1.fq.gz";
+		trim_outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r2.fq.gz";
+		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
+		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_trim_out1[index],1024*1024*16);
+		gz_trim_out2[index]=gzopen(trim_outfile2.str().c_str(),"wb");
+		gzsetparams(gz_trim_out2[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_trim_out2[index],1024*1024*16);
+	}
+	if(!gp.clean_fq1.empty()){	//create output clean files handle
+		ostringstream outfile1,outfile2;
+		outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
+		outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r2.fq.gz";
+		gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
+		gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_clean_out1[index],1024*1024*16);
+		gz_clean_out2[index]=gzopen(outfile2.str().c_str(),"wb");
+		gzsetparams(gz_clean_out2[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_clean_out2[index],1024*1024*16);
+	}
+	vector<C_fastq> fq1s,fq2s;
+	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
+	while(1){
+		thread_read_m[index].lock();
+		cout<<index<<" size:\t"<<thread_read_buffer1[index].size()<<endl;
+		if(thread_read_buffer1[index].size()==0){
+			if(file_end){
+				thread_read_m[index].unlock();
+				break;
+			}else{
+				thread_read_m[index].unlock();
+				usleep(1000000);
+				continue;
+			}
+		}else{
+			fq1s=thread_read_buffer1[index].front();
+			fq2s=thread_read_buffer2[index].front();
+			thread_read_buffer1[index].pop();
+			thread_read_buffer2[index].pop();
+			thread_read_m[index].unlock();
+			PEcalOption opt2;
+			opt2.local_fs=&local_fs[index];
+			opt2.fq1s=&fq1s;
+			opt2.fq2s=&fq2s;
+			opt2.trim_result1=&trim_result1;
+			opt2.trim_result2=&trim_result2;
+			opt2.clean_result1=&clean_result1;
+			opt2.clean_result2=&clean_result2;
+			filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
+			PEstatOption opt_raw;
+			opt_raw.fq1s=&fq1s;
+			opt_raw.stat1=&local_raw_stat1[index];
+			opt_raw.fq2s=&fq2s;
+			opt_raw.stat2=&local_raw_stat2[index];
+			stat_pe_fqs(opt_raw);		//statistic raw fastqs
+			fq1s.clear();
+			fq2s.clear();
+			PEstatOption opt_trim,opt_clean;
+			if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
+				opt_trim.fq1s=&trim_result1;
+				opt_trim.stat1=&local_trim_stat1[index];
+				opt_trim.fq2s=&trim_result2;
+				opt_trim.stat2=&local_trim_stat2[index];
+				stat_pe_fqs(opt_trim);	//statistic trim fastqs
+			}
+			if(!gp.clean_fq1.empty()){
+				opt_clean.fq1s=&clean_result1;
+				opt_clean.stat1=&local_clean_stat1[index];
+				opt_clean.fq2s=&clean_result2;
+				opt_clean.stat2=&local_clean_stat2[index];
+				stat_pe_fqs(opt_clean);	//statistic clean fastqs
+			}
+			//write_m.lock();
+			if(!gp.trim_fq1.empty()){
+				peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[index],gz_trim_out2[index]);	//output trim files
+			}
+			if(!gp.clean_fq1.empty()){
+				peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]);	//output clean files
+				if(gp.is_streaming){
+					write_m.lock();
+					C_global_variable tmp_gv;
+					tmp_gv.fs=*(opt2.local_fs);
+					tmp_gv.raw1_stat=*(opt_raw.stat1);
+					tmp_gv.raw2_stat=*(opt_raw.stat2);
+					//tmp_gv.trim1_stat=local_trim_stat1[index];
+					//tmp_gv.trim2_stat=local_trim_stat2[index];
+					tmp_gv.clean1_stat=*(opt_clean.stat1);
+					tmp_gv.clean2_stat=*(opt_clean.stat2);
+					peStreaming_stat(tmp_gv);
+					write_m.unlock();
+				}
+			}
+			//write_m.unlock();
+			if(!gp.trim_fq1.empty()){
+				trim_result1.clear();
+				trim_result2.clear();
+			}
+			if(!gp.clean_fq1.empty()){
+				clean_result1.clear();
+				clean_result2.clear();
+			}
+		}
+	}
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[index]);
+		gzclose(gz_trim_out2[index]);
+	}
+	if(!gp.clean_fq1.empty()){
+		gzclose(gz_clean_out1[index]);
+		gzclose(gz_clean_out2[index]);
+	}
+	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+}
+void* peProcess::monitor_read_thread(){
+	//queue<vector<C_fastq> > thread_read_buffer[max_thread],thread_write_buffer[max_thread];
+	//mutex thread_read_m[max_thread],thread_write_m[max_thread];
+	vector<C_fastq> fq1s,fq2s;
+	int done(0);
+	while(1){
+		if(file_end){
+			break;
+		}else{
+			int ready(0);
+			for(int i=0;i!=gp.threads_num;i++){
+				if(thread_read_m[i].try_lock()){
+					cout<<"monitor: sub thread "<<i<<" size "<<thread_read_buffer1[i].size()<<endl;
+					if(thread_read_buffer1[i].size()<queue_buffer){
+						if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+							if(read_gz(fq1s,fq2s)==-1){		//read fastqs from raw files
+								done=1;
+							}
+						}else{
+							if(read(fq1s,fq2s,nongzfp1,nongzfp2)==-1){		
+								done=1;
+							}
+						}
+						thread_read_buffer1[i].push(fq1s);
+						thread_read_buffer2[i].push(fq2s);
+						fq1s.clear();
+						fq2s.clear();
+						if(done==1){
+							file_end=true;
+							thread_read_m[i].unlock();
+							break;
+						}
+						cout<<"done:"<<done<<" after monitor: sub thread "<<i<<" size "<<thread_read_buffer1[i].size()<<endl;
+					}else{
+						ready++;
+					}
+					thread_read_m[i].unlock();
+					if(ready==gp.threads_num){
+						usleep(1000000);
+					}
+				}
 			}
 		}
 	}
 }
 void peProcess::process_nonssd(){
-	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
 	string mkdir_str="mkdir -p "+gp.output_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir fail"<<endl;
 		exit(1);
 	}
-	if(!gp.trim_fq1.empty()){
-		string out_file1=gp.output_dir+"/"+gp.trim_fq1;
-		gz_trim_out1_nonssd=gzopen(out_file1.c_str(),"wb");
-		gzsetparams(gz_trim_out1_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out1_nonssd,1024*1024*160);
-		string out_file2=gp.output_dir+"/"+gp.trim_fq2;
-		gz_trim_out2_nonssd=gzopen(out_file2.c_str(),"wb");
-		gzsetparams(gz_trim_out2_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out2_nonssd,1024*1024*160);
+	of_log.open(gp.log.c_str());
+	if(!of_log){
+		cerr<<"Error:cannot open such file,"<<gp.log<<endl;
+		exit(1);
 	}
-	if(!gp.clean_fq1.empty()){
-		string out_file1=gp.output_dir+"/"+gp.clean_fq1;
-		gz_clean_out1_nonssd=gzopen(out_file1.c_str(),"wb");
-		gzsetparams(gz_clean_out1_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out1_nonssd,1024*1024*160);
-		string out_file2=gp.output_dir+"/"+gp.clean_fq2;
-
-		gz_clean_out2_nonssd=gzopen(out_file2.c_str(),"wb");
-		gzsetparams(gz_clean_out2_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out2_nonssd,1024*1024*160);
-	}
-	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
-		gzfp1=gzopen((gp.fq1_path).c_str(),"rb");
-		gzsetparams(gzfp1, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gzfp1,2048*2048);
-		gzfp2=gzopen((gp.fq2_path).c_str(),"rb");
-		gzsetparams(gzfp2, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gzfp2,2048*2048);
-	}else{
-		nongzfp1.open(gp.fq1_path.c_str());
-		nongzfp2.open(gp.fq2_path.c_str());
+	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
+	if(gp.output_clean<=0){
+		make_tmpDir();
 	}
 	thread t_array[gp.threads_num];
+	//thread read_monitor(bind(&peProcess::monitor_read_thread,this));
+	//sleep(10);
 	for(int i=0;i<gp.threads_num;i++){
-		t_array[i]=thread(bind(&peProcess::sub_thread_nonssd,this,i));
+		//t_array[i]=thread(bind(&peProcess::sub_thread_nonssd_multiOut,this,i));
+		t_array[i]=thread(bind(&peProcess::sub_thread_nonssd_realMultiThreads,this,i));
 	}
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
-	gzclose(gz_fq1);
-	gzclose(gz_fq2);
+	//read_monitor.join();
 	merge_stat_nonssd();
 	print_stat();
-	if(!gp.trim_fq1.empty()){
-		gzclose(gz_trim_out1_nonssd);
-		gzclose(gz_trim_out2_nonssd);
-	}
-	if(!gp.clean_fq1.empty()){
-		gzclose(gz_clean_out1_nonssd);
-		gzclose(gz_clean_out2_nonssd);
+	if(gp.output_clean<=0){
+		merge_data();
+		remove_tmpDir();
+	}else{
+		gzclose(gz_fq1);
+		gzclose(gz_fq2);
 	}
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
-	return;
 }
-
+void peProcess::remove_tmpDir(){
+	string rm_dir=gp.output_dir+"/"+tmp_dir;
+	int iter(0);
+	while(1){
+		DIR* tmpdir;
+		struct dirent* ptr;
+		tmpdir=opendir(rm_dir.c_str());
+		bool empty_flag=true;
+		if(tmpdir==NULL){
+			cerr<<"Error:open directory error,"<<rm_dir<<endl;
+			exit(1);
+		}
+		while((ptr=readdir(tmpdir))!=NULL){
+			if(strcmp(ptr->d_name,"..")!=0 && strcmp(ptr->d_name,".")!=0){
+				empty_flag=false;
+				break;
+			}
+		}
+		closedir(tmpdir);
+		if(empty_flag){
+			string remove="rm -r "+rm_dir;
+			if(system(remove.c_str())==-1){
+				cerr<<"Error:rmdir error,"<<remove<<endl;
+				exit(1);
+			}
+			break;
+		}else{
+			sleep(2);
+			iter++;
+		}
+		if(iter>30){
+			break;
+		}
+	}
+}
+void peProcess::make_tmpDir(){
+	srand(time(0));
+	ostringstream tmp_str;
+	for(int i=0;i!=6;i++){
+		int tmp_rand=random(26)+'A';
+		tmp_str<<(char)tmp_rand;
+	}
+	tmp_dir=tmp_str.str();
+	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
+	if(system(mkdir_str.c_str())==-1){
+		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
+		exit(1);
+	}
+}
 void peProcess::process(){
-	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
 	string mkdir_str="mkdir -p "+gp.output_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir fail"<<endl;
 		exit(1);
 	}
+	of_log.open(gp.log.c_str());
+	if(!of_log){
+		cerr<<"Error:cannot open such file,"<<gp.log<<endl;
+		exit(1);
+	}
+	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
 	new_fq1_path=gp.fq1_path;
 	new_fq2_path=gp.fq2_path;
-	
 	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
-		
 		if(gp.threads_num==1){
 			run_pigz(1);
 			run_pigz(2);
@@ -1586,10 +2046,12 @@ void peProcess::process(){
 			t_pigz1.join();
 			t_pigz2.join();
 		}
-		
 		new_fq1_path=gp.output_dir+"/raw.r1.fq";
 		new_fq2_path=gp.output_dir+"/raw.r2.fq";
 		
+	}
+	if(gp.output_clean<=0){
+		make_tmpDir();
 	}
 	fq1fd=open(new_fq1_path.c_str(),O_RDONLY);
 	fq2fd=open(new_fq2_path.c_str(),O_RDONLY);
@@ -1601,7 +2063,6 @@ void peProcess::process(){
 	file2_size=st2.st_size;
 	//cout<<file_size<<endl;
 	int pieces=file_size/buffer;
-
 	if(file_size%buffer!=0 || pieces==0)
 		pieces+=1;
 	int blocks=pieces/gp.threads_num;
@@ -1644,7 +2105,6 @@ void peProcess::process(){
 	C_fastq fastq1,fastq2;
 	C_fastq_init(fastq1,fastq2);
 	vector<C_fastq> fq1s,fq2s;
-	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
 	//cout<<fq1_unprocess<<endl;
 	for(int i=0;i!=fq1_unprocess.size();i++){
 		if(fq1_unprocess[i]=='\n'){
@@ -1674,52 +2134,8 @@ void peProcess::process(){
 			fastq2.qual_seq.insert(fastq2.qual_seq.end(),fq2_unprocess[i]);
 		}
 	}
-	PEstatOption opt_raw;
-	opt_raw.fq1s=&fq1s;
-	opt_raw.stat1=&local_raw_stat1[0];
-	opt_raw.fq2s=&fq2s;
-	opt_raw.stat2=&local_raw_stat2[0];
-	stat_pe_fqs(opt_raw);		//statistic raw fastqs
-	
-	PEcalOption opt2;
-	opt2.local_fs=&local_fs[0];
-	opt2.fq1s=&fq1s;
-	opt2.fq2s=&fq2s;
-	opt2.trim_result1=&trim_result1;
-	opt2.trim_result2=&trim_result2;
-	opt2.clean_result1=&clean_result1;
-	opt2.clean_result2=&clean_result2;
-	filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
-	fq1s.clear();
-	fq2s.clear();
 	long long clean_size(0);
-	if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
-		PEstatOption opt_trim;
-		opt_trim.fq1s=&trim_result1;
-		opt_trim.stat1=&local_trim_stat1[0];
-		opt_trim.fq2s=&trim_result2;
-		opt_trim.stat2=&local_trim_stat2[0];
-		stat_pe_fqs(opt_trim);	//statistic trim fastqs
-
-	}
-	if(!gp.clean_fq1.empty()){
-		PEstatOption opt_clean;
-		opt_clean.fq1s=&clean_result1;
-		opt_clean.stat1=&local_clean_stat1[0];
-		opt_clean.fq2s=&clean_result2;
-		opt_clean.stat2=&local_clean_stat2[0];
-		stat_pe_fqs(opt_clean);	//statistic clean fastqs
-	}
-	if(!gp.trim_fq1.empty()){
-		peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[0],gz_trim_out2[0]);
-		trim_result1.clear();
-		trim_result2.clear();
-	}
-	if(!gp.clean_fq1.empty()){
-		peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[0],gz_clean_out2[0]);
-		clean_result1.clear();
-		clean_result2.clear();
-	}
+	thread_process_reads(0,fq1s,fq2s);
 	if(!gp.trim_fq1.empty()){
 		gzclose(gz_trim_out1[0]);
 		gzclose(gz_trim_out2[0]);
@@ -1731,8 +2147,13 @@ void peProcess::process(){
 	//
 	merge_stat();
 	print_stat();
-	merge_data();
-	
+	if(gp.output_clean<=0){
+		merge_data();
+		remove_tmpDir();
+	}else{
+		gzclose(gz_fq1);
+		gzclose(gz_fq2);
+	}
 	if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
 		string new_fq1_path=gp.output_dir+"/raw.r1.fq";
 		string new_fq2_path=gp.output_dir+"/raw.r2.fq";
@@ -1744,7 +2165,6 @@ void peProcess::process(){
 	}
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
-	return;
 	
 }
 void peProcess::output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile){
@@ -1810,7 +2230,7 @@ void peProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	}
 	//m.unlock();
 }
-void peProcess::output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
+void peProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 	//m.lock();
 	
 	string streaming_out,out_content;

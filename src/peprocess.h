@@ -46,13 +46,14 @@ public:
 	void* sub_thread(int index);
 	int read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,ifstream& infile2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2);
+	void peWrite_split(vector<C_fastq>& pe1,vector<C_fastq>& pe2);
 	//void peRead();
 	void* doCal(int index);
 	void  preOutput(int type,C_fastq& a);
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
-	void output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
-	void peWrite(int num);
+	void output_split_fastqs(string type,vector<C_fastq> &fq1);
+	//void peWrite(int num);
 	void run_pigz(int type);
 	void get_line_number(int* line_num);
 	void merge_stat();
@@ -60,15 +61,26 @@ public:
 	void C_fastq_init(C_fastq& a,C_fastq& b);
 	void process_nonssd();
 	void* sub_thread_nonssd(int index);
+	void* sub_thread_nonssd_multiOut(int index);
+	void* sub_thread_nonssd_realMultiThreads(int index);
 	int read_gz(vector<C_fastq>& pe1,vector<C_fastq>& pe2);
 	void merge_stat_nonssd();
 	void peStreaming_stat(C_global_variable& local_gv);
 	void* gzread_(int index,gzFile a);
+	void make_tmpDir();
+	void remove_tmpDir();
+	void* sub_thread_nonssd_threadBuffer(int index);
+	void* monitor_read_thread();
+	void* monitor_write_thread();
+	void create_thread_read(int index);
+	void create_thread_outputFile(int index);
+	void thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s);
+	void run_cmd(string cmd);
 	//void peOutput(outputOption opt);
 public:
 	C_global_parameter gp;
 	C_global_variable gv;
-	queue<C_fastq> read_queue1,read_queue2,cal_trim_queue1,cal_trim_queue2,cal_clean_queue1,cal_clean_queue2;
+	//queue<C_fastq> read_queue1,read_queue2,cal_trim_queue1,cal_trim_queue2,cal_clean_queue1,cal_clean_queue2;
 	int read_num;
 	int cal_num;
 	int write_num;
@@ -76,8 +88,9 @@ public:
 	string brother_stat,write_stat;
 	mutex read_cal_m,cal_write_m;
 	long long processed_reads;
-	vector<C_fastq> trim_merge1[max_thread],trim_merge2[max_thread],clean_merge1[max_thread],clean_merge2[max_thread];
+	//vector<C_fastq> trim_merge1[max_thread],trim_merge2[max_thread],clean_merge1[max_thread],clean_merge2[max_thread];
 	gzFile gzfp1,gzfp2;
+	gzFile multi_gzfq1[max_thread],multi_gzfq2[max_thread];
 	ifstream nongzfp1,nongzfp2;
 	gzFile gz_trim_out1[max_thread],gz_trim_out2[max_thread];
 	gzFile gz_clean_out1[max_thread],gz_clean_out2[max_thread];
@@ -87,6 +100,10 @@ public:
 	off_t t_end_pos[max_thread];
 	char* src1,*src2;
 	int fq1fd,fq2fd;
+	string tmp_dir;
+	
+	mutex thread_read_m[max_thread],thread_write_m[max_thread];
+	bool file_end;
 private:
 	vector<C_fastq> fq1s,fq2s;
 	vector<C_fastq> trim_output_fq1,trim_output_fq2;

@@ -7,6 +7,11 @@
 #include <mutex>
 #include <fstream>
 #include <iomanip>
+#include <dirent.h>
+#include <fcntl.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <sys/mman.h>
 #include "seprocess.h"
 #include "process_argv.h"
 #include "zlib.h"
@@ -14,12 +19,16 @@
 #include "sequence.h"
 using namespace::std;
 #define READBUF 500
+#define random(x) (rand()%x)
 mutex se_read_m,se_stat_m,se_write_m;
 C_filter_stat se_local_fs[max_thread];
-C_fastq_file_stat se_local_raw_stat1[max_thread],se_local_raw_stat2[max_thread],se_local_trim_stat1[max_thread],se_local_trim_stat2[max_thread],se_local_clean_stat1[max_thread],se_local_clean_stat2[max_thread];
+C_fastq_file_stat se_local_raw_stat1[max_thread],se_local_trim_stat1[max_thread],se_local_clean_stat1[max_thread];
 gzFile gz_fq_se;
+string se_sticky_reads1[max_thread];
 map<int,int> se_out;
 int exceed_output_se(0);
+string se_new_fq1_path;
+unsigned long long se_buffer(1024*1024*2);
 seProcess::seProcess(C_global_parameter m_gp){
 	gp=m_gp;
 	gv=C_global_variable();
@@ -29,7 +38,7 @@ seProcess::seProcess(C_global_parameter m_gp){
 	ostringstream tmpstring;
 	tmpstring<<rand()%100;
 	random_num=tmpstring.str();
-	of_log.open(gp.log.c_str());
+	
 }
 void seProcess::print_stat(){
 	string filter_out=gp.output_dir+"/Statistics_of_Filtered_Reads.txt";
@@ -78,9 +87,10 @@ void seProcess::print_stat(){
 	filter_items.push_back("Reads with low quality");
 	filter_items.push_back("Reads with low mean quality");
 	filter_items.push_back("Reads with adapter");
-
+	filter_items.push_back("Reads with global contam sequence");
 	map<string,unsigned long long> filter_number;
 	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
+	filter_number["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num;
 	filter_number["Reads too short"]=gv.fs.short_len_num;
 	filter_number["Reads with adapter"]=gv.fs.include_adapter_seq_num;
 	filter_number["Reads with low quality"]=gv.fs.low_qual_base_ratio_num;
@@ -91,7 +101,7 @@ void seProcess::print_stat(){
 	filter_number["Reads with filtered tile"]=gv.fs.tile_num;
 	filter_number["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_number["Reads too long"]=gv.fs.long_len_num;
-	filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
+	//filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
 	unsigned long long total_filter_fq1_num=0;
 	for(map<string,unsigned long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
 		total_filter_fq1_num+=ix->second;
@@ -381,7 +391,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 			}
 		}
 		
-		gv.fs.output_reads_num+=fs_stat.output_reads_num;	//filter stat
+		//gv.fs.output_reads_num+=fs_stat.output_reads_num;	//filter stat
 		gv.fs.in_adapter_list_num+=fs_stat.in_adapter_list_num;
 		gv.fs.include_adapter_seq_num+=fs_stat.include_adapter_seq_num;
 		gv.fs.n_ratio_num+=fs_stat.n_ratio_num;
@@ -393,6 +403,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		gv.fs.short_len_num+=fs_stat.short_len_num;
 		gv.fs.long_len_num+=fs_stat.long_len_num;
 		gv.fs.include_contam_seq_num+=fs_stat.include_contam_seq_num;
+		gv.fs.include_global_contam_seq_num+=fs_stat.include_global_contam_seq_num;
 	}else if(type=="trim"){
 		//gv.trim1_stat.gs.read_length=fq1s_stat.gs.read_length;	//generate stat
 		gv.trim1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;
@@ -439,7 +450,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 			}
 		}
 	}else if(type=="clean"){
-		gp.output_reads_num+=gv.clean1_stat.gs.reads_number;
+		//gp.output_reads_num+=gv.clean1_stat.gs.reads_number;
 		//if(gv.clean1_stat.gs.read_length==0)
 		//	gv.clean1_stat.gs.read_length=fq1s_stat.gs.read_length;	//generate stat
 		gv.clean1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;
@@ -594,16 +605,11 @@ void  seProcess::preOutput(int type,C_fastq& a){
 		}
 	}
 }
-void seProcess::seWrite(vector<C_fastq>& pe1,string type,gzFile out1){
-	if(type=="trim"){
-		output_fastqs("1",pe1,out1);
-	}else if(type=="clean"){
-		if(gp.mode=="nonssd" && gp.output_clean>0){
-			output_split_fastqs("1",pe1,out1);
-		}else{
-			output_fastqs("1",pe1,out1);
-		}
-	}
+void seProcess::seWrite_split(vector<C_fastq>& se1){
+	output_split_fastqs("1",se1);
+}
+void seProcess::seWrite(vector<C_fastq>& se1,string type,gzFile out1){
+	output_fastqs("1",se1,out1);
 }
 void seProcess::C_fastq_init(C_fastq& a){
 	a.seq_id="";
@@ -611,12 +617,14 @@ void seProcess::C_fastq_init(C_fastq& a){
 	a.qual_seq="";
 	a.adapter_seq=gp.adapter1_seq;
 	a.contam_seq=gp.contam1_seq;
+	//a.global_contams=gp.global_contams;
 	a.head_hdcut=-1;
 	a.head_lqcut=-1;
 	a.tail_hdcut=-1;
 	a.tail_lqcut=-1;
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
+	a.global_contam_pos=-1;
 	if(gp.module_name=="filtersRNA"){
 		a.adapter_seq2=gp.adapter2_seq;
 	}
@@ -654,7 +662,7 @@ int seProcess::read(vector<C_fastq>& pe1,ifstream& infile1){
 		
 	}
 }
-int seProcess::read_gz(vector<C_fastq>& pe1){
+int seProcess::read_gz(vector<C_fastq>& se1){
 	char buf1[READBUF];
 	C_fastq fastq1;
 	C_fastq_init(fastq1);
@@ -673,12 +681,105 @@ int seProcess::read_gz(vector<C_fastq>& pe1){
 			if(file1_line_num%4==0){
 				fastq1.qual_seq.assign(buf1);
 				fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
-				pe1.push_back(fastq1);
+				se1.push_back(fastq1);
 			}
 		}else{
 			return -1;
 		}
 	}
+}
+void* seProcess::sub_thread_nonssd_multiOut(int index){
+	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+	if(!gp.trim_fq1.empty()){	//create output trim files handle
+		ostringstream trim_outfile1;
+		trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r1.fq.gz";
+		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
+		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_trim_out1[index],1024*1024*16);
+	}
+	if(!gp.clean_fq1.empty()){	//create output clean files handle
+		ostringstream outfile1,outfile2;
+		outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
+		gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
+		gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
+		gzbuffer(gz_clean_out1[index],1024*1024*16);
+	}
+	vector<C_fastq> fq1s;
+	vector<C_fastq> trim_result1,clean_result1;
+	int done(0);
+
+	while(1){
+		se_read_m.lock();
+		if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
+			if(read_gz(fq1s)==-1){		//read fastqs from raw files
+				done=1;
+			}
+		}else{
+			if(read(fq1s,nongzfp1)==-1){		
+				done=1;
+			}
+		}
+		processed_reads+=fq1s.size();
+		if(processed_reads%(gp.patchSize*gp.threads_num)==0){
+			of_log<<get_local_time()<<"\tprocessed reads number:"<<processed_reads<<endl;
+		}
+		se_read_m.unlock();
+		
+		SEcalOption opt2;
+		opt2.se_local_fs=&se_local_fs[index];
+		opt2.fq1s=&fq1s;
+		opt2.trim_result1=&trim_result1;
+		opt2.clean_result1=&clean_result1;
+		filter_se_fqs(opt2);
+		SEstatOption opt_raw;
+		opt_raw.fq1s=&fq1s;
+		opt_raw.stat1=&se_local_raw_stat1[index];
+		stat_se_fqs(opt_raw);
+		fq1s.clear();
+		SEstatOption opt_trim,opt_clean;
+		if(!gp.trim_fq1.empty()){
+			opt_trim.fq1s=&trim_result1;
+			opt_trim.stat1=&se_local_trim_stat1[index];
+			stat_se_fqs(opt_trim);
+		}
+		if(!gp.clean_fq1.empty()){
+			opt_clean.fq1s=&clean_result1;
+			opt_clean.stat1=&se_local_clean_stat1[index];
+			stat_se_fqs(opt_clean);
+		}
+		
+		if(!gp.trim_fq1.empty()){
+			seWrite(trim_result1,"trim",gz_trim_out1[index]);
+		}
+		if(!gp.clean_fq1.empty()){
+			seWrite(clean_result1,"clean",gz_clean_out1[index]);
+			if(gp.is_streaming){
+				se_write_m.lock();
+				C_global_variable tmp_gv;
+				tmp_gv.fs=*(opt2.se_local_fs);
+				tmp_gv.raw1_stat=*(opt_raw.stat1);
+				tmp_gv.clean1_stat=*(opt_clean.stat1);
+				seStreaming_stat(tmp_gv);
+				se_write_m.unlock();
+			}
+		}
+		if(!gp.trim_fq1.empty()){
+			trim_result1.clear();
+		}
+		if(!gp.clean_fq1.empty()){
+			clean_result1.clear();
+		}
+		if(done==1){
+			break;
+		}
+	}
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[index]);
+	}
+	if(!gp.clean_fq1.empty()){
+		gzclose(gz_clean_out1[index]);
+	}
+	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 void* seProcess::sub_thread_nonssd(int index){
 	/*
@@ -764,113 +865,139 @@ void* seProcess::sub_thread_nonssd(int index){
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
-void* seProcess::sub_thread(SEthreadOpt opt){
-	
-	int index=opt.index;
-	if(!gp.trim_fq1.empty()){
+void seProcess::create_thread_outputFile(int index){
+	if(!gp.trim_fq1.empty()){	//create output trim files handle
 		ostringstream trim_outfile1;
-		trim_outfile1<<gp.output_dir<<"/thread."<<index<<".trim.r1.fq.gz";
+		trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r1.fq.gz";
 		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
 		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out1[index],1024*1024*160);
+		gzbuffer(gz_trim_out1[index],1024*1024*16);
 	}
-	if(!gp.clean_fq1.empty()){
-		ostringstream outfile1;
-		outfile1<<gp.output_dir<<"/thread."<<index<<".clean.r1.fq.gz";
-		gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
-		gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out1[index],1024*1024*160);
+	if(!gp.clean_fq1.empty()){	//create output clean files handle
+		if(gp.output_clean<=0){
+			ostringstream outfile1;
+			outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
+			gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
+			gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
+			gzbuffer(gz_clean_out1[index],1024*1024*16);
+		}
 	}
-	/*
-	se_local_fs[index]=C_filter_stat();
-	se_local_raw_stat1[index]=C_fastq_file_stat();
-	if(!gp.trim_fq1.empty()){
-		se_local_trim_stat1[index]=C_fastq_file_stat();
-	}
-	if(!gp.clean_fq1.empty()){
-		se_local_clean_stat1[index]=C_fastq_file_stat();
-	}
-	*/
-	for(vector<string>::iterator ix=opt.files.begin();ix!=opt.files.end();ix++){
-		ifstream fp1((*ix).c_str());
-		int done=0;
-		int iter=0;
-		while(1){
-			vector<C_fastq> fq1s;
-			if(read(fq1s,fp1)==-1){
-				done=1;
-			}
-			if(fq1s.size()==0)
-				break;
-			vector<C_fastq> trim_result1,clean_result1;
-			
-			
-			SEcalOption opt2;
-			
-			opt2.se_local_fs=&se_local_fs[index];
-			opt2.fq1s=&fq1s;
-			opt2.trim_result1=&trim_result1;
-			opt2.clean_result1=&clean_result1;
-			filter_se_fqs(opt2);
-			SEstatOption opt_raw;
-			opt_raw.fq1s=&fq1s;
-			opt_raw.stat1=&se_local_raw_stat1[index];
-			stat_se_fqs(opt_raw);
-			fq1s.clear();
-			SEstatOption opt_trim,opt_clean;
-			if(!gp.trim_fq1.empty()){
-				opt_trim.fq1s=&trim_result1;
-				opt_trim.stat1=&se_local_trim_stat1[index];
-				stat_se_fqs(opt_trim);
-			}
-			if(!gp.clean_fq1.empty()){
-				opt_clean.fq1s=&clean_result1;
-				opt_clean.stat1=&se_local_clean_stat1[index];
-				stat_se_fqs(opt_clean);
-			}
-			if(!gp.trim_fq1.empty()){
-				seWrite(trim_result1,"trim",gz_trim_out1[index]);
-				trim_result1.clear();
-			}
-			if(!gp.clean_fq1.empty()){
-				seWrite(clean_result1,"clean",gz_clean_out1[index]);
-				if(gp.is_streaming){
-					C_global_variable tmp_gv;
-					tmp_gv.fs=*(opt2.se_local_fs);
-					tmp_gv.raw1_stat=*(opt_raw.stat1);
-					tmp_gv.clean1_stat=*(opt_clean.stat1);
-					seStreaming_stat(tmp_gv);
-				}
-				clean_result1.clear();
-			}
-			iter++;
-			of_log<<get_local_time()<<"\tthread "<<index<<" : "<<"patch "<<iter<<" done"<<endl;
-			if(done==1)
-				break;
-			if(gp.is_streaming){
-				/*
-				se_local_fs[index]=C_filter_stat();
-				se_local_raw_stat1[index]=C_fastq_file_stat();
-				se_local_clean_stat1[index]=C_fastq_file_stat();
-				*/
+}
+void* seProcess::sub_thread(int index){
+	off_t start_pos=t_start_pos[index];
+	off_t end_pos=t_end_pos[index];
+	string head,tail;
+	int flag(0);
+	int self_fq1fd=open(se_new_fq1_path.c_str(),O_RDONLY);
+	int min_len=1024*4*10;
+	create_thread_outputFile(index);
+	
+	//char *fq1_buf,*fq2_buf;
+	unsigned long long mmap_start(start_pos);
+	unsigned long long copysz(se_buffer);
+	int tmp_iter(0);
+	char *buf1;
+	C_fastq fastq1;
+	C_fastq_init(fastq1);
+	vector<C_fastq> fq1s;
+	vector<C_fastq> trim_result1,clean_result1;
+	while(1){
+		if(mmap_start>=end_pos)
+			break;
+		if(end_pos - mmap_start<se_buffer){
+			copysz=end_pos - mmap_start;
+		}else{
+			if(end_pos - mmap_start -se_buffer <se_buffer/4){
+				copysz=end_pos - mmap_start;
+			}else{
+				copysz=se_buffer;
 			}
 		}
-		fp1.close();
-		string rm_file="rm "+*ix;
-		if(system(rm_file.c_str())==-1){
-			cerr<<"Error:remove small fastq error"<<endl;
+		if((buf1=(char*)mmap(0,copysz,PROT_READ,MAP_SHARED,self_fq1fd,mmap_start))==MAP_FAILED){
+			cerr<<"Error:mmap error"<<endl;
 			exit(1);
 		}
+		string tmp_head1,tmp_tail1;
+		int head_idx=0;
+		for(;head_idx<copysz;head_idx++){
+			if(head_idx==0 || head_idx==1){
+				tmp_head1.insert(tmp_head1.end(),buf1[head_idx]);
+			}else{
+				if(buf1[head_idx]=='@' && buf1[head_idx-1]=='\n' && buf1[head_idx-2]!='+'){
+					break;
+				}else{
+					tmp_head1.insert(tmp_head1.end(),buf1[head_idx]);
+				}
+			}
+		}
+		int tail_idx=copysz-1;
+		for(;tail_idx>1;tail_idx--){
+			if(tail_idx==copysz-1){
+				tmp_tail1.insert(tmp_tail1.begin(),buf1[tail_idx]);
+			}else{
+				if(buf1[tail_idx]=='\n' && buf1[tail_idx+1]=='@' && buf1[tail_idx-1]!='+'){
+					break;
+				}else{
+					tmp_tail1.insert(tmp_tail1.begin(),buf1[tail_idx]);
+				}
+			}
+		}
+		se_sticky_reads1[index]+=tmp_head1;
+		se_sticky_reads1[index]+=tmp_tail1;
+		int line_num(0);
+		
+		
+		for(int i=head_idx;i<=tail_idx;i++){
+			if(buf1[i]=='\n'){
+				if(line_num%4==3){
+					fq1s.push_back(fastq1);
+					fastq1.seq_id.clear();
+					fastq1.sequence.clear();
+					fastq1.qual_seq.clear();
+				}
+				line_num++;
+				continue;
+			}
+			if(line_num%4==0){
+				fastq1.seq_id.insert(fastq1.seq_id.end(),buf1[i]);
+			}
+			if(line_num%4==1){
+				fastq1.sequence.insert(fastq1.sequence.end(),buf1[i]);
+			}
+			if(line_num%4==3){
+				fastq1.qual_seq.insert(fastq1.qual_seq.end(),buf1[i]);
+			}
+		}
+		thread_process_reads(index,fq1s);
+		mmap_start+=copysz;
+		munmap(buf1,copysz);
+		tmp_iter++;
 	}
+	close(self_fq1fd);
 	if(!gp.trim_fq1.empty()){
-		gzclose(gz_trim_out1[index]);
+		if(index!=0){
+			gzclose(gz_trim_out1[index]);
+		}
+		
 	}
 	if(!gp.clean_fq1.empty()){
-		gzclose(gz_clean_out1[index]);
+		if(index!=0){
+			if(gp.output_clean<=0){
+				gzclose(gz_clean_out1[index]);
+			}
+		}
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
-
+void seProcess::run_pigz(){	//split raw files with pigz and "split" command
+	ostringstream cmd1;
+	int pigz_thread=gp.threads_num>2?gp.threads_num/2:1;
+	cmd1<<"pigz -c -d -p "<<pigz_thread<<" "<<gp.fq1_path<<" > "<<gp.output_dir<<"/raw.r1.fq";
+	if(system(cmd1.str().c_str())==-1){
+		cerr<<"Error:run pigz error"<<endl;
+		exit(1);
+	}
+}
 void seProcess::run_pigz_split(int type){
 	ostringstream cmd1;
 	int pigz_thread=gp.threads_num>16?gp.threads_num:16;
@@ -929,130 +1056,341 @@ void seProcess::merge_data(){
 			system(rm_cmd.c_str());
 		}
 	}
-	for(int i=0;i!=used_threads_num;i++){
+	for(int i=0;i!=gp.threads_num;i++){
 		if(!gp.trim_fq1.empty()){
-			ostringstream cat_cmd1;
-			cat_cmd1<<"cat "<<gp.output_dir<<"/thread."<<i<<".trim.r1.fq.gz >>"<<gp.trim_fq1<<";rm thread."<<i<<".trim.r1.fq.gz";
-			if(system(cat_cmd1.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
+			ostringstream trim_out_fq1_tmp;
+			trim_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r1.fq.gz";
+			
+			if(access(trim_out_fq1_tmp.str().c_str(),0)!=-1){
+
+				ostringstream cat_cmd1;
+				cat_cmd1<<"cat "<<trim_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq1<<";rm "<<trim_out_fq1_tmp.str();
+				if(system(cat_cmd1.str().c_str())==-1){
+					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
+				}
 			}
+			
 		}
 		if(!gp.clean_fq1.empty()){
-			ostringstream cat_cmd1;
-			cat_cmd1<<"cat "<<gp.output_dir<<"/thread."<<i<<".clean.r1.fq.gz >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<gp.output_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-			if(system(cat_cmd1.str().c_str())==-1){
-				cerr<<"Error:cat error"<<endl;
+			ostringstream clean_out_fq1_tmp;
+			clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
+			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1){
+				ostringstream cat_cmd1;
+				cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
+				if(system(cat_cmd1.str().c_str())==-1){
+					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
+				}
 			}
 		}
 	}
+	
+}
+void seProcess::create_thread_read(int index){
+	multi_gzfq1[index]=gzopen((gp.fq1_path).c_str(),"rb");
+	gzsetparams(gzfp1, 2, Z_DEFAULT_STRATEGY);
+	gzbuffer(gzfp1,2048*2048);
+}
+void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
+	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+	create_thread_outputFile(index);
+	create_thread_read(index);
+	
+	char buf1[READBUF];
+	C_fastq fastq1;
+	C_fastq_init(fastq1);
+	unsigned long long file1_line_num(0);
+	unsigned long long block_line_num1(0);
+	int thread_read_block=4*gp.patchSize;
+	vector<C_fastq> fq1s;
+	while(1){
+		if(gzgets(multi_gzfq1[index],buf1,READBUF)!=NULL){
+			if((file1_line_num/thread_read_block)%gp.threads_num==index){
+				block_line_num1++;
+				if(block_line_num1%4==1){
+					fastq1.seq_id.assign(buf1);
+					fastq1.seq_id.erase(fastq1.seq_id.size()-1);
+				}
+				if(block_line_num1%4==2){
+					fastq1.sequence.assign(buf1);
+					fastq1.sequence.erase(fastq1.sequence.size()-1);
+				}
+				if(block_line_num1%4==0){
+					fastq1.qual_seq.assign(buf1);
+					fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
+					fq1s.push_back(fastq1);
+					if(fq1s.size()==gp.patchSize){
+						if(index==0)
+							of_log<<get_local_time()<<" processed_reads:\t"<<file1_line_num/4<<endl;
+						thread_process_reads(index,fq1s);
+					}
+				}
+			}
+			file1_line_num++;
+		}else{
+			gzclose(multi_gzfq1[index]);
+			if(fq1s.size()>0){
+				thread_process_reads(index,fq1s);
+			}
+			break;
+		}
+	}
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[index]);
+	}
+	if(!gp.clean_fq1.empty()){
+		if(gp.output_clean<=0)
+			gzclose(gz_clean_out1[index]);
+	}
+	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 void seProcess::process_nonssd(){
-	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
 	string mkdir_str="mkdir -p "+gp.output_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir fail"<<endl;
 		exit(1);
 	}
-	if(!gp.trim_fq1.empty()){
-		string out_file1=gp.output_dir+"/"+gp.trim_fq1;
-		gz_trim_out1_nonssd=gzopen(out_file1.c_str(),"wb");
-		gzsetparams(gz_trim_out1_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out1_nonssd,1024*1024*160);
+	of_log.open(gp.log.c_str());
+	if(!of_log){
+		cerr<<"Error:cannot open such file,"<<gp.log<<endl;
+		exit(1);
 	}
-	if(!gp.clean_fq1.empty()){
-		string out_file1=gp.output_dir+"/"+gp.clean_fq1;
-		gz_clean_out1_nonssd=gzopen(out_file1.c_str(),"wb");
-		gzsetparams(gz_clean_out1_nonssd, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_clean_out1_nonssd,1024*1024*160);
-
-	}
-	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
-		gzfp1=gzopen((gp.fq1_path).c_str(),"rb");
-		gzsetparams(gzfp1, 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gzfp1,2048*2048);
-	}else{
-		nongzfp1.open(gp.fq1_path.c_str());
-	}
+	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
+	if(gp.output_clean<=0)
+		make_tmpDir();
 	thread t_array[gp.threads_num];
+	//thread read_monitor(bind(&peProcess::monitor_read_thread,this));
+	//sleep(10);
 	for(int i=0;i<gp.threads_num;i++){
-		t_array[i]=thread(bind(&seProcess::sub_thread_nonssd,this,i));
+		//t_array[i]=thread(bind(&peProcess::sub_thread_nonssd_multiOut,this,i));
+		t_array[i]=thread(bind(&seProcess::sub_thread_nonssd_realMultiThreads,this,i));
 	}
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
-	gzclose(gz_fq_se);
+	//read_monitor.join();
 	merge_stat_nonssd();
 	print_stat();
-	if(!gp.trim_fq1.empty()){
-		gzclose(gz_trim_out1_nonssd);
-	}
-	if(!gp.clean_fq1.empty()){
-		gzclose(gz_clean_out1_nonssd);
+	if(gp.output_clean<=0){
+		merge_data();
+		remove_tmpDir();
+	}else{
+		gzclose(gz_fq_se);
 	}
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
-	return;
+}
+void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
+	vector<C_fastq> trim_result1,clean_result1;
+	SEcalOption opt2;
+	opt2.se_local_fs=&se_local_fs[index];
+	opt2.fq1s=&fq1s;
+	opt2.trim_result1=&trim_result1;
+	opt2.clean_result1=&clean_result1;
+	filter_se_fqs(opt2);		//filter raw fastqs by the given parameters
+	SEstatOption opt_raw;
+	opt_raw.fq1s=&fq1s;
+	opt_raw.stat1=&se_local_raw_stat1[index];
+	stat_se_fqs(opt_raw);		//statistic raw fastqs
+	fq1s.clear();
+	SEstatOption opt_trim,opt_clean;
+	if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
+		opt_trim.fq1s=&trim_result1;
+		opt_trim.stat1=&se_local_trim_stat1[index];
+		stat_se_fqs(opt_trim);	//statistic trim fastqs
+	}
+	if(!gp.clean_fq1.empty()){
+		opt_clean.fq1s=&clean_result1;
+		opt_clean.stat1=&se_local_clean_stat1[index];
+		stat_se_fqs(opt_clean);	//statistic clean fastqs
+	}
+	//
+	if(!gp.trim_fq1.empty()){
+		seWrite(trim_result1,"trim",gz_trim_out1[index]);	//output trim files
+		trim_result1.clear();
+	}
+	if(!gp.clean_fq1.empty()){
+		if(gp.output_clean>0){
+			se_write_m.lock();
+			seWrite_split(clean_result1);
+			se_write_m.unlock();
+		}else{
+			seWrite(clean_result1,"clean",gz_clean_out1[index]);	//output clean files
+		}
+		clean_result1.clear();
+		/*thread_write_m[index].lock();
+		thread pewrite_t(bind(&peProcess::peWrite,this,clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]));
+		thread_write_m[index].unlock();*/
+		if(gp.is_streaming){
+			se_write_m.lock();
+			C_global_variable tmp_gv;
+			tmp_gv.fs=*(opt2.se_local_fs);
+			tmp_gv.raw1_stat=*(opt_raw.stat1);
+			//tmp_gv.trim1_stat=local_trim_stat1[index];
+			//tmp_gv.trim2_stat=local_trim_stat2[index];
+			tmp_gv.clean1_stat=*(opt_clean.stat1);
+			seStreaming_stat(tmp_gv);
+			se_write_m.unlock();
+		}
+	}
+	//
 }
 void seProcess::process(){
-	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
 	string mkdir_str="mkdir -p "+gp.output_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir fail"<<endl;
 		exit(1);
 	}
-	string clean_dir="rm "+gp.output_dir+"/tmp*fq*";
-	if(system(clean_dir.c_str())==-1){
-		cerr<<"Error:remove tmp fastq error"<<endl;
+	of_log.open(gp.log.c_str());
+	if(!of_log){
+		cerr<<"Error:cannot open such file,"<<gp.log<<endl;
 		exit(1);
 	}
-	int ii=0;
-	run_pigz_split(1);
-	vector<string> pe1_list;
-	string find_cmd1="find "+gp.output_dir+" -name \"tmp"+random_num+".r1.fq.*\"";
-	FILE* file_handle=popen(find_cmd1.c_str(),"r");
-	char tmp_buf[200];
-	while(fgets(tmp_buf,200,file_handle)!=NULL){
-		string tmp_s(tmp_buf);
-		tmp_s.erase(tmp_s.size()-1);
-		pe1_list.push_back(tmp_s);
+	of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
+	se_new_fq1_path=gp.fq1_path;
+	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
+		run_pigz();
+		se_new_fq1_path=gp.output_dir+"/raw.r1.fq";
 	}
-	pclose(file_handle);
-	vector<string> thread_files[gp.threads_num];
-	int i=0;
-	for(vector<string>::iterator ix=pe1_list.begin();ix!=pe1_list.end();ix++){
-		thread_files[i].push_back(*ix);
-		i++;
-		if(i==gp.threads_num){
-			i=0;
-		}
-	}
-	for(int i=0;i!=gp.threads_num;i++){
-		of_log<<"thread "<<i<<" is assigned "<<thread_files[i].size()<<" small files"<<endl;
-	}
-	thread t_array[gp.threads_num];
-	for(int i=0;i<gp.threads_num;i++){
-		SEthreadOpt curOpt;
-		if(thread_files[i].size()==0){
-			break;
-		}
-		curOpt.files=thread_files[i];
-		curOpt.index=i;
-		t_array[i]=thread(bind(&seProcess::sub_thread,this,curOpt));
-		used_threads_num++;
-	}
-	if(used_threads_num>gp.threads_num){
+	if(gp.output_clean<=0)
+		make_tmpDir();
+	fq1fd=open(se_new_fq1_path.c_str(),O_RDONLY);
+	off_t file_size;
+	struct stat st;
+	fstat(fq1fd,&st);
+	file_size=st.st_size;
+	int pieces=file_size/se_buffer;
+	if(file_size%se_buffer!=0 || pieces==0)
+		pieces+=1;
+	int blocks=pieces/gp.threads_num;
+	int real_block=blocks;
+	if(blocks==0){
+		real_block=1;
+		used_threads_num=pieces;
+	}else{
 		used_threads_num=gp.threads_num;
+	}
+	for(int i=0;i!=used_threads_num;i++){
+		t_start_pos[i]=i*real_block*se_buffer;
+		if(i==used_threads_num-1){
+			t_end_pos[i]=file_size;
+		}else{
+			t_end_pos[i]=(i+1)*real_block*se_buffer;
+		}
+	}	
+	close(fq1fd);
+	thread t_array[used_threads_num];
+	for(int i=0;i!=used_threads_num;i++){
+		t_array[i]=thread(bind(&seProcess::sub_thread,this,i));
 	}
 	for(int i=0;i<used_threads_num;i++){
 		t_array[i].join();
 	}
+	string fq1_unprocess;
+	for(int i=0;i<used_threads_num;i++){
+		fq1_unprocess+=se_sticky_reads1[i];
+	}
+	int line_num(0);
+	C_fastq fastq1;
+	C_fastq_init(fastq1);
+	vector<C_fastq> fq1s;
+	//cout<<fq1_unprocess<<endl;
+	for(int i=0;i!=fq1_unprocess.size();i++){
+		if(fq1_unprocess[i]=='\n'){
+			if(line_num%4==3){
+				fq1s.push_back(fastq1);
+				fastq1.seq_id.clear();
+				fastq1.sequence.clear();
+				fastq1.qual_seq.clear();
+			}
+			line_num++;
+			continue;
+		}
+		if(line_num%4==0){
+			fastq1.seq_id.insert(fastq1.seq_id.end(),fq1_unprocess[i]);
+		}
+		if(line_num%4==1){
+			fastq1.sequence.insert(fastq1.sequence.end(),fq1_unprocess[i]);
+		}
+		if(line_num%4==3){
+			fastq1.qual_seq.insert(fastq1.qual_seq.end(),fq1_unprocess[i]);
+		}
+	}
+	long long clean_size(0);
+	thread_process_reads(0,fq1s);
+	if(!gp.trim_fq1.empty()){
+		gzclose(gz_trim_out1[0]);
+	}
+	if(!gp.clean_fq1.empty()){
+		gzclose(gz_clean_out1[0]);
+	}
+	//
 	merge_stat();
 	print_stat();
-	merge_data();
+	if(gp.output_clean<=0){
+		merge_data();
+		remove_tmpDir();
+	}else{
+		gzclose(gz_fq_se);
+	}
+	if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+		string se_new_fq1_path=gp.output_dir+"/raw.r1.fq";
+		string rm_cmd="rm "+se_new_fq1_path;
+		if(system(rm_cmd.c_str())){
+			cerr<<"Error:rm error"<<endl;
+			exit(1);
+		} 
+	}
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
-	return;
-	
+}
+void seProcess::remove_tmpDir(){
+	string rm_dir=gp.output_dir+"/"+tmp_dir;
+	int iter(0);
+	while(1){
+		DIR* tmpdir;
+		struct dirent* ptr;
+		tmpdir=opendir(rm_dir.c_str());
+		bool empty_flag=true;
+		if(tmpdir==NULL){
+			cerr<<"Error:open directory error,"<<rm_dir<<endl;
+			exit(1);
+		}
+		while((ptr=readdir(tmpdir))!=NULL){
+			if(strcmp(ptr->d_name,"..")!=0 && strcmp(ptr->d_name,".")!=0){
+				empty_flag=false;
+				break;
+			}
+		}
+		closedir(tmpdir);
+		if(empty_flag){
+			string remove="rm -r "+rm_dir;
+			if(system(remove.c_str())==-1){
+				cerr<<"Error:rmdir error,"<<remove<<endl;
+				exit(1);
+			}
+			break;
+		}else{
+			sleep(2);
+			iter++;
+		}
+		if(iter>30){
+			break;
+		}
+	}
+}
+void seProcess::make_tmpDir(){
+	srand(time(0));
+	ostringstream tmp_str;
+	for(int i=0;i!=6;i++){
+		int tmp_rand=random(26)+'A';
+		tmp_str<<(char)tmp_rand;
+	}
+	tmp_dir=tmp_str.str();
+	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
+	if(system(mkdir_str.c_str())==-1){
+		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
+		exit(1);
+	}
 }
 void seProcess::output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile){
 	//m.lock();
@@ -1116,7 +1454,7 @@ void seProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	}
 	//m.unlock();
 }
-void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
+void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 	//m.lock();
 	
 	string streaming_out,out_content;

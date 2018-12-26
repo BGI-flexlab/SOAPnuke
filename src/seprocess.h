@@ -39,15 +39,16 @@ public:
 	void update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,string type);
 	void* stat_se_fqs(SEstatOption opt);
 	void* filter_se_fqs(SEcalOption opt);
-	void* sub_thread(SEthreadOpt opt);
+	void* sub_thread(int index);
 	int read(vector<C_fastq>& se1,ifstream& infile1);
-	void seWrite(vector<C_fastq>& pe1,string type,gzFile out1);
+	void seWrite(vector<C_fastq>& se1,string type,gzFile out1);
+	void seWrite_split(vector<C_fastq>& se1);
 	//void peRead();
 	void* doCal(int index);
 	void  preOutput(int type,C_fastq& a);
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
-	void output_split_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
+	void output_split_fastqs(string type,vector<C_fastq> &fq1);
 	void seWrite(int num);
 	void run_pigz_split(int type);
 	void get_line_number(int* line_num);
@@ -56,9 +57,17 @@ public:
 	void C_fastq_init(C_fastq& a);
 	void process_nonssd();
 	void* sub_thread_nonssd(int index);
-	int read_gz(vector<C_fastq>& pe1);
+	void* sub_thread_nonssd_multiOut(int index);
+	int read_gz(vector<C_fastq>& se1);
 	void merge_stat_nonssd();
 	void seStreaming_stat(C_global_variable& local_gv);
+	void remove_tmpDir();
+	void make_tmpDir();
+	void run_pigz();
+	void thread_process_reads(int index,vector<C_fastq> &fq1s);
+	void create_thread_outputFile(int index);
+	void* sub_thread_nonssd_realMultiThreads(int index);
+	void create_thread_read(int index);
 	//void peOutput(outputOption opt);
 public:
 	C_global_parameter gp;
@@ -78,6 +87,12 @@ public:
 	gzFile gz_clean_out1[max_thread];
 	gzFile gz_trim_out1_nonssd,gz_clean_out1_nonssd;
 	ofstream of_log;
+	string tmp_dir;
+	off_t t_start_pos[max_thread];
+	off_t t_end_pos[max_thread];
+	char* src1;
+	int fq1fd;
+	gzFile multi_gzfq1[max_thread];
 private:
 	vector<C_fastq> fq1s;
 	vector<C_fastq> trim_output_fq1;

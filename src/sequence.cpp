@@ -33,6 +33,7 @@ void C_single_fastq_filter::se_trim(C_global_parameter& gp){
 }
 int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
+	/*
 	if(gp.total_reads_num!=-1){	//global reads number limit
 		if(gp.output_reads_num>gp.total_reads_num){
 			fs->output_reads_num++;
@@ -41,6 +42,7 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 			//cout<<"total_reads_num discard"<<endl;
 		}
 	}
+	*/
 	if(gp.max_read_length!=-1){
 		if(read.sequence.size()>gp.max_read_length){
 			fs->long_len_num++;
@@ -98,6 +100,7 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 }
 int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
+	/*
 	if(gp.total_reads_num!=-1){	//global reads number limit
 		if(gp.output_reads_num>gp.total_reads_num){
 			fs->output_reads_num++;
@@ -106,6 +109,7 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 			//cout<<"total_reads_num discard"<<endl;
 		}
 	}
+	*/
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(read_result.read_tile,gp.tile)){
 			fs->tile_num++;
@@ -149,6 +153,11 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 	if(gp.contam_discard_or_trim=="discard"){
 		if(read_result.include_contam==1){
 			fs->include_contam_seq_num++;
+			min_value=1;
+			return min_value;
+		}
+		if(read_result.include_global_contam==1){
+			fs->include_global_contam_seq_num++;
 			min_value=1;
 			return min_value;
 		}
@@ -224,6 +233,7 @@ C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& g
 int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
 	//cout<<"n_ratio\t"<<reads_result.fastq1_result.n_ratio<<"\t"<<reads_result.fastq2_result.n_ratio<<endl;
+	/*
 	if(gp.total_reads_num!=-1){	//global reads number limit
 		if(gp.output_reads_num>gp.total_reads_num){
 			fs->output_reads_num++;
@@ -232,6 +242,7 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 			//cout<<"total_reads_num discard"<<endl;
 		}
 	}
+	*/
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(reads_result.fastq1_result.read_tile,gp.tile)){
 			fs->tile_num++;
@@ -285,8 +296,22 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 			//cout<<"max_read_length discard"<<endl;
 	}
 	if(gp.contam_discard_or_trim=="discard"){
+		int v=pe_dis(reads_result.fastq1_result.include_global_contam==1,reads_result.fastq2_result.include_global_contam==1);
+		if(v>0){
+			switch(v){
+				case 1:fs->include_global_contam_seq_num1++;break;
+				case 2:fs->include_global_contam_seq_num2++;break;
+				case 3:fs->include_global_contam_seq_num1++;fs->include_global_contam_seq_num2++;fs->include_global_contam_seq_num_overlap++;break;
+				default:break;
+			}
+			fs->include_global_contam_seq_num++;
+			return 1;
+		}
+	}
+	if(gp.contam_discard_or_trim=="discard"){
 		int v=pe_dis(reads_result.fastq1_result.include_contam==1,reads_result.fastq2_result.include_contam==1);
 		if(v>0){
+
 			switch(v){
 				case 1:fs->include_contam_seq_num1++;break;
 				case 2:fs->include_contam_seq_num2++;break;
