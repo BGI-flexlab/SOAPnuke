@@ -443,7 +443,7 @@ void printUsage(string c_module){
     cout << "\t-2, --fq2\t\tFILE\t\tfq2 file, used when pe\n";
     cout << "\t-C, --cleanFq1\t\tSTR\t\tclean fq1 file name(required,gz format)\n";
     cout << "\t-D, --cleanFq2\t\tSTR\t\tclean fq2 file name\n";
-    cout << "\t-o, --outDir\t\tSTR\t\toutput directory, directory must exists, default is the current directory[.]\n";
+    cout << "\t-o, --outDir\t\tSTR\t\toutput directory, directory must exists\n";
     cout << "\t-8, --outFileType\tSTR\t\toutput file format: fastq or fasta[fastq]\n";
     cout << "\t-0, --log\t\tSTR\t\tlog file\n";
     cout << "\n";
@@ -506,13 +506,13 @@ void printUsage(string c_module){
     cout << "\n";
     //cout << "\t-6, --split_line\tINT\t\tsplit raw fastq by <split_line>, default 10M reads per file (if ssd mode is open)\n";
     cout << "\t-e, --patch\t\tINT\t\treads number of a patch processed[400000]\n";
-    cout << "\t-T, --thread\t\tINT\t\tprocess thread number[4]" << endl;
+    cout << "\t-T, --thread\t\tINT\t\tprocess thread number[6]" << endl;
     cout << "\n";
     cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:64, 2:33[default:2]\n";
     cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";
     cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
     cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
-    cout << "\t-w, --output_clean\tINT\t\tmax reads number in each output clean fastq file, only available in non-ssd mode\n";
+    cout << "\t-w, --output_clean\tINT\t\tmax reads number in each output clean fastq file\n";
 //      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
     
     

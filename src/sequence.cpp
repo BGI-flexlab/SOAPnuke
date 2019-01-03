@@ -26,7 +26,7 @@ void C_fastq::output2(int type,C_global_parameter gp,gzFile outfile){
 }
 C_single_fastq_filter::C_single_fastq_filter(C_fastq& a,C_global_parameter& gp){
 	read=a;
-	read_result=stat_read(a,gp);
+	read_result=stat_read(read,gp);
 }
 void C_single_fastq_filter::se_trim(C_global_parameter& gp){
 	fastq_trim(read,gp);
@@ -219,8 +219,8 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& gp){
 	C_single_fastq_filter fastq1=C_single_fastq_filter(a,gp);
 	C_single_fastq_filter fastq2=C_single_fastq_filter(b,gp);
-	fq1=a;
-	fq2=b;
+	fq1=fastq1.read;
+	fq2=fastq2.read;
 	//reads_result.fastq1_result=stat_read(fastq1.read,gp);
 	//reads_result.fastq2_result=stat_read(fastq2.read,gp);
 	reads_result.fastq1_result=fastq1.read_result;

@@ -595,7 +595,7 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 				gv.raw2_stat.bs.position_acgt_content[i][j]+=fq2s_stat.bs.position_acgt_content[i][j];
 			}
 		}
-		for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
+		for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
 			gv.raw1_stat.ts.ht[i]+=fq1s_stat.ts.ht[i];
 			gv.raw1_stat.ts.hlq[i]+=fq1s_stat.ts.hlq[i];
 			gv.raw1_stat.ts.tt[i]+=fq1s_stat.ts.tt[i];
@@ -830,16 +830,16 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 		if((*ix).tail_hdcut>0 || (*ix).tail_lqcut>0 || (*ix).adacut_pos>0){
 			if((*ix).tail_hdcut>=(*ix).tail_lqcut){
 				if((*ix).tail_hdcut>=(*ix).adacut_pos){
-					opt.stat1->ts.tt[(*ix).sequence.size()-(*ix).tail_hdcut+1]++;
+					opt.stat1->ts.tt[(*ix).raw_length-(*ix).tail_hdcut+1]++;
 				}else{
 
-					opt.stat1->ts.ta[(*ix).sequence.size()-(*ix).adacut_pos+1]++;
+					opt.stat1->ts.ta[(*ix).raw_length-(*ix).adacut_pos+1]++;
 				}
 			}else{
 				if((*ix).tail_lqcut>=(*ix).adacut_pos){
-					opt.stat1->ts.tlq[(*ix).sequence.size()-(*ix).tail_lqcut+1]++;
+					opt.stat1->ts.tlq[(*ix).raw_length-(*ix).tail_lqcut+1]++;
 				}else{
-					opt.stat1->ts.ta[(*ix).sequence.size()-(*ix).adacut_pos+1]++;
+					opt.stat1->ts.ta[(*ix).raw_length-(*ix).adacut_pos+1]++;
 				}
 			}
 		}
@@ -935,31 +935,51 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 	}
 	
 }
-void* peProcess::filter_pe_fqs(PEcalOption opt){
+void peProcess::filter_pe_fqs(PEcalOption opt){
+	//C_reads_trim_stat_2 cut_pos;
 	vector<C_fastq>::iterator i2=opt.fq2s->begin();
 	for(vector<C_fastq>::iterator i=opt.fq1s->begin();i!=opt.fq1s->end();i++){
 		C_pe_fastq_filter pe_fastq_filter=C_pe_fastq_filter(*i,*i2,gp);
-		/*if((*i).adacut_pos>0){
-			cout<<"here\t"<<(*i).adacut_pos<<endl;
-		}
-		*/
+		/*int head_hdcut,head_lqcut,tail_hdcut,tail_lqcut,adacut_pos;
+	int contam_pos;
+	int global_contam_pos;
+	int raw_length;*/
 		pe_fastq_filter.pe_trim(gp);
+		if(gp.adapter_discard_or_trim=="trim" || gp.contam_discard_or_trim=="trim" || !gp.trim.empty() || !gp.trimBadHead.empty() || !gp.trimBadTail.empty()){
+			(*i).head_hdcut=pe_fastq_filter.fq1.head_hdcut;
+			(*i).head_lqcut=pe_fastq_filter.fq1.head_lqcut;
+			(*i).tail_hdcut=pe_fastq_filter.fq1.tail_hdcut;
+			(*i).tail_lqcut=pe_fastq_filter.fq1.tail_lqcut;
+			(*i).adacut_pos=pe_fastq_filter.fq1.adacut_pos;
+			//(*i).contam_pos=pe_fastq_filter.fq1.contam_pos;
+			//(*i).global_contam_pos=pe_fastq_filter.fq1.global_contam_pos;
+			//(*i).raw_length=pe_fastq_filter.fq1.raw_length;
+			(*i2).head_hdcut=pe_fastq_filter.fq2.head_hdcut;
+			(*i2).head_lqcut=pe_fastq_filter.fq2.head_lqcut;
+			(*i2).tail_hdcut=pe_fastq_filter.fq2.tail_hdcut;
+			(*i2).tail_lqcut=pe_fastq_filter.fq2.tail_lqcut;
+			(*i2).adacut_pos=pe_fastq_filter.fq2.adacut_pos;
+			//(*i2).contam_pos=pe_fastq_filter.fq2.contam_pos;
+			//(*i2).global_contam_pos=pe_fastq_filter.fq2.global_contam_pos;
+			//(*i2).raw_length=pe_fastq_filter.fq2.raw_length;
+		}
 		if(!gp.trim_fq1.empty()){
-			preOutput(1,*i);
-			preOutput(2,*i2);
+			preOutput(1,pe_fastq_filter.fq1);
+			preOutput(2,pe_fastq_filter.fq2);
 			opt.trim_result1->push_back(pe_fastq_filter.fq1);
 			opt.trim_result2->push_back(pe_fastq_filter.fq2);
 		}
 		if(pe_fastq_filter.pe_discard(opt.local_fs,gp)!=1){
 			if(!gp.clean_fq1.empty()){
-				preOutput(1,*i);
-				preOutput(2,*i2);
+				preOutput(1,pe_fastq_filter.fq1);
+				preOutput(2,pe_fastq_filter.fq2);
 				opt.clean_result1->push_back(pe_fastq_filter.fq1);
 				opt.clean_result2->push_back(pe_fastq_filter.fq2);
 			}
 		}
 		i2++;
 	}
+	//return cut_pos;
 }
 
 void  peProcess::preOutput(int type,C_fastq& a){	//modify the sequences before output if necessary
@@ -1051,6 +1071,8 @@ void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	b.adacut_pos=-1;
 	b.contam_pos=-1;
 	b.global_contam_pos=-1;
+	a.raw_length=0;
+	b.raw_length=0;
 	if(!gp.trim.empty()){
 		vector<string> tmp_eles=get_pe_hard_trim(gp.trim);
 		a.head_trim_len=tmp_eles[0];
@@ -1173,8 +1195,25 @@ void peProcess::create_thread_outputFile(int index){
 		}
 	}
 }
+/*
+void peProcess::add_raw_trim(C_fastq_file_stat& a,C_fastq_file_stat& a2,C_reads_trim_stat& b,C_reads_trim_stat& b2){
+	for(int i=1;i<=a.gs.read_length;i++){
+		a.ts.hlq[i]+=b.hlq[i];
+		a.ts.ht[i]+=b.ht[i];
+		a.ts.ta[i]+=b.ta[i];
+		a.ts.tlq[i]+=b.tlq[i];
+		a.ts.tt[i]+=b.tt[i];
+		a2.ts.hlq[i]+=b2.hlq[i];
+		a2.ts.ht[i]+=b2.ht[i];
+		a2.ts.ta[i]+=b2.ta[i];
+		a2.ts.tlq[i]+=b2.tlq[i];
+		a2.ts.tt[i]+=b2.tt[i];
+	}
+}
+*/
 void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s){
 	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
+	
 	PEcalOption opt2;
 	opt2.local_fs=&local_fs[index];
 	opt2.fq1s=&fq1s;
@@ -1190,6 +1229,7 @@ void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fa
 	opt_raw.fq2s=&fq2s;
 	opt_raw.stat2=&local_raw_stat2[index];
 	stat_pe_fqs(opt_raw);		//statistic raw fastqs
+	//add_raw_trim(local_raw_stat1[index],local_raw_stat2[index],raw_cut.stat1,raw_cut.stat2);
 	fq1s.clear();
 	fq2s.clear();
 	PEstatOption opt_trim,opt_clean;

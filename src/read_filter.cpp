@@ -81,6 +81,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	C_fastq_stat_result return_value;
 	return_value.in_adapter_list=0;
 	return_value.include_adapter_seq=-1;
+	fq_read.raw_length=fq_read.sequence.size();
 	if(gp.tile.empty()){
 		return_value.read_tile="";
 	}else{
@@ -168,7 +169,6 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	    if(ada_pos>=0){
 	    	return_value.include_adapter_seq=1;
 	    	fq_read.adacut_pos=fq_read.sequence.size()-ada_pos;
-	    	//cout<<"find adapter:"<<ada_pos<<"\t"<<fq_read.adacut_pos<<endl;
 	    }
 	    if(fq_read.contam_seq.find(",")==string::npos){
 	    	fq_read.contam_pos=hasContam(fq_read.sequence,fq_read.contam_seq,gp);
@@ -293,6 +293,7 @@ bool whether_over_overlapped(C_fastq fastq1,C_fastq fastq2,C_global_parameter& g
     return false;
 }
 void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapter_trim	3.hard_trim	4.qual_trim
+
 	string hard_trim=gp.trim;
 	string low_qual_head_trim=gp.trimBadHead;
 	string low_qual_tail_trim=gp.trimBadTail;
@@ -394,7 +395,6 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 		}
 		read.sequence=read.sequence.substr(head_cut,read.sequence.size()-head_cut-tail_cut);
 		read.qual_seq=read.qual_seq.substr(head_cut,read.qual_seq.size()-head_cut-tail_cut);
-
 	}
 }
 int polyG_number(string& ref_sequence){

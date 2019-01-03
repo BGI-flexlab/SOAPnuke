@@ -38,7 +38,8 @@ public:
 	void print_stat();
 	void update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,string type);
 	void* stat_se_fqs(SEstatOption opt);
-	void* filter_se_fqs(SEcalOption opt);
+	//void add_raw_trim(C_fastq_file_stat& a,C_reads_trim_stat& b);
+	void filter_se_fqs(SEcalOption opt);
 	void* sub_thread(int index);
 	int read(vector<C_fastq>& se1,ifstream& infile1);
 	void seWrite(vector<C_fastq>& se1,string type,gzFile out1);

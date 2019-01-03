@@ -17,6 +17,11 @@
 #include "sequence.h"
 
 #define max_thread 48
+struct C_reads_trim_stat_2
+{
+	C_reads_trim_stat stat1;
+	C_reads_trim_stat stat2;
+};
 struct PEstatOption
 {
 	vector<C_fastq>* fq1s,*fq2s;
@@ -42,10 +47,11 @@ public:
 	void print_stat();
 	void update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s_stat,C_filter_stat& fs_stat,string type);
 	void* stat_pe_fqs(PEstatOption opt);
-	void* filter_pe_fqs(PEcalOption opt);
+	void filter_pe_fqs(PEcalOption opt);
 	void* sub_thread(int index);
 	int read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,ifstream& infile2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2);
+	//void add_raw_trim(C_fastq_file_stat& a,C_fastq_file_stat& a2,C_reads_trim_stat& b,C_reads_trim_stat& b2);
 	void peWrite_split(vector<C_fastq>& pe1,vector<C_fastq>& pe2);
 	//void peRead();
 	void* doCal(int index);

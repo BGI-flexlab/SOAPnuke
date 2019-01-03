@@ -362,8 +362,6 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		gv.raw1_stat.gs.n_number+=fq1s_stat.gs.n_number;
 		gv.raw1_stat.gs.q20_num+=fq1s_stat.gs.q20_num;
 		gv.raw1_stat.gs.q30_num+=fq1s_stat.gs.q30_num;
-		
-
 		string base_set="ACGTN";	//base content and quality along read position stat
 		int max_qual=0;
 		for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
@@ -371,7 +369,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 				gv.raw1_stat.bs.position_acgt_content[i][j]+=fq1s_stat.bs.position_acgt_content[i][j];
 			}
 		}
-		for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
+		for(int i=1;i<=gv.raw1_stat.gs.read_length;i++){
 			gv.raw1_stat.ts.ht[i]+=fq1s_stat.ts.ht[i];
 			gv.raw1_stat.ts.hlq[i]+=fq1s_stat.ts.hlq[i];
 			gv.raw1_stat.ts.tt[i]+=fq1s_stat.ts.tt[i];
@@ -431,7 +429,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 				gv.trim1_stat.bs.position_acgt_content[i][j]+=fq1s_stat.bs.position_acgt_content[i][j];
 			}
 		}
-		for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
+		for(int i=0;i!=gv.trim1_stat.gs.read_max_length;i++){
 			gv.trim1_stat.ts.ht[i]+=fq1s_stat.ts.ht[i];
 			gv.trim1_stat.ts.hlq[i]+=fq1s_stat.ts.hlq[i];
 			gv.trim1_stat.ts.tt[i]+=fq1s_stat.ts.tt[i];
@@ -513,18 +511,18 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 				opt.stat1->ts.hlq[(*ix).head_lqcut]++;
 			}
 		}
-		if((*ix).tail_hdcut>0 || (*ix).tail_lqcut>0 || (*ix).adacut_pos>0){
+		if((*ix).tail_hdcut>0 || (*ix).tail_lqcut>0 || (*ix).adacut_pos>=0){
 			if((*ix).tail_hdcut>=(*ix).tail_lqcut){
 				if((*ix).tail_hdcut>=(*ix).adacut_pos){
-					opt.stat1->ts.tt[(*ix).sequence.size()-(*ix).tail_hdcut+1]++;
+					opt.stat1->ts.tt[(*ix).raw_length-(*ix).tail_hdcut+1]++;
 				}else{
-					opt.stat1->ts.ta[(*ix).sequence.size()-(*ix).adacut_pos+1]++;
+					opt.stat1->ts.ta[(*ix).raw_length-(*ix).adacut_pos+1]++;
 				}
 			}else{
 				if((*ix).tail_lqcut>=(*ix).adacut_pos){
-					opt.stat1->ts.tlq[(*ix).sequence.size()-(*ix).tail_lqcut+1]++;
+					opt.stat1->ts.tlq[(*ix).raw_length-(*ix).tail_lqcut+1]++;
 				}else{
-					opt.stat1->ts.ta[(*ix).sequence.size()-(*ix).adacut_pos+1]++;
+					opt.stat1->ts.ta[(*ix).raw_length-(*ix).adacut_pos+1]++;
 				}
 			}
 		}
@@ -565,16 +563,27 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 		opt.stat1->gs.read_length=(*ix).sequence.size();
 		opt.stat1->gs.base_number+=opt.stat1->gs.read_length;
 	}
-	
-	
 }
-void* seProcess::filter_se_fqs(SEcalOption opt){
+
+void seProcess::filter_se_fqs(SEcalOption opt){
+	//C_reads_trim_stat cut_pos;
 	for(vector<C_fastq>::iterator i=opt.fq1s->begin();i!=opt.fq1s->end();i++){
 		C_single_fastq_filter se_fastq_filter=C_single_fastq_filter(*i,gp);
 		se_fastq_filter.se_trim(gp);
+		if(gp.adapter_discard_or_trim=="trim" || gp.contam_discard_or_trim=="trim" || !gp.trim.empty() || !gp.trimBadHead.empty() || !gp.trimBadTail.empty()){
+			(*i).head_hdcut=se_fastq_filter.read.head_hdcut;
+			(*i).head_lqcut=se_fastq_filter.read.head_lqcut;
+			(*i).tail_hdcut=se_fastq_filter.read.tail_hdcut;
+			(*i).tail_lqcut=se_fastq_filter.read.tail_lqcut;
+			(*i).adacut_pos=se_fastq_filter.read.adacut_pos;
+			//(*i).contam_pos=se_fastq_filter.read.contam_pos;
+			//(*i).global_contam_pos=se_fastq_filter.read.global_contam_pos;
+			//(*i).raw_length=se_fastq_filter.read.raw_length;	
+		}
+		//*i=se_fastq_filter.read;
 		if(!gp.trim_fq1.empty()){
-			preOutput(1,*i);
-			opt.trim_result1->push_back(*i);
+			preOutput(1,se_fastq_filter.read);
+			opt.trim_result1->push_back(se_fastq_filter.read);
 		}
 		int whether_discard(0);
 		if(gp.module_name=="filtersRNA"){
@@ -584,11 +593,12 @@ void* seProcess::filter_se_fqs(SEcalOption opt){
 		}
 		if(whether_discard!=1){
 			if(!gp.clean_fq1.empty()){
-				preOutput(1,*i);
-				opt.clean_result1->push_back(*i);
+				preOutput(1,se_fastq_filter.read);
+				opt.clean_result1->push_back(se_fastq_filter.read);
 			}
 		}
 	}
+	//return cut_pos;
 }
 
 void  seProcess::preOutput(int type,C_fastq& a){
@@ -625,6 +635,7 @@ void seProcess::C_fastq_init(C_fastq& a){
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
 	a.global_contam_pos=-1;
+	a.raw_length=0;
 	if(gp.module_name=="filtersRNA"){
 		a.adapter_seq2=gp.adapter2_seq;
 	}
@@ -688,6 +699,7 @@ int seProcess::read_gz(vector<C_fastq>& se1){
 		}
 	}
 }
+
 void* seProcess::sub_thread_nonssd_multiOut(int index){
 	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
 	if(!gp.trim_fq1.empty()){	//create output trim files handle
@@ -730,7 +742,7 @@ void* seProcess::sub_thread_nonssd_multiOut(int index){
 		opt2.fq1s=&fq1s;
 		opt2.trim_result1=&trim_result1;
 		opt2.clean_result1=&clean_result1;
-		filter_se_fqs(opt2);
+		//filter_se_fqs(opt2);
 		SEstatOption opt_raw;
 		opt_raw.fq1s=&fq1s;
 		opt_raw.stat1=&se_local_raw_stat1[index];
@@ -818,7 +830,7 @@ void* seProcess::sub_thread_nonssd(int index){
 		opt2.fq1s=&fq1s;
 		opt2.trim_result1=&trim_result1;
 		opt2.clean_result1=&clean_result1;
-		filter_se_fqs(opt2);
+		//filter_se_fqs(opt2);
 		SEstatOption opt_raw;
 		opt_raw.fq1s=&fq1s;
 		opt_raw.stat1=&se_local_raw_stat1[index];
@@ -1167,6 +1179,7 @@ void seProcess::process_nonssd(){
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
+
 	//read_monitor.join();
 	merge_stat_nonssd();
 	print_stat();
@@ -1179,8 +1192,20 @@ void seProcess::process_nonssd(){
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
 }
+/*void seProcess::add_raw_trim(C_fastq_file_stat& a,C_reads_trim_stat& b){
+	//unsigned long long hlq[READ_MAX_LEN],ht[READ_MAX_LEN];
+	//unsigned long long ta[READ_MAX_LEN],tlq[READ_MAX_LEN],tt[READ_MAX_LEN];
+	for(int i=1;i<=a.gs.read_length;i++){
+		a.ts.hlq[i]+=b.hlq[i];
+		a.ts.ht[i]+=b.ht[i];
+		a.ts.ta[i]+=b.ta[i];
+		a.ts.tlq[i]+=b.tlq[i];
+		a.ts.tt[i]+=b.tt[i];
+	}
+}*/
 void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 	vector<C_fastq> trim_result1,clean_result1;
+	
 	SEcalOption opt2;
 	opt2.se_local_fs=&se_local_fs[index];
 	opt2.fq1s=&fq1s;
@@ -1192,6 +1217,8 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 	opt_raw.stat1=&se_local_raw_stat1[index];
 	stat_se_fqs(opt_raw);		//statistic raw fastqs
 	fq1s.clear();
+	//add_raw_trim(se_local_raw_stat1[index],raw_cut);
+	
 	SEstatOption opt_trim,opt_clean;
 	if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
 		opt_trim.fq1s=&trim_result1;
