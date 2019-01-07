@@ -253,6 +253,8 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	}
 	
 	if(!gp.fov.empty()){	//check read fov whether in the given removal fov list
+		//cout<<reads_result.fastq1_result.read_fov<<endl;
+		//cout<<gp.fov<<endl;
 		if(check_tile_or_fov(reads_result.fastq1_result.read_fov,gp.fov)){
 			fs->fov_num++;
 			min_value=1;

@@ -620,7 +620,6 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 				gv.raw2_stat.qs.position_qual[i][j]+=fq2s_stat.qs.position_qual[i][j];
 			}
 		}
-		
 		//gv.fs.output_reads_num+=fs_stat.output_reads_num;	//filter stat
 		gv.fs.in_adapter_list_num+=fs_stat.in_adapter_list_num;
 		gv.fs.include_adapter_seq_num+=fs_stat.include_adapter_seq_num;
@@ -644,6 +643,8 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 		gv.fs.polyX_num_overlap+=fs_stat.polyX_num_overlap;
 
 		gv.fs.tile_num+=fs_stat.tile_num;
+		gv.fs.fov_num+=fs_stat.fov_num;
+		gv.fs.over_lapped_num+=fs_stat.over_lapped_num;
 
 		gv.fs.low_qual_base_ratio_num+=fs_stat.low_qual_base_ratio_num;
 		gv.fs.low_qual_base_ratio_num1+=fs_stat.low_qual_base_ratio_num1;
@@ -675,7 +676,7 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 		gv.fs.include_global_contam_seq_num2+=fs_stat.include_global_contam_seq_num2;
 		gv.fs.include_global_contam_seq_num_overlap+=fs_stat.include_global_contam_seq_num_overlap;
 
-		gv.fs.over_lapped_num+=fs_stat.over_lapped_num;
+		
 	}else if(type=="trim"){
 			//generate stat
 		gv.trim1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;

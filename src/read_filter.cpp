@@ -16,7 +16,7 @@ bool check_tile_or_fov(string tile,string& tile_parameter){
 		if(tile_parameter.find(",")==string::npos){
 			if(tile_parameter.find("-")==string::npos){
 				if(tile!=tile_parameter){
-					return -1;
+					return 0;
 				}else{
 					return 1;
 				}
@@ -32,7 +32,7 @@ bool check_tile_or_fov(string tile,string& tile_parameter){
 						return 1;
 					}
 				}
-				return -1;
+				return 0;
 			}
 		}else{
 			vector<string> line_eles;
@@ -56,12 +56,12 @@ bool check_tile_or_fov(string tile,string& tile_parameter){
 					}
 				}
 			}
-			return -1;
+			return 0;
 		}
 	}else{
 		if(tile_parameter.find(",")==string::npos){
 			if(tile!=tile_parameter){
-				return -1;
+				return 0;
 			}else{
 				return 1;
 			}
@@ -73,7 +73,7 @@ bool check_tile_or_fov(string tile,string& tile_parameter){
 					return 1;
 				}
 			}
-			return -1;
+			return 0;
 		}
 	}
 }
@@ -134,9 +134,14 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
             cerr<<"Warning:Zebra-500 data(--fov), --seqType is 0"<<endl;
             exit(1);
         }
+        return_value.read_fov=fq_read.seq_id.substr(i,8);
+        /*
         for(int j=0;j!=8;j++){
             return_value.read_fov.insert(return_value.read_fov.end(),fq_read.seq_id[i+j]);
         }
+        */
+        //cout<<return_value.read_fov<<endl;
+        //exit(1);
         if(return_value.read_fov.size()!=8){
         	cerr<<"Warning:input fastq maybe not include fov information\n"<<endl;
         }
