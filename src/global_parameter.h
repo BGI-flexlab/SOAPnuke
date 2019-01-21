@@ -14,7 +14,7 @@ public:
                                          mis_(0.1), readLen_(0), readLen2_(0), outDir_("."), onlyStat_(false), isPE_(true),minReadLength(50),cutAdaptor(false),cutBasesNumber(0),
                                          isAdptList_(true), isFull_(false), size_(0), cleanQualSys_(ILLUMINA_), filterAdapter_(true),seqType_(0),outType_(0),highAType_(0)
 	*/
-	C_global_parameter():is_streaming(false),seq_type("0"),index_remove(false),qualityPhred(33),outputQualityPhred(33),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),highA_ratio(-1),polyG_tail(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),output_clean(0),have_output1(0),have_output2(0),adaMis(2),adaMR(0.5),ctMatchR("0.2"),adaEdge(6),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),threads_num(6),patchSize(0),split_line(10000000),mode(""){};
+	C_global_parameter():is_streaming(false),seq_type("0"),index_remove(false),qualityPhred(33),outputQualityPhred(33),adapter_discard_or_trim("discard"),contam_discard_or_trim("discard"),adapter_method("hd"),whether_add_pe_info(false),output_file_type("fastq"),lowQual(5),lowQualityBaseRatio(0.5),meanQuality(-1),n_ratio(0.05),highA_ratio(-1),polyG_tail(-1),polyX_num(-1),overlap_length(-1),peMismatchRatio(0.1),max_read_length(-1),min_read_length(30),output_clean(0),have_output1(0),have_output2(0),adaMis(2),adaMR(0.5),ctMatchR("0.2"),adaEdge(6),adaRCtg(6),adaRAr(0.8),adaRMa(5),adaREr(0.4),adaRMm(4),threads_num(6),patchSize(0),split_line(10000000),mode(""),total_reads_num(0),f_total_reads_ratio(0),l_total_reads_num(0),total_reads_num_random(true),clean_file_reads(0){};
 	C_global_parameter(int argc,char* argv[]);
 
 	string mode;
@@ -69,11 +69,15 @@ public:
 	//read length limit
 	int max_read_length,min_read_length;
 	//reads number limit
-	//int total_reads_num;
+	float total_reads_num;
+	float f_total_reads_ratio;
+	unsigned long long l_total_reads_num;
+	bool total_reads_num_random;
 	//output reads number,the only variable
 	//int output_reads_num;
-	int output_clean;
+	unsigned long long output_clean;
 	unsigned long long have_output1,have_output2;
+	unsigned long long clean_file_reads;
 //special parameter
 	//filtersRNA module
 		//adapter find method2 parameter

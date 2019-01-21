@@ -38,12 +38,12 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="E:j1:2:R:W:C:D:o:5:8:Jaf:r:Z:z:c:d:k:Y:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:3:4:w:M:A:9:S:s:U:u:b:0:hv";
+    const char *shortOptions ="j1:2:R:W:C:D:o:5:8:Jaf:r:Z:z:c:d:k:Y:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:3:4:L:w:M:A:9:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
                     //input and output file
-                    {"mode",1,NULL,'E'},
+                    //{"mode",1,NULL,'E'},
                     {"streaming",0,NULL,'j'},
                     { "fq1"     , 1, NULL, '1' },
                     { "fq2"     , 1, NULL, '2' },
@@ -101,6 +101,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     {"minReadLen",1,NULL,'4'},
                     //reads number limit
                    // {"'totalReadsNum'"     , 1, NULL, 'c' },
+                    {"totalReadsNum",1,NULL,'L'},
                     {"output_clean",1,NULL,'w'},
                     {"adaMis",1,NULL,'M'},
                     {"adaMR",1,NULL,'A'},
@@ -131,7 +132,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
     {
         switch (nextOpt)
         {
-            case 'E':gp.mode.assign(optarg);break;
+            //case 'E':gp.mode.assign(optarg);break;
             case 'j':gp.is_streaming=true;break;
             case '1':gp.fq1_path.assign(optarg);break;
             case '2':gp.fq2_path.assign(optarg);break;
@@ -192,7 +193,33 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
            // case '6':gp.split_line=atoi(optarg);break;
             case '3':gp.max_read_length=atoi(optarg);break;
             case '4':gp.min_read_length=atoi(optarg);break;
-            //case 'c':gp.total_reads_num=atof(optarg)*1000*1000;break;
+            case 'L':{
+                string tmp_str;
+                tmp_str.assign(optarg);
+                if(tmp_str.find("head")==string::npos){
+                    gp.total_reads_num_random=true;
+                }else{
+                    gp.total_reads_num_random=false;
+                    tmp_str.erase(tmp_str.find("head"),4);
+                    if(tmp_str.find(".")!=string::npos){
+                        cerr<<"Error:it should be a integer when with head suffix"<<endl;
+                        exit(1);
+                    }
+                }
+                float tmp_val=atof(optarg);
+                gp.total_reads_num=tmp_val;
+                if(tmp_val<1){
+                    gp.f_total_reads_ratio=tmp_val;
+                }else{
+                    istringstream is_str(tmp_str);
+                    is_str>>gp.l_total_reads_num;
+                }
+                if(gp.f_total_reads_ratio>0 && gp.l_total_reads_num>0){
+                    cerr<<"Error:reads number and ratio should not be both assigned at the same time"<<endl;
+                    exit(1);
+                }
+                break;
+            }
             case 'w':gp.output_clean=atoi(optarg);break;
             case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].push_back("-M|--adaMis");break;
             case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].push_back("-A|adaMR");break;
@@ -413,6 +440,15 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
             }
         }
     }
+    if(gp.output_clean>0 && gp.total_reads_num>0){
+        cerr<<"Error:-w and -L cannot be both assigned"<<endl;
+        exit(1);
+    }
+    if(gp.output_clean>0){
+        gp.clean_file_reads=gp.output_clean;
+    }else if(gp.l_total_reads_num>0){
+        gp.clean_file_reads=gp.l_total_reads_num;
+    }
     if(gp.threads_num>48){
         cerr<<"Error:threads number is limited to 48"<<endl;
         exit(1);
@@ -438,7 +474,7 @@ void printModule(){
 void printUsage(string c_module){
     cout << "Usage: "<<c_module<<" [OPTION]... \n";
     cout<<"\ncommon options\n";
-    cout << "\t-E, --mode\t\tSTR\t\tif pigz software is available,you can assign ssd mode for accelerate(-E ssd). Default is non SSD\n";
+    //cout << "\t-E, --mode\t\tSTR\t\tif pigz software is available,you can assign ssd mode for accelerate(-E ssd). Default is non SSD\n";
     cout << "\t-1, --fq1\t\tFILE\t\tfq1 file(required)\n";
     cout << "\t-2, --fq2\t\tFILE\t\tfq2 file, used when pe\n";
     cout << "\t-C, --cleanFq1\t\tSTR\t\tclean fq1 file name(required,gz format)\n";
@@ -451,7 +487,7 @@ void printUsage(string c_module){
     cout << "\t-r, --adapter2\t\tSTR\t\tadapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)\n";
     cout << "\t-Z, --contam1\t\tSTR\t\tcontaminant sequence(s) for fq1 file, split by comma\n";
     cout << "\t-z, --contam2\t\tSTR\t\tcontaminant sequence(s) for fq2 file, split by comma\n";
-    cout << "\t-Y, --ctMatchR\t\tFLOAT/STR\tcontam's shortest consistent matching ratio [0.2]\n";
+    cout << "\t-Y, --ctMatchR\t\tFLOAT/STR\tcontam's shortest consistent matching ratio [default:0.2]\n";
     cout << "\t-c, --global_contams\tSTR\t\tglobal contaminant sequences which need to be detected, split by comma if more than 1\n";
     cout << "\t-d, --glob_cotm_mR\tSTR\t\tminimum match ratio in global contaminant sequences detection\n";
     cout << "\t-k, --glob_cotm_mM\tSTR\t\tmaximum mismatch number in global contaminant sequences detection\n";
@@ -463,8 +499,8 @@ void printUsage(string c_module){
     cout << "\t-K, --tile\t\tSTR\t\ttile number to ignore reads, such as [1101-1104,1205]\n";
     cout << "\t-F, --fov\t\tSTR\t\tfov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
     cout << "\tAdapter related:\n";
-    cout << "\t-J, --ada_trim\t\t\t\ttrim read when find adapter[discard]\n";
-    cout << "\t-a, --contam_trim\t\t\ttrim read when find contam[discard]\n";
+    cout << "\t-J, --ada_trim\t\t\t\ttrim read when find adapter[default:discard]\n";
+    cout << "\t-a, --contam_trim\t\t\ttrim read when find contam[default:discard]\n";
     if(c_module=="filter" || c_module=="filtermeta"){
         //cout << "filter and filtermeta module adapter related parameter\n";
         cout << "\t-M, --adaMis\t\tINT\t\tthe max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
@@ -477,14 +513,14 @@ void printUsage(string c_module){
     cout << "\t-s, --adaRAr\tFLOAT\t\tmini alignment rate when find 5' adapter: alignment/tag (default: 0.8)\n";
     cout << "  find 3' adapter\n";
     cout << "\t-U, --adaRMa\tINT\t\tmini alignment length when find 3' adapter (default: 5)\n";
-    cout << "\t-u, --adaREr\tFLOAT\t\tMax error rate when find 3' adapter (mismatch/match) (dfault: 0.4)\n";
-    cout << "\t-b, --adaRMm\tINT\t\tMax mismatch number when find 3' adapter (dfault: 4)" << endl;
+    cout << "\t-u, --adaREr\tFLOAT\t\tMax error rate when find 3' adapter (mismatch/match) (default: 0.4)\n";
+    cout << "\t-b, --adaRMm\tINT\t\tMax mismatch number when find 3' adapter (default: 4)" << endl;
     }
     cout<<endl;
    
-    cout << "\t-l, --lowQual\t\tINT\t\tlow quality threshold  [5]\n";
-    cout << "\t-q, --qualRate\t\tFLOAT\t\tlow quality rate  [0.5]\n";
-    cout << "\t-n, --nRate\t\tFLOAT\t\tN rate threshold  [0.05]\n";
+    cout << "\t-l, --lowQual\t\tINT\t\tlow quality threshold  [default:5]\n";
+    cout << "\t-q, --qualRate\t\tFLOAT\t\tlow quality rate  [default:0.5]\n";
+    cout << "\t-n, --nRate\t\tFLOAT\t\tN rate threshold  [default:0.05]\n";
     //cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
     cout << "\t-m, --mean\t\tFLOAT\t\tfilter reads with low average quality\n";
     cout << "\t-p, --highA\t\tFLOAT\t\tfilter reads if ratio of A in a read exceed [FLOAT]\n";
@@ -493,7 +529,9 @@ void printUsage(string c_module){
     //cout << "\t-d, --rmdup                 remove PCR duplications\n";
     //cout << "\t-3, --dupRate               keep PCR duplicated reads and calculate duplications rate\n";
     cout << "\t-i, --index\t\t\t\tremove index\n";
-    //cout << "\t-c, --'totalReadsNum'\tFLOAT\t\tthe read number you want to keep in each clean fq file, (unit:1000*1000, 0 means not cut reads)\n";
+    cout << "\t-L, --totalReadsNum\tINT/FLOAT\tnumber/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).\n";
+    cout << "\t    \t\t\t\t\tIt will extract reads randomly through the total clean fq file by default, you also can get the head reads\n";
+    cout << "\t    \t\t\t\t\tfor save time by add head suffix to the integer(e.g. -L 10000000head)\n";
     cout << "\t-t, --trim\t\tINT,INT,INT,INT\n";
     cout << "\t    \t\t\t\t\ttrim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])\n";
     
@@ -506,7 +544,7 @@ void printUsage(string c_module){
     cout << "\n";
     //cout << "\t-6, --split_line\tINT\t\tsplit raw fastq by <split_line>, default 10M reads per file (if ssd mode is open)\n";
     cout << "\t-e, --patch\t\tINT\t\treads number of a patch processed[400000]\n";
-    cout << "\t-T, --thread\t\tINT\t\tprocess thread number[6]" << endl;
+    cout << "\t-T, --thread\t\tINT\t\tthreads number used in process[6]" << endl;
     cout << "\n";
     cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:64, 2:33[default:2]\n";
     cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";

@@ -69,6 +69,7 @@ public:
 	C_reads_pos_base_stat bs;
 	C_reads_pos_qual_stat qs;
 	C_reads_trim_stat ts;
+	void clear();
 };
 class C_global_variable{
 public:

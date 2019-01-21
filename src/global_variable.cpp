@@ -43,6 +43,12 @@ C_fastq_file_stat::C_fastq_file_stat(){
 	//qs=C_reads_pos_qual_stat();
 	//ts=C_reads_trim_stat();
 }
+void C_fastq_file_stat::clear(){
+	gs=C_general_stat();
+	bs=C_reads_pos_base_stat();
+	qs=C_reads_pos_qual_stat();
+	ts=C_reads_trim_stat();
+}
 C_global_variable::C_global_variable(){
 	fs=C_filter_stat();
 	raw1_stat=C_fastq_file_stat();

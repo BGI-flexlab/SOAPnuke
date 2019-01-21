@@ -368,6 +368,11 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	if(gp.lowQualityBaseRatio!=-1){
 		int v=pe_dis(reads_result.fastq1_result.low_qual_base_ratio>=gp.lowQualityBaseRatio,reads_result.fastq2_result.low_qual_base_ratio>=gp.lowQualityBaseRatio);	//check low base quality ratio whether is too high
 		if(v>0){
+			if(reads_result.fastq1_result.low_qual_base_ratio>1 || reads_result.fastq2_result.low_qual_base_ratio>1){
+				cerr<<"Error:low quality base ratio stat error,"<<fq1.seq_id<<endl;
+				exit(1);
+			}
+			//cout<<fq1.seq_id<<"\t"<<fq2.seq_id<<"\t"<<reads_result.fastq1_result.low_qual_base_ratio<<"\t"<<reads_result.fastq2_result.low_qual_base_ratio<<"\t"<<gp.lowQualityBaseRatio<<endl;
 			switch(v){
 				case 1:fs->low_qual_base_ratio_num1++;break;
 				case 2:fs->low_qual_base_ratio_num2++;break;
