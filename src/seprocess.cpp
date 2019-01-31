@@ -744,6 +744,10 @@ void* seProcess::sub_thread(int index){
 	string head,tail;
 	int flag(0);
 	int self_fq1fd=open(se_new_fq1_path.c_str(),O_RDONLY);
+	if(self_fq1fd==-1){
+		cerr<<"Error:cannot open the file,"<<se_new_fq1_path<<endl;
+		exit(1);
+	}
 	int min_len=1024*4*10;
 	if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
 		//create_thread_outputFile(index);
@@ -837,6 +841,12 @@ void* seProcess::sub_thread(int index){
 		mmap_start+=copysz;
 		munmap(buf1,copysz);
 		tmp_iter++;
+	}
+	close(self_fq1fd);
+	self_fq1fd=open(se_new_fq1_path.c_str(),O_RDONLY);
+	if(self_fq1fd==-1){
+		cerr<<"Error:cannot open the file,"<<se_new_fq1_path<<endl;
+		exit(1);
 	}
 	close(self_fq1fd);
 	if(!gp.trim_fq1.empty()){
@@ -1105,6 +1115,10 @@ void seProcess::merge_clean_data(int index){	//cat all output files to a single 
 }
 void seProcess::create_thread_read(int index){
 	multi_gzfq1[index]=gzopen((gp.fq1_path).c_str(),"rb");
+	if(!multi_gzfq1[index]){
+		cerr<<"Error:cannot open the file,"<<gp.fq1_path<<endl;
+		exit(1);
+	}
 	gzsetparams(gzfp1, 2, Z_DEFAULT_STRATEGY);
 	gzbuffer(gzfp1,2048*2048);
 }
@@ -1155,16 +1169,21 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 			}
 			file1_line_num++;
 		}else{
-			gzclose(multi_gzfq1[index]);
 			if(fq1s.size()>0){
 				thread_process_reads(index,fq1s);
 				if(limit_end>0){
 					break;
 				}
 			}
+			gzclose(multi_gzfq1[index]);
 			break;
 		}
 	}
+	if(limit_end>0){
+		gzclose(multi_gzfq1[index]);
+	}
+	create_thread_read(index);
+	gzclose(multi_gzfq1[index]);
 	if(!gp.trim_fq1.empty()){
 		gzclose(gz_trim_out1[index]);
 	}
@@ -1225,7 +1244,7 @@ void seProcess::process_nonssd(){
 		if(!gp.trim_fq1.empty()){
 			remove_tmpDir();
 		}
-		if(gp.output_clean>0){
+		if(limit_end==0 && (gp.output_clean>0 || gp.l_total_reads_num>0)){
 			gzclose(gz_fq_se);
 		}
 	}
@@ -1360,7 +1379,8 @@ void seProcess::run_extract_random(){
 			break;
 		}
 	}
-	
+	if(cur_total<=gp.l_total_reads_num)
+		last_thread=gp.threads_num-1;
 	//create the last patch clean fq file and stat
 	//cout<<"last thread\t"<<last_thread<<endl;
 	if(sticky_end>0){
@@ -1581,7 +1601,7 @@ void seProcess::process(){
 		if(!gp.trim_fq1.empty()){
 			remove_tmpDir();
 		}
-		if(gp.output_clean>0){
+		if(limit_end==0 && (gp.output_clean>0 || gp.l_total_reads_num>0)){
 			gzclose(gz_fq_se);
 		}
 	}
@@ -1632,7 +1652,7 @@ void seProcess::make_tmpDir(){
 		int tmp_rand=random(26)+'A';
 		tmp_str<<(char)tmp_rand;
 	}
-	tmp_dir=tmp_str.str();
+	tmp_dir="TMP"+tmp_str.str();
 	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;

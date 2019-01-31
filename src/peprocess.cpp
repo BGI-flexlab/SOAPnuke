@@ -1425,6 +1425,14 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	int flag(0);
 	int self_fq1fd=open(new_fq1_path.c_str(),O_RDONLY);
 	int self_fq2fd=open(new_fq2_path.c_str(),O_RDONLY);
+	if(self_fq1fd==-1){
+		cerr<<"Error:cannot open the file,"<<new_fq1_path<<endl;
+		exit(1);
+	}
+	if(self_fq2fd==-1){
+		cerr<<"Error:cannot open the file,"<<new_fq2_path<<endl;
+		exit(1);
+	}
 	int min_len=1024*4*10;
 	if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
 		create_thread_trimoutputFile(index);
@@ -1536,6 +1544,18 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 		munmap(buf1,copysz);
 		munmap(buf2,copysz);
 		tmp_iter++;
+	}
+	close(self_fq1fd);
+	close(self_fq2fd);
+	self_fq1fd=open(new_fq1_path.c_str(),O_RDONLY);
+	self_fq2fd=open(new_fq2_path.c_str(),O_RDONLY);
+	if(self_fq1fd==-1){
+		cerr<<"Error:cannot open the file,"<<new_fq1_path<<endl;
+		exit(1);
+	}
+	if(self_fq2fd==-1){
+		cerr<<"Error:cannot open the file,"<<new_fq2_path<<endl;
+		exit(1);
 	}
 	close(self_fq1fd);
 	close(self_fq2fd);
@@ -1825,9 +1845,17 @@ void peProcess::merge_data(int index){	//cat all output files to a single large 
 }
 void peProcess::create_thread_read(int index){
 	multi_gzfq1[index]=gzopen((gp.fq1_path).c_str(),"rb");
+	if(!multi_gzfq1[index]){
+		cerr<<"Error:cannot open the file,"<<gp.fq1_path<<endl;
+		exit(1);
+	}
 	gzsetparams(multi_gzfq1[index], 2, Z_DEFAULT_STRATEGY);
 	gzbuffer(multi_gzfq1[index],2048*2048);
 	multi_gzfq2[index]=gzopen((gp.fq2_path).c_str(),"rb");
+	if(!multi_gzfq2[index]){
+		cerr<<"Error:cannot open the file,"<<gp.fq2_path<<endl;
+		exit(1);
+	}
 	gzsetparams(multi_gzfq2[index], 2, Z_DEFAULT_STRATEGY);
 	gzbuffer(multi_gzfq2[index],2048*2048);
 }
@@ -1894,17 +1922,24 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 			}
 			file2_line_num++;
 		}else{
-			gzclose(multi_gzfq1[index]);
-			gzclose(multi_gzfq2[index]);
 			if(fq1s.size()>0){
 				thread_process_reads(index,fq1s,fq2s);
 				if(limit_end){
 					break;
 				}
 			}
+			gzclose(multi_gzfq1[index]);
+			gzclose(multi_gzfq2[index]);
 			break;
 		}
 	}
+	if(limit_end>0){
+		gzclose(multi_gzfq1[index]);
+		gzclose(multi_gzfq2[index]);
+	}
+	create_thread_read(index);
+	gzclose(multi_gzfq1[index]);
+	gzclose(multi_gzfq2[index]);
 	if(!gp.trim_fq1.empty()){
 		gzclose(gz_trim_out1[index]);
 		gzclose(gz_trim_out2[index]);
@@ -1993,6 +2028,8 @@ void peProcess::process_nonssd(){
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
+	//gzclose(gz_fq1);
+	//gzclose(gz_fq2);
 	//read_monitor.join();
 	if(gp.total_reads_num_random==true && gp.total_reads_num>0){
 		run_extract_random();
@@ -2002,7 +2039,6 @@ void peProcess::process_nonssd(){
 		return;
 	}
 	merge_stat_nonssd();
-	
 	print_stat();
 	if(!gp.trim_fq1.empty()){
 		merge_trim_data();
@@ -2014,7 +2050,7 @@ void peProcess::process_nonssd(){
 		if(!gp.trim_fq1.empty()){
 			remove_tmpDir();
 		}
-		if(gp.output_clean>0){
+		if(limit_end==0 && (gp.output_clean>0 || gp.l_total_reads_num>0)){
 			gzclose(gz_fq1);
 			gzclose(gz_fq2);
 		}
@@ -2052,16 +2088,15 @@ void peProcess::run_extract_random(){
 	unsigned long long cur_total(0);
 	for(int i=0;i!=gp.threads_num;i++){
 		cur_total+=local_clean_stat1[i].gs.reads_number;
-		//cout<<local_clean_stat1[i].gs.reads_number<<"\t"<<cur_total<<"\t"<<gp.l_total_reads_num<<endl;
 		if(cur_total>gp.l_total_reads_num){
 			last_thread=i;
 			sticky_end=local_clean_stat1[i].gs.reads_number-(cur_total-gp.l_total_reads_num);
 			break;
 		}
 	}
-	
+	if(cur_total<=gp.l_total_reads_num)
+		last_thread=gp.threads_num-1;
 	//create the last patch clean fq file and stat
-	//cout<<"last thread\t"<<last_thread<<endl;
 	if(sticky_end>0){
 		process_some_reads(last_thread,sticky_end);
 		merge_stat(last_thread);
@@ -2225,7 +2260,7 @@ void peProcess::make_tmpDir(){
 		int tmp_rand=random(26)+'A';
 		tmp_str<<(char)tmp_rand;
 	}
-	tmp_dir=tmp_str.str();
+	tmp_dir="TMP"+tmp_str.str();
 	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
 	if(system(mkdir_str.c_str())==-1){
 		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
@@ -2409,7 +2444,7 @@ void peProcess::process(){
 		if(!gp.trim_fq1.empty()){
 			remove_tmpDir();
 		}
-		if(gp.output_clean>0){
+		if(limit_end==0 && (gp.output_clean>0 || gp.l_total_reads_num>0)){
 			gzclose(gz_fq1);
 			gzclose(gz_fq2);
 		}
