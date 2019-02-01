@@ -1755,9 +1755,6 @@ void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 		se_out[idx]++;
 		int mod=gp.have_output1%gp.clean_file_reads;
 		if(se_out[idx]==1){
-			if(limit_end>0){
-				return;
-			}
 			int to_output=fq1.size()-mod;
 			string sticky_tail,sticky_head;
 			for(int i=0;i!=to_output;i++){
@@ -1766,11 +1763,24 @@ void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 			for(int i=to_output;i!=fq1.size();i++){
 				sticky_head+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
 			}
+
 			if(!sticky_tail.empty()){
 				gzwrite(gz_fq_se,sticky_tail.c_str(),sticky_tail.size());
 				gzclose(gz_fq_se);
-				limit_end++;
-				return;
+				if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
+					limit_end++;
+					return;
+				}
+			}else{
+				if(idx>0){
+					if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
+						gzclose(gz_fq_se);
+						limit_end++;
+						return;
+					}else{
+						gzclose(gz_fq_se);
+					}
+				}
 			}
 			ostringstream out_fq1;
 			out_fq1<<gp.output_dir<<"/split."<<idx<<".clean.r1.fq.gz";

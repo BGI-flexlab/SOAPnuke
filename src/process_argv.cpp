@@ -198,12 +198,25 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                 tmp_str.assign(optarg);
                 if(tmp_str.find("head")==string::npos){
                     gp.total_reads_num_random=true;
+                    for(int i=0;i!=tmp_str.size();i++){
+                        if(!isdigit(tmp_str[i]) && tmp_str[i]!='.'){
+                            cerr<<"Error:-L value should be a integer or float"<<endl;
+                            exit(1);
+                        }
+                    }
                 }else{
                     gp.total_reads_num_random=false;
                     tmp_str.erase(tmp_str.find("head"),4);
                     if(tmp_str.find(".")!=string::npos){
-                        cerr<<"Error:it should be a integer when with head suffix"<<endl;
+                        cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
                         exit(1);
+                    }else{
+                        for(int i=0;i!=tmp_str.size();i++){
+                            if(!isdigit(tmp_str[i])){
+                                cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
+                                exit(1);
+                            }
+                        }
                     }
                 }
                 float tmp_val=atof(optarg);

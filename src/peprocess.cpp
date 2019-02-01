@@ -2547,7 +2547,6 @@ void peProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 	if(gp.is_streaming){
 		cout<<streaming_out;
 	}else{
-		int flag=0;
 		if(type=="1"){
 			
 			gp.have_output1+=fq1.size();
@@ -2570,27 +2569,35 @@ void peProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 				if(!sticky_tail.empty()){
 					gzwrite(gz_fq1,sticky_tail.c_str(),sticky_tail.size());
 					gzclose(gz_fq1);
-					flag=1;
+					if(gp.total_reads_num_random==false && gp.l_total_reads_num>0)
+						goto LAB1;
+				}else{
+					if(idx>0){
+						gzclose(gz_fq1);
+						if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
+							goto LAB1;
+						}
+					}
 				}
-				if(flag==0){
-					ostringstream out_fq1;
-					out_fq1<<gp.output_dir<<"/split."<<idx<<"."<<gp.clean_fq1;
-					if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
-						string fq1_whole_path=gp.output_dir+"/"+gp.clean_fq1;
-						gz_fq1=gzopen(fq1_whole_path.c_str(),"wb");
-					}else{
-						gz_fq1=gzopen(out_fq1.str().c_str(),"wb");
-					}
-					gzsetparams(gz_fq1, 2, Z_DEFAULT_STRATEGY);
-					gzbuffer(gz_fq1,1024*1024*10);
-					if(!sticky_head.empty()){
-						gzwrite(gz_fq1,sticky_head.c_str(),sticky_head.size());
-					}
+				ostringstream out_fq1;
+				out_fq1<<gp.output_dir<<"/split."<<idx<<"."<<gp.clean_fq1;
+				if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
+					string fq1_whole_path=gp.output_dir+"/"+gp.clean_fq1;
+					gz_fq1=gzopen(fq1_whole_path.c_str(),"wb");
+				}else{
+					gz_fq1=gzopen(out_fq1.str().c_str(),"wb");
+				}
+				gzsetparams(gz_fq1, 2, Z_DEFAULT_STRATEGY);
+				gzbuffer(gz_fq1,1024*1024*10);
+				if(!sticky_head.empty()){
+					gzwrite(gz_fq1,sticky_head.c_str(),sticky_head.size());
 				}
 			}else{
+				//cout<<idx<<"\t"<<pe1_out[idx]<<"\t"<<gp.have_output1<<"\t"<<gp.clean_file_reads<<"\t"<<mod<<"\t"<<out_content.size()<<endl;
 				gzwrite(gz_fq1,out_content.c_str(),out_content.size());
 			}
 		}
+		LAB1:
 		if(type=="2"){
 			gp.have_output2+=fq1.size();
 			int idx=(gp.have_output2-1)/gp.clean_file_reads;
@@ -2611,6 +2618,16 @@ void peProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 					if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
 						limit_end++;
 						return;
+					}
+				}else{
+					if(idx>0){
+						if(gp.total_reads_num_random==false && gp.l_total_reads_num>0){
+							gzclose(gz_fq2);
+							limit_end++;
+							return;
+						}else{
+							gzclose(gz_fq2);
+						}
 					}
 				}
 				ostringstream out_fq2;
