@@ -43,11 +43,13 @@ public:
 	void* sub_thread(int index);
 	int read(vector<C_fastq>& se1,ifstream& infile1);
 	void seWrite(vector<C_fastq>& se1,string type,gzFile out1);
+	void seWrite(vector<C_fastq>& se1,string type,FILE* out1);
 	void seWrite_split(vector<C_fastq>& se1);
 	//void peRead();
 	void* doCal(int index);
 	void  preOutput(int type,C_fastq& a);
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
+	void output_fastqs(string type,vector<C_fastq> &fq1,FILE* outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
 	void output_split_fastqs(string type,vector<C_fastq> &fq1);
 	void seWrite(int num);
@@ -96,6 +98,7 @@ public:
 	ifstream nongzfp1;
 	gzFile gz_trim_out1[max_thread];
 	gzFile gz_clean_out1[max_thread];
+	FILE* nongz_clean_out1[max_thread];
 	gzFile gz_trim_out1_nonssd,gz_clean_out1_nonssd;
 	ofstream of_log;
 	string tmp_dir;

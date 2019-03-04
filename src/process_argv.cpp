@@ -288,6 +288,10 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
     if(!gp.fq2_path.empty()){
         pe_data=true;
         check_gz_file(gp.fq2_path);
+        if(gp.fq1_path==gp.fq2_path){
+            cerr<<"Error:input fq1 and fq2 are the same,please check the parameters"<<endl;
+            exit(1);
+        }
     }
     if(gp.clean_fq1.empty()){
         cerr<<"Error:output clean fastq is required"<<endl;
@@ -297,6 +301,16 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
              if(gp.clean_fq2.empty()){
                 cerr<<"Error:output clean fastq2 is required"<<endl;
                 exit(1);
+            }
+            if(!(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")==gp.clean_fq2.size()-3) && !(gp.clean_fq1.rfind(".gz")!=gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")!=gp.clean_fq2.size()-3)){
+                cerr<<"Error:the format of clean fastq1 is inconsistent with fastq2"<<endl;
+                exit(1);
+            }
+            if(gp.output_clean>0 || gp.total_reads_num>0){
+                if(gp.clean_fq1.rfind(".gz")!=gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")!=gp.clean_fq2.size()-3){
+                    cerr<<"Error:the clean out fastq should be non-gz format when clean output reads are limited"<<endl;
+                    exit(1);
+                }
             }
         }
     }
@@ -312,7 +326,7 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
             exit(1);
         }
     }else{
-        if(!(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3 && gp.fq2_path.find(".gz")==gp.fq2_path.size()-3) && !(gp.fq1_path.find(".gz")!=gp.fq1_path.size()-3 && gp.fq2_path.find(".gz")!=gp.fq2_path.size()-3)){
+        if(!(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3 && gp.fq2_path.rfind(".gz")==gp.fq2_path.size()-3) && !(gp.fq1_path.rfind(".gz")!=gp.fq1_path.size()-3 && gp.fq2_path.rfind(".gz")!=gp.fq2_path.size()-3)){
             cerr<<"Error:the format of input fastq1 is inconsistent with fastq2"<<endl;
             exit(1);
         }

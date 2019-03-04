@@ -30,6 +30,7 @@ map<int,int> se_out;
 int exceed_output_se(0);
 string se_new_fq1_path;
 unsigned long long se_buffer(1024*1024*2);
+int se_bq_check(0);
 seProcess::seProcess(C_global_parameter m_gp){
 	gp=m_gp;
 	gv=C_global_variable();
@@ -116,57 +117,6 @@ void seProcess::print_stat(){
 			of_filter_stat<<setprecision(2)<<100*(float)filter_number[*ix]/total_filter_fq1_num<<"%"<<endl;
 		}
 	}
-	/*of_filter_stat<<"Reads too short\t\t\t"<<gv.fs.short_len_num<<"\t";
-	if(total_filter_fq1_num==0){
-		of_filter_stat<<"0%"<<"\t\t";
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.short_len_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Reads with contam sequence\t"<<gv.fs.include_contam_seq_num<<"\t";
-	if(gv.fs.include_contam_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.include_contam_seq_num/total_filter_fq1_num<<"%"<<endl;
-	}
-
-	of_filter_stat<<"Reads with adapter\t"<<gv.fs.include_adapter_seq_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.include_adapter_seq_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Reads with low quality\t"<<gv.fs.low_qual_base_ratio_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.low_qual_base_ratio_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Reads with low mean quality\t"<<gv.fs.mean_quality_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.mean_quality_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Read with n rate exceed\t"<<gv.fs.n_ratio_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.n_ratio_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Read with small insert size\t"<<gv.fs.over_lapped_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.over_lapped_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat<<"Reads with highA\t"<<gv.fs.highA_num<<"\t";
-	if(gv.fs.include_adapter_seq_num==0){
-		of_filter_stat<<"0%"<<endl;
-	}else{
-		of_filter_stat<<setprecision(2)<<100*(float)gv.fs.highA_num/total_filter_fq1_num<<"%"<<endl;
-	}
-	of_filter_stat.close();
-	*/
 	of_general_stat<<"Item\traw reads(fq1)\tclean reads(fq1)"<<endl;
 
 	float raw1_rl(0),clean1_rl(0);
@@ -240,8 +190,9 @@ void seProcess::print_stat(){
 	int max_qual=0;
 	for(int i=0;i<gv.raw1_stat.gs.read_length;i++){
 		for(int j=1;j<=MAX_QUAL;j++){
-			if(gv.raw1_stat.qs.position_qual[i][j]>0)
-				max_qual=j;
+			if(gv.raw1_stat.qs.position_qual[i][j]>0){
+				max_qual=max_qual>j?max_qual:j;
+			}
 		}
 	}
 	for(int i=0;i<=max_qual;i++){
@@ -249,7 +200,7 @@ void seProcess::print_stat(){
 	}
 	of_readPos_qual_stat1<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
 	
-	float raw1_q20[gv.raw1_stat.gs.read_length],raw1_q30[gv.raw1_stat.gs.read_length];
+	float raw1_q20[gv.raw1_stat.gs.read_max_length],raw1_q30[gv.raw1_stat.gs.read_max_length];
 	float clean1_q20[gv.raw1_stat.gs.read_max_length],clean1_q30[gv.raw1_stat.gs.read_max_length];
 	for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
@@ -354,6 +305,9 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 	if(type=="raw"){
 		if(gv.raw1_stat.gs.read_length==0)
 			gv.raw1_stat.gs.read_length=fq1s_stat.gs.read_length;	//generate stat
+		if(gv.raw1_stat.gs.read_max_length<fq1s_stat.gs.read_length){
+			gv.raw1_stat.gs.read_max_length=fq1s_stat.gs.read_length;
+		}
 		gv.raw1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;
 		gv.raw1_stat.gs.base_number+=fq1s_stat.gs.base_number;
 		gv.raw1_stat.gs.a_number+=fq1s_stat.gs.a_number;
@@ -365,26 +319,26 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		gv.raw1_stat.gs.q30_num+=fq1s_stat.gs.q30_num;
 		string base_set="ACGTN";	//base content and quality along read position stat
 		int max_qual=0;
-		for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
+		for(int i=0;i!=gv.raw1_stat.gs.read_max_length;i++){
 			for(int j=0;j!=base_set.size();j++){
 				gv.raw1_stat.bs.position_acgt_content[i][j]+=fq1s_stat.bs.position_acgt_content[i][j];
 			}
 		}
-		for(int i=1;i<=gv.raw1_stat.gs.read_length;i++){
+		for(int i=1;i<=gv.raw1_stat.gs.read_max_length;i++){
 			gv.raw1_stat.ts.ht[i]+=fq1s_stat.ts.ht[i];
 			gv.raw1_stat.ts.hlq[i]+=fq1s_stat.ts.hlq[i];
 			gv.raw1_stat.ts.tt[i]+=fq1s_stat.ts.tt[i];
 			gv.raw1_stat.ts.tlq[i]+=fq1s_stat.ts.tlq[i];
 			gv.raw1_stat.ts.ta[i]+=fq1s_stat.ts.ta[i];
 		}
-		for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
+		for(int i=0;i!=gv.raw1_stat.gs.read_max_length;i++){
 			for(int j=1;j<=MAX_QUAL;j++){
 				if(fq1s_stat.qs.position_qual[i][j]>0)
-					max_qual=j;
+					max_qual=max_qual>j?max_qual:j;
 			}
 		}
 		
-		for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
+		for(int i=0;i!=gv.raw1_stat.gs.read_max_length;i++){
 			for(int j=0;j<=max_qual;j++){
 				gv.raw1_stat.qs.position_qual[i][j]+=fq1s_stat.qs.position_qual[i][j];
 			}
@@ -440,7 +394,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		for(int i=0;i!=gv.trim1_stat.gs.read_max_length;i++){
 			for(int j=1;j<=MAX_QUAL;j++){
 				if(fq1s_stat.qs.position_qual[i][j]>0)
-					max_qual=j;
+					max_qual=max_qual>j?max_qual:j;
 			}
 		}
 		for(int i=0;i!=gv.trim1_stat.gs.read_max_length;i++){
@@ -487,7 +441,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
 			for(int j=1;j<=MAX_QUAL;j++){
 				if(fq1s_stat.qs.position_qual[i][j]>0)
-					max_qual=j;
+					max_qual=max_qual>j?max_qual:j;
 			}
 		}
 		for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
@@ -504,6 +458,7 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 }
 void* seProcess::stat_se_fqs(SEstatOption opt){
 	opt.stat1->gs.reads_number+=opt.fq1s->size();
+	int normal_bq(0);
 	for(vector<C_fastq>::iterator ix=opt.fq1s->begin();ix!=opt.fq1s->end();ix++){
 		if((*ix).head_hdcut>0 || (*ix).head_lqcut>0){
 			if((*ix).head_hdcut>=(*ix).head_lqcut){
@@ -564,6 +519,101 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 		opt.stat1->gs.read_length=(*ix).sequence.size();
 		opt.stat1->gs.base_number+=opt.stat1->gs.read_length;
 	}
+	int q1_exceed(0),q1_normal_bq(0),q1_mean_bq(0);
+	int q2_exceed(0),q2_normal_bq(0),q2_mean_bq(0);
+	float q1_normal_ratio(0.0),q2_normal_ratio(0.0);
+	float q1_mean(0.0),q2_mean(0.0);
+	if(se_bq_check==0){
+		se_stat_m.lock();
+		for(vector<C_fastq>::iterator ix=opt.fq1s->begin();ix!=opt.fq1s->end();ix++){
+			int qual_len=(*ix).qual_seq.size();
+			for(string::size_type i=0;i!=qual_len;i++){	//process quality sequence
+				int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
+				q1_mean_bq+=base_quality;
+				if(base_quality>=MIN_QUAL && base_quality<=MAX_QUAL){
+					q1_normal_bq++;
+				}else{
+					if(base_quality<MIN_QUAL-10 || base_quality>MAX_QUAL+10)
+						q1_exceed++;
+				}
+				int another_q=gp.qualityPhred==64?33:64;
+				int base_quality2=((*ix).qual_seq)[i]-another_q;
+				q2_mean_bq+=base_quality2;
+				if(base_quality2>=MIN_QUAL && base_quality2<=MAX_QUAL){
+					q2_normal_bq++;
+				}else{
+					if(base_quality2<MIN_QUAL-10 || base_quality2>MAX_QUAL+10)
+						q2_exceed++;
+				}
+			}
+		}
+		
+		if(opt.stat1->gs.base_number==0){
+			cerr<<"Error:no data"<<endl;
+			exit(1);
+		}
+		q1_normal_ratio=(float)q1_normal_bq/opt.stat1->gs.base_number;
+		q2_normal_ratio=(float)q2_normal_bq/opt.stat1->gs.base_number;
+		q1_mean=(float)q1_mean_bq/opt.stat1->gs.base_number;
+		q2_mean=(float)q2_mean_bq/opt.stat1->gs.base_number;
+		//cout<<q1_exceed<<"\t"<<q1_normal_bq<<"\t"<<opt.stat1->gs.base_number<<"\t"<<q1_normal_ratio<<"\t"<<q1_mean<<endl;
+		//cout<<q2_exceed<<"\t"<<q2_normal_bq<<"\t"<<opt.stat1->gs.base_number<<"\t"<<q2_normal_ratio<<"\t"<<q2_mean<<endl;
+		int q1_score(0),q2_score(0);
+		if(q1_exceed){
+			q1_score+=0;
+		}else{
+			q1_score+=1;
+		}
+		if(q2_exceed){
+			q2_score+=0;
+		}else{
+			q2_score+=1;
+		}
+		if(q1_normal_ratio>q2_normal_ratio){
+			q1_score+=3;
+			q2_score+=0;
+		}else if(q1_normal_ratio<q2_normal_ratio){
+			q1_score+=0;
+			q2_score+=3;
+		}else{
+			q1_score+=3;
+			q2_score+=3;
+		}
+		if(q1_mean<10 || q1_mean>MAX_QUAL){
+			q1_score+=0;
+		}else{
+			q1_score+=2;
+		}
+		if(q2_mean<10 || q2_mean>MAX_QUAL){
+			q2_score+=0;
+		}else{
+			q2_score+=2;
+		}
+		//cout<<q1_score<<"\t"<<q2_score<<endl;
+		if(se_bq_check==0){
+			if(q1_score-q2_score<-3){
+				cerr<<"Error:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
+				exit(1);
+			}else if(q1_score-q2_score<0){
+				cerr<<"Warning:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
+			}
+		}
+		se_bq_check++;
+		/*
+		if(normal_ratio>1){
+			cerr<<"Error:code error"<<endl;
+			exit(1);
+		}if(normal_ratio<0.5){
+			cerr<<"Error:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
+			exit(1);
+		}else if(normal_ratio<0.9){
+			cerr<<"Warning:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
+		}else{
+		}
+		*/
+		se_stat_m.unlock();
+		//exit(1);
+	}
 }
 
 void seProcess::filter_se_fqs(SEcalOption opt){
@@ -620,6 +670,9 @@ void seProcess::seWrite_split(vector<C_fastq>& se1){
 	output_split_fastqs("1",se1);
 }
 void seProcess::seWrite(vector<C_fastq>& se1,string type,gzFile out1){
+	output_fastqs("1",se1,out1);
+}
+void seProcess::seWrite(vector<C_fastq>& se1,string type,FILE* out1){
 	output_fastqs("1",se1,out1);
 }
 void seProcess::C_fastq_init(C_fastq& a){
@@ -731,10 +784,18 @@ void seProcess::create_thread_cleanoutputFile(int index){
 	if(!gp.clean_fq1.empty()){	//create output clean files handle
 		if(gp.output_clean<=0){
 			ostringstream outfile1;
-			outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
-			gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
-			gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
-			gzbuffer(gz_clean_out1[index],1024*1024*16);
+			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+				outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
+				gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
+				gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
+				gzbuffer(gz_clean_out1[index],1024*1024*16);
+			}else{
+				outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq";
+				if((nongz_clean_out1[index]=fopen(outfile1.str().c_str(),"w"))==NULL){
+					cerr<<"Error:cannot write to the file,"<<outfile1.str()<<endl;
+					exit(1);
+				}
+			}
 		}
 	}
 }
@@ -1012,7 +1073,11 @@ void seProcess::merge_clean_data(){
 	for(int i=0;i!=gp.threads_num;i++){
 		if(!gp.clean_fq1.empty()){
 			ostringstream clean_out_fq1_tmp;
-			clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
+			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
+			}else{
+				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq";
+			}
 			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1){
 				ostringstream cat_cmd1;
 				cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
@@ -1189,7 +1254,12 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 	}
 	if(!gp.clean_fq1.empty()){
 		if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false))
-			gzclose(gz_clean_out1[index]);
+			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+				gzclose(gz_clean_out1[index]);
+			}else{
+				fclose(nongz_clean_out1[index]);
+			}
+			
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
@@ -1320,7 +1390,12 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 			}
 			se_write_m.unlock();
 		}else{
-			seWrite(clean_result1,"clean",gz_clean_out1[index]);	//output clean files
+			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+				seWrite(clean_result1,"clean",gz_clean_out1[index]);	//output clean files
+			}else{
+				seWrite(clean_result1,"clean",nongz_clean_out1[index]);	//output clean files
+			}
+			
 		}
 		opt_clean.fq1s=&clean_result1;
 		stat_se_fqs(opt_clean);	//statistic clean fastqs
@@ -1575,7 +1650,7 @@ void seProcess::process(){
 	}
 
 	//
-	if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
+	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
 		string se_new_fq1_path=gp.output_dir+"/raw.r1.fq";
 		string rm_cmd="rm "+se_new_fq1_path;
 		if(system(rm_cmd.c_str())){
@@ -1718,6 +1793,42 @@ void seProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	}else{
 		gzwrite(outfile,out_content.c_str(),out_content.size());
 		gzflush(outfile,1);
+	}
+	//m.unlock();
+}
+void seProcess::output_fastqs(string type,vector<C_fastq> &fq1,FILE* outfile){
+	//m.lock();
+	string out_content,streaming_out;
+	for(int i=0;i!=fq1.size();i++){
+	//for(vector<C_fastq>::iterator i=fq1->begin();i!=fq1->end();i++){
+		if(gp.output_file_type=="fasta"){
+			fq1[i].seq_id=fq1[i].seq_id.replace(fq1[i].seq_id.find("@"),1,">");
+			out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n";
+		}else if(gp.output_file_type=="fastq"){
+			if(gp.outputQualityPhred!=gp.qualityPhred){
+				for(string::size_type ix=0;ix!=fq1[i].qual_seq.size();ix++){
+					int b_q=fq1[i].qual_seq[ix]-gp.qualityPhred;
+					fq1[i].qual_seq[ix]=(char)(b_q+gp.outputQualityPhred);
+				}
+			}
+			if(gp.is_streaming){
+				string modify_id=fq1[i].seq_id;
+				modify_id.erase(0,1);
+				streaming_out+=">+\t"+modify_id+"\t"+type+"\t"+fq1[i].sequence+"\t"+fq1[i].qual_seq+"\n";
+			}else{
+				out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
+			}
+		}else{
+			cerr<<"Error:output_file_type value error"<<endl;
+			exit(1);
+		}
+	}
+	if(gp.is_streaming){
+		cout<<streaming_out;
+	}else{
+		//gzwrite(outfile,out_content.c_str(),out_content.size());
+		fputs(out_content.c_str(),outfile);
+		//gzflush(outfile,1);
 	}
 	//m.unlock();
 }

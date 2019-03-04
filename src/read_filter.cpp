@@ -82,13 +82,15 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	return_value.in_adapter_list=0;
 	return_value.include_adapter_seq=-1;
 	fq_read.raw_length=fq_read.sequence.size();
+	int seq_id_len=fq_read.seq_id.size();
 	if(gp.tile.empty()){
 		return_value.read_tile="";
 	}else{
 		int i=0;
 		int num=0;
+		
 		if(gp.seq_type=="0"){
-			for(;i<fq_read.seq_id.size();i++){
+			for(;i<seq_id_len;i++){
 				if(fq_read.seq_id[i]==':')
 					num++;
 				if(num>=2)
@@ -98,7 +100,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 				}
 			}
 		}else{
-			for(;i<fq_read.seq_id.size();i++){
+			for(;i<seq_id_len;i++){
 				if(fq_read.seq_id[i]==':')
 					num++;
 				if(num>=4)
@@ -125,7 +127,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	}else{
 		int i=0;
         if(gp.seq_type=="0"){
-            for(i=0;i<fq_read.seq_id.size();i++){
+            for(i=0;i<seq_id_len;i++){
                 if(fq_read.seq_id[i]=='C')
                     if(i+8<fq_read.seq_id.size() && fq_read.seq_id[i+4]=='R' && fq_read.seq_id[i+8]=='_')
                         break;

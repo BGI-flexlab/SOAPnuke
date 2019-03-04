@@ -58,10 +58,11 @@ quartile_result cal_quar_from_map(map<int,int> data){
 	return return_value;
 }
 quartile_result cal_quar_from_array(unsigned long long data[],int len){
+	//cout<<len<<"\there"<<endl;
 	quartile_result return_value;
 	unsigned long long total_num(0);
 	int data_num(0);
-	for(int i=0;i<len;i++){
+	for(int i=0;i<=len;i++){
 		total_num+=i*data[i];
 		data_num+=data[i];
 	}
@@ -76,7 +77,7 @@ quartile_result cal_quar_from_array(unsigned long long data[],int len){
 	int last10_pos=data_num*9/10;
 	int median_pos=data_num/2;
 	int last_cur_pos(0),cur_pos(0);
-	for(int i=0;i<len;i++){
+	for(int i=0;i<=len;i++){
 		cur_pos+=data[i];
 		if(lower_pos>=last_cur_pos && lower_pos<=cur_pos){
 			return_value.lower_quar=i;

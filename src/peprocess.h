@@ -51,12 +51,14 @@ public:
 	void* sub_thread(int index);
 	int read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,ifstream& infile2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2);
+	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,FILE* out1,FILE* out2);
 	//void add_raw_trim(C_fastq_file_stat& a,C_fastq_file_stat& a2,C_reads_trim_stat& b,C_reads_trim_stat& b2);
 	void peWrite_split(vector<C_fastq>& pe1,vector<C_fastq>& pe2);
 	//void peRead();
 	void* doCal(int index);
 	void  preOutput(int type,C_fastq& a);
 	void output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile);
+	void output_fastqs(string type,vector<C_fastq> &fq1,FILE* outfile);
 	void output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile);
 	void output_split_fastqs(string type,vector<C_fastq> &fq1);
 	//void peWrite(int num);
@@ -110,6 +112,8 @@ public:
 	ifstream nongzfp1,nongzfp2;
 	gzFile gz_trim_out1[max_thread],gz_trim_out2[max_thread];
 	gzFile gz_clean_out1[max_thread],gz_clean_out2[max_thread];
+	FILE* nongz_clean_out1[max_thread];
+	FILE* nongz_clean_out2[max_thread];
 	gzFile gz_trim_out1_nonssd,gz_trim_out2_nonssd,gz_clean_out1_nonssd,gz_clean_out2_nonssd;
 	ofstream of_log;
 	off_t t_start_pos[max_thread];
