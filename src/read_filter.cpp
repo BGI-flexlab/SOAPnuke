@@ -197,17 +197,42 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	    	}
 	    }
 	    if(!gp.global_contams.empty()){
-	    	vector<int> global_contam_poses=hasGlobalContams(fq_read.sequence,gp);
-	    	for(vector<int>::iterator ix=global_contam_poses.begin();ix!=global_contam_poses.end();ix++){
+	    	vector<int> global_contam_5_poses=hasGlobalContams(fq_read.sequence,gp);
+	    	for(vector<int>::iterator ix=global_contam_5_poses.begin();ix!=global_contam_5_poses.end();ix++){
+	    		//cout<<"5pos:\t"<<*ix<<endl;
 	    		if(*ix>=0){
 	    			return_value.include_global_contam=1;
-	    			if(fq_read.global_contam_pos!=-1){
-	    				if(*ix<=fq_read.global_contam_pos){
-			    			fq_read.global_contam_pos=*ix;
+	    			if(fq_read.global_contam_5pos!=-1){
+	    				if(*ix<=fq_read.global_contam_5pos){
+			    			fq_read.global_contam_5pos=*ix;
 			    		}
 	    			}else{
-	    				fq_read.global_contam_pos=*ix;
+	    				fq_read.global_contam_5pos=*ix;
 	    			}
+	    		}
+	    	}
+	    	if(fq_read.global_contam_5pos!=-1 && fq_read.global_contam_5pos<=fq_read.sequence.size()/2){
+	    		string reverse_ref=reversecomplementary(fq_read.sequence);
+		    	vector<int> global_contam_3_poses=hasGlobalContams(reverse_ref,gp);
+		    	for(vector<int>::iterator ix=global_contam_3_poses.begin();ix!=global_contam_3_poses.end();ix++){
+		    		//cout<<"3pos:\t"<<*ix<<endl;
+		    		if(*ix>=0){
+		    			return_value.include_global_contam=1;
+		    			if(fq_read.global_contam_3pos!=-1){
+		    				if(*ix<=fq_read.global_contam_3pos){
+				    			fq_read.global_contam_3pos=*ix;
+				    		}
+		    			}else{
+		    				fq_read.global_contam_3pos=*ix;
+		    			}
+		    		}
+		    	}
+	    	}
+	    	if(fq_read.global_contam_5pos>=0 && fq_read.global_contam_3pos>=0){
+	    		if(fq_read.global_contam_5pos<fq_read.global_contam_3pos){
+	    			fq_read.global_contam_5pos=-1;
+	    		}else{
+	    			fq_read.global_contam_3pos=-1;
 	    		}
 	    	}
 	    }
@@ -385,11 +410,14 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			}
 		}
 		if(contam_trim_flag){
-			if(read.global_contam_pos>=0 && read.sequence.size()-read.global_contam_pos>tail_cut){
-				tail_cut=read.sequence.size()-read.global_contam_pos;
+			if(read.global_contam_5pos>=0 && read.sequence.size()-read.global_contam_5pos>tail_cut){
+				tail_cut=read.sequence.size()-read.global_contam_5pos;
 			}
 			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut){
 				tail_cut=read.sequence.size()-read.contam_pos;
+			}
+			if(read.global_contam_3pos>=0 && read.sequence.size()-read.global_contam_3pos>head_cut){
+				head_cut=read.sequence.size()-read.global_contam_3pos;
 			}
 		}
 		if(gp.polyG_tail!=-1){
@@ -400,8 +428,14 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 				}
 			}
 		}
-		read.sequence=read.sequence.substr(head_cut,read.sequence.size()-head_cut-tail_cut);
-		read.qual_seq=read.qual_seq.substr(head_cut,read.qual_seq.size()-head_cut-tail_cut);
+		if(head_cut+tail_cut>read.sequence.size()){
+			read.sequence="";
+			read.qual_seq="";
+		}else{
+			read.sequence=read.sequence.substr(head_cut,read.sequence.size()-head_cut-tail_cut);
+			read.qual_seq=read.qual_seq.substr(head_cut,read.qual_seq.size()-head_cut-tail_cut);
+		}
+		
 	}
 }
 int polyG_number(string& ref_sequence){
@@ -873,8 +907,10 @@ vector<int> hasGlobalContams(string& ref_sequence,C_global_parameter& gp){
 		float mr=atof(g_mr[i].c_str());
 		int mm=atoi(g_mm[i].c_str());
 		int pos=global_contam_pos(ref_sequence,g_contams[i],mr,mm);
+		//cout<<"forward:\t"<<g_contams[i]<<"\t"<<ref_sequence<<"\t"<<pos<<endl;
 		string reverse_contam=reversecomplementary(g_contams[i]);
 		int reverse_pos=global_contam_pos(ref_sequence,reverse_contam,mr,mm);
+		//cout<<"reverse:\t"<<reverse_contam<<"\t"<<ref_sequence<<"\t"<<reverse_pos<<endl;
 		int push_pos;
 		if(pos>=0){
 			if(reverse_pos>=0){
@@ -897,27 +933,35 @@ int global_contam_pos(string& ref_sequence,string& global_contam,float min_match
 	int match_score=1;
 	//float min_matchRatio=0.3;
 	//int mismatch_number=1;
+	int total_mismatch_score=mismatch_number*mismatch_score;
 	int rl=ref_sequence.size();
 	int cl=global_contam.size();
 	int min_match_len=int(cl*min_matchRatio);
-	int lower_score=(min_match_len-mismatch_number)-mismatch_number*mismatch_score;
+	int lower_score=(min_match_len-mismatch_number)+total_mismatch_score;
 	int total_score(-1000),overlap(0);
 	//contam sequence is at front of read sequence
 	for(int i=cl-min_match_len;i>=0;i--){
 		int j_max=cl-i>rl?rl:cl-i;
 		for(int j=0;j!=j_max;j++){
 			if(ref_sequence[j]==global_contam[i+j]){
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=match_score;
 					overlap++;
 				}else{
+					if(j_max-j<min_match_len){
+						break;
+					}
 					total_score=match_score;
 					overlap=1;
 				}
 			}else{
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=mismatch_score;
 					overlap++;
+				}else{
+					if(j_max-j<min_match_len){
+						break;
+					}
 				}
 			}
 			if(total_score>=lower_score && overlap>=min_match_len){
@@ -931,17 +975,24 @@ int global_contam_pos(string& ref_sequence,string& global_contam,float min_match
 	for(int i=0;i<=rl-cl;i++){
 		for(int j=0;j!=cl;j++){
 			if(ref_sequence[i+j]==global_contam[j]){
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=match_score;
 					overlap++;
 				}else{
+					if(cl-j<min_match_len){
+						break;
+					}
 					total_score=match_score;
 					overlap=1;
 				}
 			}else{
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=mismatch_score;
 					overlap++;
+				}else{
+					if(cl-j<min_match_len){
+						break;
+					}
 				}
 			}
 			if(total_score>=lower_score && overlap>=min_match_len){
@@ -956,17 +1007,24 @@ int global_contam_pos(string& ref_sequence,string& global_contam,float min_match
 	for(int i=i_min;i<=cl-min_match_len;i++){
 		for(int j=0;j!=cl-i;j++){
 			if(ref_sequence[rl-(cl-i)+j]==global_contam[j]){
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=match_score;
 					overlap++;
 				}else{
 					total_score=match_score;
 					overlap=1;
+					if(cl-i-j<min_match_len){
+						break;
+					}
 				}
 			}else{
-				if(total_score>mismatch_number*mismatch_score){
+				if(total_score>total_mismatch_score){
 					total_score+=mismatch_score;
 					overlap++;
+				}else{
+					if(cl-i-j<min_match_len){
+						break;
+					}
 				}
 			}
 			if(total_score>=lower_score && overlap>=min_match_len){
@@ -1083,8 +1141,8 @@ string reversecomplementary(string& a){	//get reverse complementary sequence
 	dna_base_pair['T']='A';
 	dna_base_pair['G']='C';
 	dna_base_pair['C']='G';
-	for(string::size_type ix=0;ix!=a.size();ix++){
-		char tmp_base=toupper(a[ix]);
+	for(string::reverse_iterator ix=a.rbegin();ix!=a.rend();ix++){
+		char tmp_base=toupper(*ix);
 		if(tmp_base=='N'){
 			b.insert(b.end(),tmp_base);
 		}else if(dna_base_pair.find(tmp_base)==dna_base_pair.end()){

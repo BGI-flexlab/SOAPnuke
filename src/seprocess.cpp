@@ -502,6 +502,7 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 		}
 		for(string::size_type i=0;i!=(*ix).qual_seq.size();i++){	//process quality sequence
 			int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
+			/*
 			if(base_quality>MAX_QUAL){
 				cerr<<"Error:quality is too high,please check the quality system parameter or fastq file"<<endl;
 				exit(1);
@@ -510,6 +511,7 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 				cerr<<"Error:quality is too low,please check the quality system parameter or fastq file"<<endl;
 				exit(1);
 			}
+			*/
 			opt.stat1->qs.position_qual[i][base_quality]++;
 			if(base_quality>=20)
 				opt.stat1->gs.q20_num++;
@@ -688,7 +690,8 @@ void seProcess::C_fastq_init(C_fastq& a){
 	a.tail_lqcut=-1;
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
-	a.global_contam_pos=-1;
+	a.global_contam_5pos=-1;
+	a.global_contam_3pos=-1;
 	a.raw_length=0;
 	if(gp.module_name=="filtersRNA"){
 		a.adapter_seq2=gp.adapter2_seq;
@@ -923,6 +926,7 @@ void* seProcess::sub_thread(int index){
 			}
 		}
 	}
+	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 void seProcess::run_pigz(){	//split raw files with pigz and "split" command
@@ -1261,6 +1265,7 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 			}
 			
 	}
+	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 void seProcess::process_nonssd(){
@@ -1319,6 +1324,7 @@ void seProcess::process_nonssd(){
 		}
 	}
 	//read_monitor.join();
+	check_disk_available();
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
 }
@@ -1334,6 +1340,7 @@ void seProcess::process_nonssd(){
 	}
 }*/
 void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
+	check_disk_available();
 	vector<C_fastq> trim_result1,clean_result1;
 	
 	SEcalOption opt2;
@@ -1415,6 +1422,7 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 			se_write_m.unlock();
 		}
 	}
+	check_disk_available();
 	//
 }
 void seProcess::run_extract_random(){
@@ -1680,7 +1688,7 @@ void seProcess::process(){
 			gzclose(gz_fq_se);
 		}
 	}
-
+	check_disk_available();
 	
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
@@ -1967,5 +1975,15 @@ void seProcess::seStreaming_stat(C_global_variable& local_gv){
 			cout<<local_gv.clean1_stat.qs.position_qual[i][j]<<" ";
 		}
 		cout<<"0\n";
+	}
+}
+void seProcess::check_disk_available(){
+	if(access(gp.fq1_path.c_str(),0)==-1){
+		cerr<<"Error:input raw fastq not exists suddenly, please check the disk"<<endl;
+		exit(1);
+	}
+	if(access(gp.output_dir.c_str(),0)==-1){
+		cerr<<"Error:output directory cannot open suddenly, please check the disk"<<endl;
+		exit(1);
 	}
 }

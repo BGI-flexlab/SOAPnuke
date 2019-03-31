@@ -94,6 +94,7 @@ public:
 	void merge_stat(int index);
 	void merge_data(int index);
 	void limit_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,gzFile gzfq1,gzFile gzfq2);
+	void check_disk_available();
 	//void peOutput(outputOption opt);
 public:
 	C_global_parameter gp;

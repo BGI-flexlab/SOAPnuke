@@ -11,6 +11,7 @@
 #include <time.h>
 #include <dirent.h>
 #include <math.h>
+#include <unistd.h>
 #include "peprocess.h"
 #include "process_argv.h"
 #include "zlib.h"
@@ -1153,14 +1154,16 @@ void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	a.tail_lqcut=-1;
 	a.adacut_pos=-1;
 	a.contam_pos=-1;
-	a.global_contam_pos=-1;
+	a.global_contam_5pos=-1;
+	a.global_contam_3pos=-1;
 	b.head_hdcut=-1;
 	b.head_lqcut=-1;
 	b.tail_hdcut=-1;
 	b.tail_lqcut=-1;
 	b.adacut_pos=-1;
 	b.contam_pos=-1;
-	b.global_contam_pos=-1;
+	b.global_contam_5pos=-1;
+	b.global_contam_3pos=-1;
 	a.raw_length=0;
 	b.raw_length=0;
 	if(!gp.trim.empty()){
@@ -1325,8 +1328,8 @@ void peProcess::add_raw_trim(C_fastq_file_stat& a,C_fastq_file_stat& a2,C_reads_
 }
 */
 void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s){
+	check_disk_available();
 	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
-	
 	PEcalOption opt2;
 	opt2.local_fs=&local_fs[index];
 	opt2.fq1s=&fq1s;
@@ -1435,6 +1438,7 @@ void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fa
 		clean_result1.clear();
 		clean_result2.clear();
 	}
+	check_disk_available();
 }
 
 void* peProcess::sub_thread_nonssd(int index){	//sub thread process in non-ssd mode 
@@ -1663,7 +1667,8 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 				fastq2.qual_seq.insert(fastq2.qual_seq.end(),buf2[i]);
 			}
 		}
-		thread_process_reads(index,fq1s,fq2s);
+		if(fq1s.size()>0 && fq2s.size()>0)
+			thread_process_reads(index,fq1s,fq2s);
 		if(limit_end>0){
 			break;
 		}
@@ -1706,6 +1711,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 			}
 		}
 	}
+	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
 }
 
@@ -2072,6 +2078,7 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 			break;
 		}
 	}
+	check_disk_available();
 	if(limit_end>0){
 		gzclose(multi_gzfq1[index]);
 		gzclose(multi_gzfq2[index]);
@@ -2172,6 +2179,7 @@ void peProcess::process_nonssd(){
 	for(int i=0;i<gp.threads_num;i++){
 		t_array[i].join();
 	}
+	check_disk_available();
 	//gzclose(gz_fq1);
 	//gzclose(gz_fq2);
 	//read_monitor.join();
@@ -2199,6 +2207,7 @@ void peProcess::process_nonssd(){
 			gzclose(gz_fq2);
 		}
 	}
+	check_disk_available();
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
 }
@@ -2916,5 +2925,15 @@ void peProcess::peStreaming_stat(C_global_variable& local_gv){
 			cout<<local_gv.clean2_stat.qs.position_qual[i][j]<<" ";
 		}
 		cout<<"0\n";
+	}
+}
+void peProcess::check_disk_available(){
+	if(access(gp.fq1_path.c_str(),0)==-1 || access(gp.fq2_path.c_str(),0)==-1){
+		cerr<<"Error:input raw fastq not exists suddenly, please check the disk"<<endl;
+		exit(1);
+	}
+	if(access(gp.output_dir.c_str(),0)==-1){
+		cerr<<"Error:output directory cannot open suddenly, please check the disk"<<endl;
+		exit(1);
 	}
 }

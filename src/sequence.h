@@ -67,7 +67,7 @@ public:
 	string head_trim_len,tail_trim_len;
 	int head_hdcut,head_lqcut,tail_hdcut,tail_lqcut,adacut_pos;
 	int contam_pos;
-	int global_contam_pos;
+	int global_contam_5pos,global_contam_3pos;
 	int raw_length;
 };
 class C_pe_fastq{	//pe fastq

@@ -282,6 +282,10 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 			return 1;
 		}
 			//cout<<"min_read_length discard"<<endl;
+	}else{
+		if(fq1.sequence.size()==0 || fq2.sequence.size()==0){
+			return 1;
+		}
 	}
 	if(gp.max_read_length!=-1){
 		int v=pe_dis(fq1.sequence.size()>gp.max_read_length,fq2.sequence.size()>gp.max_read_length);
