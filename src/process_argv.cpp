@@ -8,7 +8,7 @@
 //#include <string>
 using namespace::std;
 #define ADA_RATIO 0.4
-map<string,vector<string>> wrong_paras;
+map<string,vector<string> > wrong_paras;
 void check_module(int argc,char* argv[]){
     if(argc<2){
         printModule();
@@ -127,7 +127,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
         gp.max_read_length=49;
     }
     gp.log="log";
-    int error=0;
+//    int error=0;
     while (-1 != (nextOpt = getopt_long(argc, argv, shortOptions, longOptions, NULL)))
     {
         switch (nextOpt)
@@ -234,14 +234,14 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                 break;
             }
             case 'w':gp.output_clean=atoi(optarg);break;
-            case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].push_back("-M|--adaMis");break;
-            case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].push_back("-A|adaMR");break;
-            case '9':gp.adaEdge=atoi(optarg);wrong_paras["filtersRNA"].push_back("-9|--adaEdge");break;
-            case 'S':gp.adaRCtg=atoi(optarg);wrong_paras["filter"].push_back("-S|--adaRCtg");break;
-            case 's':gp.adaRAr=atof(optarg);wrong_paras["filter"].push_back("-s|--adaRAr");break;
-            case 'U':gp.adaRMa=atoi(optarg);wrong_paras["filter"].push_back("-U|--adaRMa");break;
-            case 'u':gp.adaREr=atof(optarg);wrong_paras["filter"].push_back("-u|--adaREr");break;
-            case 'b':gp.adaRMm=atoi(optarg);wrong_paras["filter"].push_back("-b|--adaRMm");break;
+            case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].emplace_back("-M|--adaMis");break;
+            case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].emplace_back("-A|adaMR");break;
+            case '9':gp.adaEdge=atoi(optarg);wrong_paras["filtersRNA"].emplace_back("-9|--adaEdge");break;
+            case 'S':gp.adaRCtg=atoi(optarg);wrong_paras["filter"].emplace_back("-S|--adaRCtg");break;
+            case 's':gp.adaRAr=atof(optarg);wrong_paras["filter"].emplace_back("-s|--adaRAr");break;
+            case 'U':gp.adaRMa=atoi(optarg);wrong_paras["filter"].emplace_back("-U|--adaRMa");break;
+            case 'u':gp.adaREr=atof(optarg);wrong_paras["filter"].emplace_back("-u|--adaREr");break;
+            case 'b':gp.adaRMm=atoi(optarg);wrong_paras["filter"].emplace_back("-b|--adaRMm");break;
            // case 'd':gp.rmdup = true;break;
             case '0':gp.log.assign(optarg);break;
             case 'v':printVersion();return 1;
@@ -272,6 +272,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
         gp.adaEdge=min_adapter_length*ADA_RATIO;
     }
     */
+    return 0;
 }
 bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
     if(!gp.fq1_path.empty()){
@@ -484,11 +485,12 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
         cerr<<"Error:patchSize cannot exceed 5M considering memory usage"<<endl;
         exit(1);
     }
+    return 0;
 }
 void printModule(){
     cout << endl;
     cout << "Program: SOAPnuke\n";
-    cout << "Version: " << PACKAGEVERSION <<endl;
+    cout << "Version: " << PACKAGEVERSION<<"."<<MINORVERSION<<endl;
     cout << "Contact: GongChun<gongchun@genomics.cn>  ChenYuXin<chenyuxin@genomics.cn>"<<endl;
     cout << "Command:\n";
     cout << "         filter        preprocessing sequences\n";
@@ -594,6 +596,6 @@ void printUsage(string c_module){
     exit(1);
 }
 void printVersion(){
-    cerr << "SOAPnuke filter tools version "<<PACKAGEVERSION<<"\n";
+    cerr << "SOAPnuke filter tools version "<<PACKAGEVERSION<<"."<<MINORVERSION<<"\n";
     exit(1);
 }

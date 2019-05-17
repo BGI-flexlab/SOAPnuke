@@ -20,31 +20,40 @@
 using namespace::std;
 #define READBUF 500
 #define random(x) (rand()%x)
-mutex pe_cal_m;
-mutex read_m,stat_m,write_m;
-unsigned long long buffer(1024*1024*2);
-string new_fq1_path,new_fq2_path;
-C_filter_stat local_fs[max_thread];
-C_fastq_file_stat local_raw_stat1[max_thread],local_raw_stat2[max_thread],local_trim_stat1[max_thread],local_trim_stat2[max_thread],local_clean_stat1[max_thread],local_clean_stat2[max_thread];
-queue<vector<C_fastq> > thread_read_buffer1[max_thread],thread_read_buffer2[max_thread],thread_write_buffer1[max_thread],thread_write_buffer2[max_thread];
-string sticky_reads1[max_thread],sticky_reads2[max_thread];
-gzFile gz_fq1,gz_fq2;
-map<int,int> pe1_out,pe2_out;
-int queue_buffer=50;
-int exceed_output1(0);
-int exceed_output2(0);
-int bq_check(0),pair_check(0);
+
+//int exceed_output1(0);
+//int exceed_output2(0);
+
 peProcess::peProcess(C_global_parameter m_gp){ //initialize
 	gp=m_gp;
 	gv=C_global_variable();
 	used_threads_num=0;
-	processed_reads=0;
 	srand((unsigned)time(NULL));
 	ostringstream tmpstring;
 	tmpstring<<rand()%100;
-	random_num=tmpstring.str();
-	file_end=false;
 	limit_end=0;
+	multi_gzfq1=new gzFile[gp.threads_num];
+	multi_gzfq2=new gzFile[gp.threads_num];
+	gz_trim_out1=new gzFile[gp.threads_num];
+	gz_trim_out2=new gzFile[gp.threads_num];
+	gz_clean_out1=new gzFile[gp.threads_num];
+	gz_clean_out2=new gzFile[gp.threads_num];
+	buffer=1024*1024*2;
+	local_fs=new C_filter_stat[gp.threads_num];
+	local_raw_stat1=new C_fastq_file_stat[gp.threads_num];
+	local_raw_stat2=new C_fastq_file_stat[gp.threads_num];
+	local_trim_stat1=new C_fastq_file_stat[gp.threads_num];
+	local_trim_stat2=new C_fastq_file_stat[gp.threads_num];
+	local_clean_stat1=new C_fastq_file_stat[gp.threads_num];
+	local_clean_stat2=new C_fastq_file_stat[gp.threads_num];
+	t_start_pos=new off_t[gp.threads_num];
+	t_end_pos=new off_t[gp.threads_num];
+	sticky_reads1=new string[gp.threads_num];
+	sticky_reads2=new string[gp.threads_num];
+	nongz_clean_out1=new FILE*[gp.threads_num];
+	nongz_clean_out2=new FILE*[gp.threads_num];
+	bq_check=0;
+	pair_check=0;
 }
 void peProcess::print_stat(){	//print statistic information to the file
 	string filter_out=gp.output_dir+"/Statistics_of_Filtered_Reads.txt";
@@ -89,22 +98,22 @@ void peProcess::print_stat(){	//print statistic information to the file
 	}
 	of_filter_stat<<"Item\t\t\t\tTotal\tPercentage\tfastq1\tfastq2\toverlap"<<endl;
 	vector<string> filter_items;
-	filter_items.push_back("Reads limited to output number");
-	filter_items.push_back("Reads with filtered tile");
-	filter_items.push_back("Reads with filtered fov");
-	filter_items.push_back("Reads too short");
-	filter_items.push_back("Reads too long");
-	filter_items.push_back("Reads with global contam sequence");
-	filter_items.push_back("Reads with contam sequence");
-	filter_items.push_back("Reads with n rate exceed");
-	filter_items.push_back("Reads with highA");
-	filter_items.push_back("Reads with polyX");
-	filter_items.push_back("Reads with low quality");
-	filter_items.push_back("Reads with low mean quality");
-	filter_items.push_back("Reads with small insert size");
-	filter_items.push_back("Reads with adapter");
+	filter_items.emplace_back("Reads limited to output number");
+	filter_items.emplace_back("Reads with filtered tile");
+	filter_items.emplace_back("Reads with filtered fov");
+	filter_items.emplace_back("Reads too short");
+	filter_items.emplace_back("Reads too long");
+	filter_items.emplace_back("Reads with global contam sequence");
+	filter_items.emplace_back("Reads with contam sequence");
+	filter_items.emplace_back("Reads with n rate exceed");
+	filter_items.emplace_back("Reads with highA");
+	filter_items.emplace_back("Reads with polyX");
+	filter_items.emplace_back("Reads with low quality");
+	filter_items.emplace_back("Reads with low mean quality");
+	filter_items.emplace_back("Reads with small insert size");
+	filter_items.emplace_back("Reads with adapter");
 
-	map<string,unsigned long long> filter_number,filter_pe1,filter_pe2,filter_overlap;
+	map<string,long long> filter_number,filter_pe1,filter_pe2,filter_overlap;
 	filter_number["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num;
 	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
 	filter_number["Reads too short"]=gv.fs.short_len_num;
@@ -164,8 +173,8 @@ void peProcess::print_stat(){	//print statistic information to the file
 	filter_overlap["Reads with filtered fov"]=gv.fs.fov_num;
 	filter_overlap["Reads too long"]=gv.fs.long_len_num_overlap;
 	//filter_overlap["Reads limited to output number"]=gv.fs.output_reads_num;
-	unsigned long long total_filter_fq1_num=0;
-	for(map<string,unsigned long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
+	long long total_filter_fq1_num=0;
+	for(map<string,long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
 		total_filter_fq1_num+=ix->second;
 	}
 	of_filter_stat<<setiosflags(ios::fixed);
@@ -237,8 +246,8 @@ void peProcess::print_stat(){	//print statistic information to the file
 	of_general_stat<<"Total number of reads\t"<<setprecision(15)<<gv.raw1_stat.gs.reads_number<<" (100.00%)\t"<<gv.clean1_stat.gs.reads_number<<" (100.00%)\t"<<gv.raw2_stat.gs.reads_number<<" (100.00%)\t"<<gv.clean2_stat.gs.reads_number<<" (100.00%)"<<endl;
 	of_general_stat<<"Number of filtered reads\t"<<total_filter_fq1_num<<" ("<<filter_r1_ratio<<"%)\t-\t"<<total_filter_fq1_num<<" ("<<filter_r2_ratio<<"%)\t-"<<endl;
 	of_general_stat<<"Total number of bases\t"<<setprecision(15)<<gv.raw1_stat.gs.base_number<<" (100.00%)\t"<<gv.clean1_stat.gs.base_number<<" (100.00%)\t"<<gv.raw2_stat.gs.base_number<<" (100.00%)\t"<<gv.clean2_stat.gs.base_number<<" (100.00%)"<<endl;
-	unsigned long long filter_base1=total_filter_fq1_num*gv.raw1_stat.gs.read_length;
-	unsigned long long filter_base2=total_filter_fq1_num*gv.raw1_stat.gs.read_length;
+	long long filter_base1=total_filter_fq1_num*gv.raw1_stat.gs.read_length;
+	long long filter_base2=total_filter_fq1_num*gv.raw1_stat.gs.read_length;
 	of_general_stat<<"Number of filtered bases\t"<<setprecision(15)<<filter_base1<<" ("<<filter_r1_ratio<<"%)\t-\t"<<filter_base2<<" ("<<filter_r2_ratio<<"%)\t-"<<endl;
 	of_general_stat<<"Number of base A\t"<<setprecision(15)<<gv.raw1_stat.gs.a_number<<" ("<<raw_r1[0]<<"%)\t"<<gv.clean1_stat.gs.a_number<<" ("<<clean_r1[0]<<"%)\t"<<gv.raw2_stat.gs.a_number<<" ("<<raw_r2[0]<<"%)\t"<<gv.clean2_stat.gs.a_number<<" ("<<clean_r2[0]<<"%)"<<endl;
 	of_general_stat<<"Number of base C\t"<<setprecision(15)<<gv.raw1_stat.gs.c_number<<" ("<<raw_r1[1]<<"%)\t"<<gv.clean1_stat.gs.c_number<<" ("<<clean_r1[1]<<"%)\t"<<gv.raw2_stat.gs.c_number<<" ("<<raw_r2[1]<<"%)\t"<<gv.clean2_stat.gs.c_number<<" ("<<clean_r2[1]<<"%)"<<endl;
@@ -331,9 +340,9 @@ void peProcess::print_stat(){	//print statistic information to the file
 	for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
 		of_readPos_qual_stat2<<i+1<<"\t";
-		unsigned long long raw1_q20_num(0),raw1_q30_num(0),raw1_total(0);
-		unsigned long long raw2_q20_num(0),raw2_q30_num(0),raw2_total(0);
-		int pos_max_qual1(0),pos_max_qual2(0);
+		long long raw1_q20_num(0),raw1_q30_num(0),raw1_total(0);
+		long long raw2_q20_num(0),raw2_q30_num(0),raw2_total(0);
+		//int pos_max_qual1(0),pos_max_qual2(0);
 		for(int j=0;j<=max_qual;j++){
 			if(j>=20){
 				raw1_q20_num+=gv.raw1_stat.qs.position_qual[i][j];
@@ -374,14 +383,13 @@ void peProcess::print_stat(){	//print statistic information to the file
 	of_readPos_qual_stat1<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
 	of_readPos_qual_stat2<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
 
-
 	of_q2030_stat1<<"Position in reads\tPercentage of Q20+ bases\tPercentage of Q30+ bases\tPercentage of Clean Q20+\tPercentage of Clean Q30+"<<endl;
 	of_q2030_stat2<<"Position in reads\tPercentage of Q20+ bases\tPercentage of Q30+ bases\tPercentage of Clean Q20+\tPercentage of Clean Q30+"<<endl;
 	for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
 		of_readPos_qual_stat2<<i+1<<"\t";
-		unsigned long long clean1_q20_num(0),clean1_q30_num(0),clean1_total(0);
-		unsigned long long clean2_q20_num(0),clean2_q30_num(0),clean2_total(0);
+		long long clean1_q20_num(0),clean1_q30_num(0),clean1_total(0);
+		long long clean2_q20_num(0),clean2_q30_num(0),clean2_total(0);
 		for(int j=0;j<=max_qual;j++){
 			if(j>=20){
 				clean1_q20_num+=gv.clean1_stat.qs.position_qual[i][j];
@@ -788,11 +796,16 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 	
 
 }
-void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
+void* peProcess::stat_pe_fqs(PEstatOption opt,string dataType){	//statistic the pair-ends fastq
 	opt.stat1->gs.reads_number+=opt.fq1s->size();
 	opt.stat2->gs.reads_number+=opt.fq2s->size();
 	vector<C_fastq>::iterator ix_end=opt.fq1s->end();
-	
+	int qualityBase=0;
+	if(dataType=="clean"){
+		qualityBase=gp.outputQualityPhred;
+	}else{
+		qualityBase=gp.qualityPhred;
+	}
 	for(vector<C_fastq>::iterator ix=opt.fq1s->begin();ix!=ix_end;ix++){
 		if((*ix).head_hdcut>0 || (*ix).head_lqcut>0){
 			if((*ix).head_hdcut>=(*ix).head_lqcut){
@@ -838,7 +851,7 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 		}
 		int qual_len=(*ix).qual_seq.size();
 		for(string::size_type i=0;i!=qual_len;i++){	//process quality sequence
-			int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
+			int base_quality=((*ix).qual_seq)[i]-qualityBase;
 			/*
 			if(base_quality>MAX_QUAL){
 				//cout<<i<<"\t"<<base_quality<<endl;
@@ -859,6 +872,8 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 		opt.stat1->gs.read_length=(*ix).sequence.size();
 		opt.stat1->gs.base_number+=opt.stat1->gs.read_length;
 	}
+	//check base quality setting whether ok
+	//run one time
 	int q1_exceed(0),q1_normal_bq(0),q1_mean_bq(0);
 	int q2_exceed(0),q2_normal_bq(0),q2_mean_bq(0);
 	float q1_normal_ratio(0.0),q2_normal_ratio(0.0);
@@ -939,21 +954,10 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 			}
 		}
 		bq_check++;
-		/*
-		if(normal_ratio>1){
-			cerr<<"Error:code error"<<endl;
-			exit(1);
-		}if(normal_ratio<0.5){
-			cerr<<"Error:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
-			exit(1);
-		}else if(normal_ratio<0.9){
-			cerr<<"Warning:base quality seems abnormal,please check the quality system parameter or fastq file"<<endl;
-		}else{
-		}
-		*/
 		pe_cal_m.unlock();
-		//exit(1);
 	}
+
+	//stat read sequence related information
 	vector<C_fastq>::iterator ix2_end=opt.fq2s->end();
 	for(vector<C_fastq>::iterator ix=opt.fq2s->begin();ix!=ix2_end;ix++){
 		if((*ix).head_hdcut>0 || (*ix).head_lqcut>0){
@@ -997,9 +1001,10 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 				}
 			}
 		}
+		//stat base quality related information
 		int qual_len=(*ix).qual_seq.size();
 		for(string::size_type i=0;i!=qual_len;i++){	//process quality sequence
-			int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
+			int base_quality=((*ix).qual_seq)[i]-qualityBase;
 			/*
 			if(base_quality>MAX_QUAL){
 				cerr<<"Error:quality is too high,please check the quality system parameter or fastq file"<<endl;
@@ -1019,13 +1024,13 @@ void* peProcess::stat_pe_fqs(PEstatOption opt){	//statistic the pair-ends fastq
 		opt.stat2->gs.read_length=(*ix).sequence.size();
 		opt.stat2->gs.base_number+=opt.stat2->gs.read_length;
 	}
-	
+    return &bq_check;
 }
-void peProcess::filter_pe_fqs(PEcalOption opt){
+void peProcess::filter_pe_fqs(PEcalOption* opt){
 	//C_reads_trim_stat_2 cut_pos;
-	vector<C_fastq>::iterator i2=opt.fq2s->begin();
-	vector<C_fastq>::iterator i_end=opt.fq1s->end();
-	for(vector<C_fastq>::iterator i=opt.fq1s->begin();i!=i_end;i++){
+	vector<C_fastq>::iterator i2=opt->fq2s->begin();
+	vector<C_fastq>::iterator i_end=opt->fq1s->end();
+	for(vector<C_fastq>::iterator i=opt->fq1s->begin();i!=i_end;i++){
 		C_pe_fastq_filter pe_fastq_filter=C_pe_fastq_filter(*i,*i2,gp);
 		/*int head_hdcut,head_lqcut,tail_hdcut,tail_lqcut,adacut_pos;
 	int contam_pos;
@@ -1053,18 +1058,21 @@ void peProcess::filter_pe_fqs(PEcalOption opt){
 		if(!gp.trim_fq1.empty()){
 			preOutput(1,pe_fastq_filter.fq1);
 			preOutput(2,pe_fastq_filter.fq2);
-			opt.trim_result1->push_back(pe_fastq_filter.fq1);
-			opt.trim_result2->push_back(pe_fastq_filter.fq2);
+			opt->trim_result1->emplace_back(pe_fastq_filter.fq1);
+			opt->trim_result2->emplace_back(pe_fastq_filter.fq2);
 		}
-		if(pe_fastq_filter.pe_discard(opt.local_fs,gp)!=1){
+		if(pe_fastq_filter.pe_discard(opt->local_fs,gp)!=1){
 			if(!gp.clean_fq1.empty()){
 				preOutput(1,pe_fastq_filter.fq1);
 				preOutput(2,pe_fastq_filter.fq2);
-				opt.clean_result1->push_back(pe_fastq_filter.fq1);
-				opt.clean_result2->push_back(pe_fastq_filter.fq2);
+				opt->clean_result1->emplace_back(pe_fastq_filter.fq1);
+				opt->clean_result2->emplace_back(pe_fastq_filter.fq2);
 			}
 		}
 		i2++;
+		if(i2==opt->fq2s->end()){
+			break;
+		}
 	}
 	//return cut_pos;
 }
@@ -1104,7 +1112,7 @@ void peProcess::peWrite_split(vector<C_fastq>& pe1,vector<C_fastq>& pe2){
 	output_split_fastqs("1",pe1);
 	output_split_fastqs("2",pe2);
 }
-void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gzFile out1,gzFile out2){	//output the sequences to  files
+void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,gzFile out1,gzFile out2){	//output the sequences to  files
 	/*if(gp.threads_num==1){
 		if(gp.mode=="nonssd" && gp.output_clean>0 && type=="clean"){
 			output_split_fastqs("1",pe1);
@@ -1131,7 +1139,7 @@ void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,gz
 	output_fastqs("1",pe1,out1);
 	output_fastqs("2",pe2,out2);
 }
-void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,string type,FILE* out1,FILE* out2){
+void peProcess::peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,FILE* out1,FILE* out2){
 	output_fastqs("1",pe1,out1);
 	output_fastqs("2",pe2,out2);
 }
@@ -1194,7 +1202,7 @@ int peProcess::read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,
 			}
 			if(file1_line_num%4==0){
 				fastq1.qual_seq=buf1;
-				//fq1s.push_back(fastq1);
+				//fq1s.emplace_back(fastq1);
 			}
 		}
 		
@@ -1209,52 +1217,8 @@ int peProcess::read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,
 			}
 			if(file2_line_num%4==0){
 				fastq2.qual_seq=buf2;
-				pe1.push_back(fastq1);
-				pe2.push_back(fastq2);
-			}
-		}else{
-			return -1;
-		}
-	}
-	return 0;
-}
-int peProcess::read_gz(vector<C_fastq>& pe1,vector<C_fastq>& pe2){	//read file from gz format,used in non-ssd mode
-	char buf1[READBUF],buf2[READBUF];
-	C_fastq fastq1,fastq2;
-	C_fastq_init(fastq1,fastq2);
-	int file1_line_num(0),file2_line_num(0);
-	for(int i=0;i<gp.patchSize*4;i++){
-		if(gzgets(gzfp1,buf1,READBUF)!=NULL){
-			file1_line_num++;
-			if(file1_line_num%4==1){
-				fastq1.seq_id.assign(buf1);
-				fastq1.seq_id.erase(fastq1.seq_id.size()-1);
-			}
-			if(file1_line_num%4==2){
-				fastq1.sequence.assign(buf1);
-				fastq1.sequence.erase(fastq1.sequence.size()-1);
-			}
-			if(file1_line_num%4==0){
-				fastq1.qual_seq.assign(buf1);
-				fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
-			}
-		}
-		
-		if(gzgets(gzfp2,buf2,READBUF)!=NULL){
-			file2_line_num++;
-			if(file2_line_num%4==1){
-				fastq2.seq_id.assign(buf2);
-				fastq2.seq_id.erase(fastq2.seq_id.size()-1);
-			}
-			if(file2_line_num%4==2){
-				fastq2.sequence.assign(buf2);
-				fastq2.sequence.erase(fastq2.sequence.size()-1);
-			}
-			if(file2_line_num%4==0){
-				fastq2.qual_seq.assign(buf2);
-				fastq2.qual_seq.erase(fastq2.qual_seq.size()-1);
-				pe1.push_back(fastq1);
-				pe2.push_back(fastq2);
+				pe1.emplace_back(fastq1);
+				pe2.emplace_back(fastq2);
 			}
 		}else{
 			return -1;
@@ -1329,18 +1293,23 @@ void peProcess::add_raw_trim(C_fastq_file_stat& a,C_fastq_file_stat& a2,C_reads_
 */
 void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fastq> &fq2s){
 	check_disk_available();
-	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
-	PEcalOption opt2;
-	opt2.local_fs=&local_fs[index];
-	opt2.fq1s=&fq1s;
-	opt2.fq2s=&fq2s;
-	opt2.trim_result1=&trim_result1;
-	opt2.trim_result2=&trim_result2;
-	opt2.clean_result1=&clean_result1;
-	opt2.clean_result2=&clean_result2;
+
+	vector<C_fastq>  trim_result1;
+	vector<C_fastq>  trim_result2;
+	vector<C_fastq>  clean_result1;
+	vector<C_fastq>  clean_result2;
+	PEcalOption* opt2=new PEcalOption();
+	opt2->local_fs=&local_fs[index];
+	opt2->fq1s=&fq1s;
+	opt2->fq2s=&fq2s;
+	opt2->trim_result1=&trim_result1;
+	opt2->trim_result2=&trim_result2;
+	opt2->clean_result1=&clean_result1;
+	opt2->clean_result2=&clean_result2;
+
 	if(pair_check==0){
-		string readid1=fq1s[0].seq_id;
-		string readid2=fq2s[0].seq_id;
+		string readid1=opt2->fq1s->front().seq_id;
+		string readid2=opt2->fq2s->front().seq_id;
 		if(readid1.size()!=readid2.size()){
 			cerr<<"Warning:read ID in fq1 and fq2 seems not in pair, please check the input files if you are not sure"<<endl;
 		}else{
@@ -1357,12 +1326,13 @@ void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fa
 		pair_check++;
 	}
 	filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
+	delete opt2;
 	PEstatOption opt_raw;
 	opt_raw.fq1s=&fq1s;
 	opt_raw.stat1=&local_raw_stat1[index];
 	opt_raw.fq2s=&fq2s;
 	opt_raw.stat2=&local_raw_stat2[index];
-	stat_pe_fqs(opt_raw);		//statistic raw fastqs
+	stat_pe_fqs(opt_raw,"raw");		//statistic raw fastqs
 	//add_raw_trim(local_raw_stat1[index],local_raw_stat2[index],raw_cut.stat1,raw_cut.stat2);
 	fq1s.clear();
 	fq2s.clear();
@@ -1372,15 +1342,16 @@ void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fa
 		opt_trim.stat1=&local_trim_stat1[index];
 		opt_trim.fq2s=&trim_result2;
 		opt_trim.stat2=&local_trim_stat2[index];
-		stat_pe_fqs(opt_trim);	//statistic trim fastqs
+		stat_pe_fqs(opt_trim,"trim");	//statistic trim fastqs
 	}
 
 	//write_m.lock();
 	if(!gp.trim_fq1.empty()){
-		peWrite(trim_result1,trim_result2,"trim",gz_trim_out1[index],gz_trim_out2[index]);	//output trim files
+		peWrite(trim_result1,trim_result2,gz_trim_out1[index],gz_trim_out2[index]);	//output trim files
 		trim_result1.clear();
 		trim_result2.clear();
 	}
+
 	if(!gp.clean_fq1.empty()){
 		opt_clean.stat1=&local_clean_stat1[index];
 		opt_clean.stat2=&local_clean_stat2[index];
@@ -1409,146 +1380,42 @@ void peProcess::thread_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fa
 			//statistic clean fastqs
 		}else{
 			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
-				peWrite(clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]);//output clean files
+				peWrite(clean_result1,clean_result2,gz_clean_out1[index],gz_clean_out2[index]);//output clean files
 			}else{
-				peWrite(clean_result1,clean_result2,"clean",nongz_clean_out1[index],nongz_clean_out2[index]);
+				peWrite(clean_result1,clean_result2,nongz_clean_out1[index],nongz_clean_out2[index]);
 			}
 			
 		}
+
 		opt_clean.fq1s=&clean_result1;
 		opt_clean.fq2s=&clean_result2;
-		stat_pe_fqs(opt_clean);	
+		stat_pe_fqs(opt_clean,"clean");	
 		/*thread_write_m[index].lock();
 		thread pewrite_t(bind(&peProcess::peWrite,this,clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]));
 		thread_write_m[index].unlock();*/
+
 		if(gp.is_streaming){
 			write_m.lock();
-			C_global_variable tmp_gv;
-			tmp_gv.fs=*(opt2.local_fs);
-			tmp_gv.raw1_stat=*(opt_raw.stat1);
-			tmp_gv.raw2_stat=*(opt_raw.stat2);
-			//tmp_gv.trim1_stat=local_trim_stat1[index];
-			//tmp_gv.trim2_stat=local_trim_stat2[index];
-			tmp_gv.clean1_stat=*(opt_clean.stat1);
-			tmp_gv.clean2_stat=*(opt_clean.stat2);
-			peStreaming_stat(tmp_gv);
+            C_global_variable *tmp_gv=new C_global_variable();
+			tmp_gv->fs=*(opt2->local_fs);
+			tmp_gv->raw1_stat=*(opt_raw.stat1);
+			tmp_gv->raw2_stat=*(opt_raw.stat2);
+			//tmp_gv->trim1_stat=local_trim_stat1[index];
+			//tmp_gv->trim2_stat=local_trim_stat2[index];
+			tmp_gv->clean1_stat=*(opt_clean.stat1);
+			tmp_gv->clean2_stat=*(opt_clean.stat2);
+			peStreaming_stat(*tmp_gv);
+            delete tmp_gv;
 			write_m.unlock();
 		}
-		
+
 		clean_result1.clear();
 		clean_result2.clear();
 	}
 	check_disk_available();
+    return;
 }
 
-void* peProcess::sub_thread_nonssd(int index){	//sub thread process in non-ssd mode 
-	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
-	/*
-	local_fs[index]=C_filter_stat();
-	local_raw_stat1[index]=C_fastq_file_stat();
-	local_raw_stat2[index]=C_fastq_file_stat();
-	if(!gp.trim_fq1.empty()){
-		local_trim_stat1[index]=C_fastq_file_stat();
-		local_trim_stat2[index]=C_fastq_file_stat();
-	}
-	if(!gp.clean_fq1.empty()){
-		local_clean_stat1[index]=C_fastq_file_stat();
-		local_clean_stat2[index]=C_fastq_file_stat();
-	}
-	*/
-	vector<C_fastq> fq1s,fq2s;
-	vector<C_fastq> trim_result1,trim_result2,clean_result1,clean_result2;
-	int done(0);
-	while(1){
-		read_m.lock();
-		if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
-			if(read_gz(fq1s,fq2s)==-1){		//read fastqs from raw files
-				done=1;
-			}
-		}else{
-			if(read(fq1s,fq2s,nongzfp1,nongzfp2)==-1){		
-				done=1;
-			}
-		}
-		processed_reads+=fq1s.size();
-		if(processed_reads%(gp.patchSize*gp.threads_num)==0){
-			of_log<<get_local_time()<<"\tprocessed reads number:"<<processed_reads<<endl;
-		}
-		read_m.unlock();
-		PEcalOption opt2;
-		opt2.local_fs=&local_fs[index];
-		opt2.fq1s=&fq1s;
-		opt2.fq2s=&fq2s;
-		opt2.trim_result1=&trim_result1;
-		opt2.trim_result2=&trim_result2;
-		opt2.clean_result1=&clean_result1;
-		opt2.clean_result2=&clean_result2;
-		filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
-		PEstatOption opt_raw;
-		opt_raw.fq1s=&fq1s;
-		opt_raw.stat1=&local_raw_stat1[index];
-		opt_raw.fq2s=&fq2s;
-		opt_raw.stat2=&local_raw_stat2[index];
-		stat_pe_fqs(opt_raw);		//statistic raw fastqs
-		fq1s.clear();
-		fq2s.clear();
-		PEstatOption opt_trim,opt_clean;
-		if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
-			opt_trim.fq1s=&trim_result1;
-			opt_trim.stat1=&local_trim_stat1[index];
-			opt_trim.fq2s=&trim_result2;
-			opt_trim.stat2=&local_trim_stat2[index];
-			stat_pe_fqs(opt_trim);	//statistic trim fastqs
-		}
-		if(!gp.clean_fq1.empty()){
-			opt_clean.fq1s=&clean_result1;
-			opt_clean.stat1=&local_clean_stat1[index];
-			opt_clean.fq2s=&clean_result2;
-			opt_clean.stat2=&local_clean_stat2[index];
-			stat_pe_fqs(opt_clean);	//statistic clean fastqs
-		}
-		write_m.lock();
-		if(!gp.trim_fq1.empty()){
-			peWrite(trim_result1,trim_result2,"trim",gz_trim_out1_nonssd,gz_trim_out2_nonssd);	//output trim files
-		}
-		if(!gp.clean_fq1.empty()){
-			peWrite(clean_result1,clean_result2,"clean",gz_clean_out1_nonssd,gz_clean_out2_nonssd);	//output clean files
-			if(gp.is_streaming){
-				C_global_variable tmp_gv;
-				tmp_gv.fs=*(opt2.local_fs);
-				tmp_gv.raw1_stat=*(opt_raw.stat1);
-				tmp_gv.raw2_stat=*(opt_raw.stat2);
-				//tmp_gv.trim1_stat=local_trim_stat1[index];
-				//tmp_gv.trim2_stat=local_trim_stat2[index];
-				tmp_gv.clean1_stat=*(opt_clean.stat1);
-				tmp_gv.clean2_stat=*(opt_clean.stat2);
-				peStreaming_stat(tmp_gv);
-			}
-		}
-		write_m.unlock();
-		if(!gp.trim_fq1.empty()){
-			trim_result1.clear();
-			trim_result2.clear();
-		}
-		if(!gp.clean_fq1.empty()){
-			clean_result1.clear();
-			clean_result2.clear();
-		}
-		if(done==1){
-			break;
-		}
-		if(gp.is_streaming){
-			/*
-			local_fs[index]=C_filter_stat();
-			local_raw_stat1[index]=C_fastq_file_stat();
-			local_raw_stat2[index]=C_fastq_file_stat();
-			local_clean_stat1[index]=C_fastq_file_stat();
-			local_clean_stat2[index]=C_fastq_file_stat();
-			*/
-		}
-	}
-	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
-}
 void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	off_t start_pos=t_start_pos[index];
 	off_t end_pos=t_end_pos[index];
@@ -1574,8 +1441,8 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	
 	
 	//char *fq1_buf,*fq2_buf;
-	unsigned long long mmap_start(start_pos);
-	unsigned long long copysz(buffer);
+	long long mmap_start(start_pos);
+	long long copysz(buffer);
 	int tmp_iter(0);
 	char *buf1,*buf2;
 	C_fastq fastq1,fastq2;
@@ -1642,8 +1509,8 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 		for(int i=head_idx;i<=tail_idx;i++){
 			if(buf1[i]=='\n'){
 				if(line_num%4==3){
-					fq1s.push_back(fastq1);
-					fq2s.push_back(fastq2);
+					fq1s.emplace_back(fastq1);
+					fq2s.emplace_back(fastq2);
 					fastq1.seq_id.clear();
 					fastq1.sequence.clear();
 					fastq1.qual_seq.clear();
@@ -1667,7 +1534,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 				fastq2.qual_seq.insert(fastq2.qual_seq.end(),buf2[i]);
 			}
 		}
-		if(fq1s.size()>0 && fq2s.size()>0)
+		if(!fq1s.empty() && !fq2s.empty())
 			thread_process_reads(index,fq1s,fq2s);
 		if(limit_end>0){
 			break;
@@ -1700,7 +1567,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	}
 	if(!gp.clean_fq1.empty()){
 		if(index!=0){
-			if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
+			if(gp.output_clean<=0 && !(gp.total_reads_num>0 && !gp.total_reads_num_random)){
 				if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
 					gzclose(gz_clean_out1[index]);
 					gzclose(gz_clean_out2[index]);
@@ -1713,6 +1580,7 @@ void* peProcess::sub_thread(int index){	//sub thread in ssd mode
 	}
 	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+    return &bq_check;
 }
 
 void peProcess::run_pigz(int type){	//split raw files with pigz and "split" command
@@ -1902,92 +1770,6 @@ void peProcess::merge_clean_data(int index){	//cat all output files generated by
 		}
 	}
 }
-void peProcess::merge_data(int index){	//cat all output files to a single large file in limit output mode
-	if(!gp.trim_fq1.empty()){
-		string trim_file1,trim_file2;
-		trim_file1=gp.output_dir+"/"+gp.trim_fq1;
-		trim_file2=gp.output_dir+"/"+gp.trim_fq2;
-		if(check_gz_empty(trim_file1)==1){
-			string rm_cmd="rm "+trim_file1;
-			system(rm_cmd.c_str());
-		}
-		if(check_gz_empty(trim_file2)==1){
-			string rm_cmd="rm "+trim_file2;
-			system(rm_cmd.c_str());
-		}
-	}
-	if(!gp.clean_fq1.empty()){
-		string clean_file1,clean_file2;
-		clean_file1=gp.output_dir+"/"+gp.clean_fq1;
-		clean_file2=gp.output_dir+"/"+gp.clean_fq2;
-		if(check_gz_empty(clean_file1)==1){
-			string rm_cmd="rm "+clean_file1;
-			system(rm_cmd.c_str());
-		}
-		if(check_gz_empty(clean_file2)==1){
-			string rm_cmd="rm "+clean_file2;
-			system(rm_cmd.c_str());
-		}
-	}
-	for(int i=0;i!=gp.threads_num;i++){
-		if(!gp.trim_fq1.empty()){
-			ostringstream trim_out_fq1_tmp,trim_out_fq2_tmp;
-			trim_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r1.fq.gz";
-			trim_out_fq2_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r2.fq.gz";
-			
-			if(access(trim_out_fq1_tmp.str().c_str(),0)!=-1 && access(trim_out_fq2_tmp.str().c_str(),0)!=-1){
-
-				ostringstream cat_cmd1,cat_cmd2;
-				cat_cmd1<<"cat "<<trim_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq1<<";rm "<<trim_out_fq1_tmp.str();
-				cat_cmd2<<"cat "<<trim_out_fq2_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq2<<";rm "<<trim_out_fq2_tmp.str();
-				if(gp.threads_num>1){
-					thread cat_t1(bind(&peProcess::run_cmd,this,cat_cmd1.str()));
-					thread cat_t2(bind(&peProcess::run_cmd,this,cat_cmd2.str()));
-					cat_t1.join();
-					cat_t2.join();
-				}else{
-					run_cmd(cat_cmd1.str());
-					run_cmd(cat_cmd2.str());
-				}
-			}
-			
-		}
-		if(!gp.clean_fq1.empty()){
-			ostringstream clean_out_fq1_tmp,clean_out_fq2_tmp;
-			if(i==index){
-				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/last.r1.fq.gz";
-				clean_out_fq2_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/last.r2.fq.gz";
-			}else{
-				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-				clean_out_fq2_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r2.fq.gz";
-			}
-			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1 && access(clean_out_fq2_tmp.str().c_str(),0)!=-1){
-				ostringstream cat_cmd1,cat_cmd2;
-				if(i<=index){
-					cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
-					cat_cmd2<<"cat "<<clean_out_fq2_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq2<<";rm "<<clean_out_fq2_tmp.str();
-					if(i==index){
-						cat_cmd1<<";rm "<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-						cat_cmd2<<";rm "<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r2.fq.gz";
-					}
-				}else{
-					cat_cmd1<<"rm "<<clean_out_fq1_tmp.str();
-					cat_cmd2<<"rm "<<clean_out_fq2_tmp.str();
-				}
-				if(gp.threads_num>1){
-					thread cat_t1(bind(&peProcess::run_cmd,this,cat_cmd1.str()));
-					thread cat_t2(bind(&peProcess::run_cmd,this,cat_cmd2.str()));
-					cat_t1.join();
-					cat_t2.join();
-				}else{
-					run_cmd(cat_cmd1.str());
-					run_cmd(cat_cmd2.str());
-				}
-			}
-		}
-	}
-	
-}
 void peProcess::create_thread_read(int index){
 	multi_gzfq1[index]=gzopen((gp.fq1_path).c_str(),"rb");
 	if(!multi_gzfq1[index]){
@@ -2018,8 +1800,8 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 	char buf1[READBUF],buf2[READBUF];
 	C_fastq fastq1,fastq2;
 	C_fastq_init(fastq1,fastq2);
-	unsigned long long file1_line_num(0),file2_line_num(0);
-	unsigned long long block_line_num1(0),block_line_num2(0);
+	long long file1_line_num(0),file2_line_num(0);
+	long long block_line_num1(0),block_line_num2(0);
 	int thread_read_block=4*gp.patchSize;
 	vector<C_fastq> fq1s,fq2s;
 	while(1){
@@ -2046,19 +1828,20 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 				block_line_num2++;
 				if(block_line_num2%4==1){
 					fastq2.seq_id.assign(buf2);
-					fastq2.seq_id.erase(fastq2.seq_id.size()-1);
+					fastq2.seq_id.erase(fastq2.seq_id.size()-1,1);
 				}else if(block_line_num2%4==2){
 					fastq2.sequence.assign(buf2);
-					fastq2.sequence.erase(fastq2.sequence.size()-1);
+					fastq2.sequence.erase(fastq2.sequence.size()-1,1);
 				}else if(block_line_num2%4==0){
 					fastq2.qual_seq.assign(buf2);
-					fastq2.qual_seq.erase(fastq2.qual_seq.size()-1);
-					fq1s.push_back(fastq1);
-					fq2s.push_back(fastq2);
+					fastq2.qual_seq.erase(fastq2.qual_seq.size()-1,1);
+					fq1s.emplace_back(fastq1);
+					fq2s.emplace_back(fastq2);
 					if(fq1s.size()==gp.patchSize){
-						if(index==0)
-							of_log<<get_local_time()<<" processed_reads:\t"<<file1_line_num/4<<endl;
-						thread_process_reads(index,fq1s,fq2s);
+                        thread_process_reads(index,fq1s,fq2s);
+						if(index==0) {
+							of_log << get_local_time() << " processed_reads:\t" << file1_line_num / 4 << endl;
+						}
 						if(limit_end>0){
 							break;
 						}
@@ -2067,9 +1850,9 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 			}
 			file2_line_num++;
 		}else{
-			if(fq1s.size()>0){
+			if(!fq1s.empty()){
 				thread_process_reads(index,fq1s,fq2s);
-				if(limit_end){
+				if(limit_end>0){
 					break;
 				}
 			}
@@ -2102,51 +1885,7 @@ void* peProcess::sub_thread_nonssd_realMultiThreads(int index){
 		}
 	}
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
-}
-void* peProcess::monitor_read_thread(){
-	//queue<vector<C_fastq> > thread_read_buffer[max_thread],thread_write_buffer[max_thread];
-	//mutex thread_read_m[max_thread],thread_write_m[max_thread];
-	vector<C_fastq> fq1s,fq2s;
-	int done(0);
-	while(1){
-		if(file_end){
-			break;
-		}else{
-			int ready(0);
-			for(int i=0;i!=gp.threads_num;i++){
-				if(thread_read_m[i].try_lock()){
-					cout<<"monitor: sub thread "<<i<<" size "<<thread_read_buffer1[i].size()<<endl;
-					if(thread_read_buffer1[i].size()<queue_buffer){
-						if(gp.fq1_path.find(".gz")==gp.fq1_path.size()-3){
-							if(read_gz(fq1s,fq2s)==-1){		//read fastqs from raw files
-								done=1;
-							}
-						}else{
-							if(read(fq1s,fq2s,nongzfp1,nongzfp2)==-1){		
-								done=1;
-							}
-						}
-						thread_read_buffer1[i].push(fq1s);
-						thread_read_buffer2[i].push(fq2s);
-						fq1s.clear();
-						fq2s.clear();
-						if(done==1){
-							file_end=true;
-							thread_read_m[i].unlock();
-							break;
-						}
-						cout<<"done:"<<done<<" after monitor: sub thread "<<i<<" size "<<thread_read_buffer1[i].size()<<endl;
-					}else{
-						ready++;
-					}
-					thread_read_m[i].unlock();
-					if(ready==gp.threads_num){
-						usleep(1000000);
-					}
-				}
-			}
-		}
-	}
+    return &bq_check;
 }
 void peProcess::process_nonssd(){
 	string mkdir_str="mkdir -p "+gp.output_dir;
@@ -2216,7 +1955,7 @@ void peProcess::run_extract_random(){
 		cerr<<"Error:extract random clean reads error cuz parameters are wrong"<<endl;
 		exit(1);
 	}
-	unsigned long long total_clean_reads(0);
+	long long total_clean_reads(0);
 	for(int i=0;i!=gp.threads_num;i++){
 		total_clean_reads+=local_clean_stat1[i].gs.reads_number;
 	}
@@ -2238,7 +1977,7 @@ void peProcess::run_extract_random(){
 	//vector<int> include_threads;
 	int last_thread(0);
 	int sticky_end(0);
-	unsigned long long cur_total(0);
+	long long cur_total(0);
 	for(int i=0;i!=gp.threads_num;i++){
 		cur_total+=local_clean_stat1[i].gs.reads_number;
 		if(cur_total>gp.l_total_reads_num){
@@ -2297,7 +2036,7 @@ void peProcess::process_some_reads(int index,int out_number){
 	char buf1[READBUF],buf2[READBUF];
 	C_fastq fastq1,fastq2;
 	C_fastq_init(fastq1,fastq2);
-	unsigned long long file1_line_num(0),file2_line_num(0);
+	long long file1_line_num(0),file2_line_num(0);
 	vector<C_fastq> fq1s,fq2s;
 	int processed_number(0),rest_number(out_number);
 	while(1){
@@ -2335,8 +2074,8 @@ void peProcess::process_some_reads(int index,int out_number){
 				}else if(file2_line_num%4==3){
 					fastq2.qual_seq.assign(buf2);
 					fastq2.qual_seq.erase(fastq2.qual_seq.size()-1);
-					fq1s.push_back(fastq1);
-					fq2s.push_back(fastq2);
+					fq1s.emplace_back(fastq1);
+					fq2s.emplace_back(fastq2);
 					if(fq1s.size()==gp.patchSize || fq1s.size()==rest_number){
 						of_log<<get_local_time()<<" last sticky thread processed reads:\t"<<file1_line_num/4<<endl;
 						//thread_process_reads(index,fq1s,fq2s);
@@ -2366,8 +2105,8 @@ void peProcess::limit_process_reads(int index,vector<C_fastq> &fq1s,vector<C_fas
 	opt_clean.stat1=&local_clean_stat1[index];
 	opt_clean.fq2s=&fq2s;
 	opt_clean.stat2=&local_clean_stat2[index];
-	stat_pe_fqs(opt_clean);		//statistic raw fastqs
-	peWrite(fq1s,fq2s,"clean",gzfq1,gzfq2);
+	stat_pe_fqs(opt_clean,"raw");		//statistic raw fastqs
+	peWrite(fq1s,fq2s,gzfq1,gzfq2);
 	fq1s.clear();
 	fq2s.clear();
 }
@@ -2514,7 +2253,7 @@ void peProcess::process(){
 		for(int i=0;i!=fq1_unprocess.size();i++){
 			if(fq1_unprocess[i]=='\n'){
 				if(line_num%4==3){
-					fq1s.push_back(fastq1);
+					fq1s.emplace_back(fastq1);
 					fastq1.seq_id.clear();
 					fastq1.sequence.clear();
 					fastq1.qual_seq.clear();
@@ -2536,7 +2275,7 @@ void peProcess::process(){
 		for(int i=0;i!=fq2_unprocess.size();i++){
 			if(fq2_unprocess[i]=='\n'){
 				if(line_num%4==3){
-					fq2s.push_back(fastq2);
+					fq2s.emplace_back(fastq2);
 					fastq2.seq_id.clear();
 					fastq2.sequence.clear();
 					fastq2.qual_seq.clear();
@@ -2562,9 +2301,14 @@ void peProcess::process(){
 		gzclose(gz_trim_out2[0]);
 	}
 	if(!gp.clean_fq1.empty()){
-		if(gp.output_clean<=0 && !(gp.l_total_reads_num>0 && gp.total_reads_num_random==false)){
-			gzclose(gz_clean_out1[0]);
-			gzclose(gz_clean_out2[0]);
+		if(gp.output_clean<=0 && !(gp.l_total_reads_num>0 && !gp.total_reads_num_random)){
+			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+				gzclose(gz_clean_out1[0]);
+				gzclose(gz_clean_out2[0]);
+			}else{
+				fclose(nongz_clean_out1[0]);
+				fclose(nongz_clean_out2[0]);
+			}
 		}
 	}
 	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
@@ -2605,34 +2349,6 @@ void peProcess::process(){
 	of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
 	of_log.close();
 	
-}
-void peProcess::output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile){
-	//m.lock();
-	string out_content;
-	
-	for(int i=0;i!=fq1.size();i++){
-	//for(vector<C_fastq>::iterator i=fq1->begin();i!=fq1->end();i++){
-		if(gp.output_file_type=="fasta"){
-			fq1[i].seq_id=fq1[i].seq_id.replace(fq1[i].seq_id.find("@"),1,">");
-			out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n";
-		}else if(gp.output_file_type=="fastq"){
-			if(gp.outputQualityPhred!=gp.qualityPhred){
-				for(string::size_type ix=0;ix!=fq1[i].qual_seq.size();ix++){
-					fq1[i].qual_seq[ix]=(char)(fq1[i].qual_seq[ix]-gp.outputQualityPhred);
-				}
-			}
-			out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
-		}else{
-			cerr<<"Error:output_file_type value error"<<endl;
-			exit(1);
-		}
-	}
-	if(gp.is_streaming){
-		cout<<out_content;
-	}else{
-		outfile<<out_content;
-	}
-	//m.unlock();
 }
 void peProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	//m.lock();
@@ -2861,15 +2577,15 @@ void peProcess::peStreaming_stat(C_global_variable& local_gv){
 	/*int read_max_length;
 	int read_length;
 	int reads_number;
-	unsigned long long base_number;
-	unsigned long long a_number,c_number,g_number,t_number,n_number;
-	//unsigned long long a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
-	unsigned long long q20_num,q30_num;
+	long long base_number;
+	long long a_number,c_number,g_number,t_number,n_number;
+	//long long a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
+	long long q20_num,q30_num;
 	*/
 	cout<<"#Fq1_statistical_information"<<"\n";
 	cout<<local_gv.raw1_stat.gs.read_length<<" "<<local_gv.clean1_stat.gs.read_length<<" "<<local_gv.raw1_stat.gs.reads_number<<" "<<local_gv.clean1_stat.gs.reads_number<<" "<<local_gv.raw1_stat.gs.base_number<<" "<<local_gv.clean1_stat.gs.base_number<<" "<<local_gv.raw1_stat.gs.a_number<<" "<<local_gv.clean1_stat.gs.a_number<<" "<<local_gv.raw1_stat.gs.c_number<<" "<<local_gv.clean1_stat.gs.c_number<<" "<<local_gv.raw1_stat.gs.g_number<<" "<<local_gv.clean1_stat.gs.g_number<<" "<<local_gv.raw1_stat.gs.t_number<<" "<<local_gv.clean1_stat.gs.t_number<<" "<<local_gv.raw1_stat.gs.n_number<<" "<<local_gv.clean1_stat.gs.n_number<<" "<<local_gv.raw1_stat.gs.q20_num<<" "<<local_gv.clean1_stat.gs.q20_num<<" "<<local_gv.raw1_stat.gs.q30_num<<" "<<local_gv.clean1_stat.gs.q30_num<<"\n";
 	cout<<"#Base_distributions_by_read_position"<<"\n";
-	//unsigned long long position_acgt_content[READ_MAX_LEN][5];
+	//long long position_acgt_content[READ_MAX_LEN][5];
 	for(int i=0;i!=local_gv.raw1_stat.gs.read_length;i++){
 		for(int j=0;j!=4;j++){
 			cout<<local_gv.raw1_stat.bs.position_acgt_content[i][j]<<" ";
@@ -2899,7 +2615,7 @@ void peProcess::peStreaming_stat(C_global_variable& local_gv){
 	cout<<"#Fq2_statistical_information"<<"\n";
 	cout<<local_gv.raw2_stat.gs.read_length<<" "<<local_gv.clean2_stat.gs.read_length<<" "<<local_gv.raw2_stat.gs.reads_number<<" "<<local_gv.clean2_stat.gs.reads_number<<" "<<local_gv.raw2_stat.gs.base_number<<" "<<local_gv.clean2_stat.gs.base_number<<" "<<local_gv.raw2_stat.gs.a_number<<" "<<local_gv.clean2_stat.gs.a_number<<" "<<local_gv.raw2_stat.gs.c_number<<" "<<local_gv.clean2_stat.gs.c_number<<" "<<local_gv.raw2_stat.gs.g_number<<" "<<local_gv.clean2_stat.gs.g_number<<" "<<local_gv.raw2_stat.gs.t_number<<" "<<local_gv.clean2_stat.gs.t_number<<" "<<local_gv.raw2_stat.gs.n_number<<" "<<local_gv.clean2_stat.gs.n_number<<" "<<local_gv.raw2_stat.gs.q20_num<<" "<<local_gv.clean2_stat.gs.q20_num<<" "<<local_gv.raw2_stat.gs.q30_num<<" "<<local_gv.clean2_stat.gs.q30_num<<"\n";
 	cout<<"#Base_distributions_by_read_position"<<"\n";
-	//unsigned long long position_acgt_content[READ_MAX_LEN][5];
+	//long long position_acgt_content[READ_MAX_LEN][5];
 	for(int i=0;i!=local_gv.raw2_stat.gs.read_length;i++){
 		for(int j=0;j!=4;j++){
 			cout<<local_gv.raw2_stat.bs.position_acgt_content[i][j]<<" ";

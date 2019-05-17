@@ -10,7 +10,10 @@ using namespace::std;
 //#define REAL_MAX 50
 class C_filter_stat{
 public:
-	C_filter_stat():in_adapter_list_num(0),include_adapter_seq_num(0),include_contam_seq_num(0),n_ratio_num(0),highA_num(0),polyX_num(0),tile_num(0),fov_num(0),low_qual_base_ratio_num(0),mean_quality_num(0),short_len_num(0),long_len_num(0),over_lapped_num(0),no_3_adapter_num(0),int_insertNull_num(0),include_adapter_seq_num1(0),include_adapter_seq_num2(0),include_adapter_seq_num_overlap(0),include_contam_seq_num1(0),include_contam_seq_num2(0),include_contam_seq_num_overlap(0),n_ratio_num1(0),n_ratio_num2(0),n_ratio_num_overlap(0),highA_num1(0),highA_num2(0),highA_num_overlap(0),polyX_num1(0),polyX_num2(0),polyX_num_overlap(0),low_qual_base_ratio_num1(0),low_qual_base_ratio_num2(0),low_qual_base_ratio_num_overlap(0),mean_quality_num1(0),mean_quality_num2(0),mean_quality_num_overlap(0),short_len_num1(0),short_len_num2(0),short_len_num_overlap(0),long_len_num1(0),long_len_num2(0),long_len_num_overlap(0){};
+	C_filter_stat():in_adapter_list_num(0),include_adapter_seq_num(0),include_contam_seq_num(0),n_ratio_num(0),highA_num(0),polyX_num(0),tile_num(0),fov_num(0),low_qual_base_ratio_num(0),mean_quality_num(0),short_len_num(0),long_len_num(0),over_lapped_num(0),no_3_adapter_num(0),int_insertNull_num(0),include_adapter_seq_num1(0),include_adapter_seq_num2(0),include_adapter_seq_num_overlap(0),include_contam_seq_num1(0),include_contam_seq_num2(0),include_contam_seq_num_overlap(0),n_ratio_num1(0),n_ratio_num2(0),n_ratio_num_overlap(0),highA_num1(0),highA_num2(0),highA_num_overlap(0),polyX_num1(0),polyX_num2(0),polyX_num_overlap(0),low_qual_base_ratio_num1(0),low_qual_base_ratio_num2(0),low_qual_base_ratio_num_overlap(0),mean_quality_num1(0),mean_quality_num2(0),mean_quality_num_overlap(0),short_len_num1(0),short_len_num2(0),short_len_num_overlap(0),long_len_num1(0),long_len_num2(0),long_len_num_overlap(0){
+		include_global_contam_seq_num=include_global_contam_seq_num1=include_global_contam_seq_num2=include_global_contam_seq_num_overlap=0;
+		polyG_num=polyG_num1=polyG_num2=polyG_num_overlap=0;
+	};
 	//int output_reads_num;
 	int in_adapter_list_num;
 	int include_adapter_seq_num,include_adapter_seq_num1,include_adapter_seq_num2,include_adapter_seq_num_overlap;
@@ -36,32 +39,32 @@ public:
 	C_general_stat();
 	int read_max_length;
 	int read_length;
-	int reads_number;
-	unsigned long long base_number;
-	unsigned long long a_number,c_number,g_number,t_number,n_number;
+	long long reads_number;
+	long long base_number;
+	long long a_number,c_number,g_number,t_number,n_number;
 	//unsigned long long a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
-	unsigned long long q20_num,q30_num;
+	long long q20_num,q30_num;
 	//unsigned long long q20_ratio,q30_ratio;
 };
 
 class C_reads_pos_base_stat{
 public:
 	C_reads_pos_base_stat();
-	unsigned long long position_acgt_content[READ_MAX_LEN][5];
+	long long position_acgt_content[READ_MAX_LEN][5];
 	//map<int,map<char,int> > position_acgt_content_ratio;
 };
 
 class C_reads_pos_qual_stat{
 public:
 	C_reads_pos_qual_stat();
-	unsigned long long position_qual[READ_MAX_LEN][MAX_QUAL];
+	long long position_qual[READ_MAX_LEN][MAX_QUAL];
 	//map<int,map<int,int> > position_qual_ratio;
 };
 class C_reads_trim_stat{
 public:
 	C_reads_trim_stat();
-	unsigned long long hlq[READ_MAX_LEN],ht[READ_MAX_LEN];
-	unsigned long long ta[READ_MAX_LEN],tlq[READ_MAX_LEN],tt[READ_MAX_LEN];
+	long long hlq[READ_MAX_LEN],ht[READ_MAX_LEN];
+	long long ta[READ_MAX_LEN],tlq[READ_MAX_LEN],tt[READ_MAX_LEN];
 };
 class C_fastq_file_stat{
 public:

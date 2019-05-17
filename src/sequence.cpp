@@ -9,21 +9,6 @@
 #include "read_filter.h"
 using namespace::std;
 
-mutex m2;
-void C_fastq::clear(){
-	seq_id="";
-	sequence="";
-	qual_seq="";
-}
-void C_fastq::output(){
-	cout<<seq_id<<endl;
-	cout<<sequence<<endl;
-	cout<<qual_seq<<endl;
-}
-void C_fastq::output2(int type,C_global_parameter gp,gzFile outfile){
-	string out_content=seq_id+"\n"+sequence+"\n+\n"+qual_seq+"\n";
-	gzwrite(outfile,out_content.c_str(),out_content.size());
-}
 C_single_fastq_filter::C_single_fastq_filter(C_fastq& a,C_global_parameter& gp){
 	read=a;
 	read_result=stat_read(read,gp);
@@ -33,16 +18,6 @@ void C_single_fastq_filter::se_trim(C_global_parameter& gp){
 }
 int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
-	/*
-	if(gp.total_reads_num!=-1){	//global reads number limit
-		if(gp.output_reads_num>gp.total_reads_num){
-			fs->output_reads_num++;
-			min_value=1;
-			return min_value;
-			//cout<<"total_reads_num discard"<<endl;
-		}
-	}
-	*/
 	if(gp.max_read_length!=-1){
 		if(read.sequence.size()>gp.max_read_length){
 			fs->long_len_num++;
@@ -100,22 +75,11 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 }
 int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
-	/*
-	if(gp.total_reads_num!=-1){	//global reads number limit
-		if(gp.output_reads_num>gp.total_reads_num){
-			fs->output_reads_num++;
-			min_value=1;
-			return min_value;
-			//cout<<"total_reads_num discard"<<endl;
-		}
-	}
-	*/
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(read_result.read_tile,gp.tile)){
 			fs->tile_num++;
 			min_value=1;
 			return min_value;
-			//cout<<"tile discard"<<endl;
 		}
 	}
 	
@@ -126,13 +90,6 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 			return min_value;
 		}
 	}
-	/*
-	if(read_result.in_adapter_list){	//whether in adapter list
-		fs->in_adapter_list_num++;
-		min_value=1;
-		return min_value;
-	}
-	*/
 
 	if(gp.min_read_length!=-1){
 		if(read.sequence.size()<gp.min_read_length){
@@ -232,17 +189,6 @@ C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& g
 
 int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
-	//cout<<"n_ratio\t"<<reads_result.fastq1_result.n_ratio<<"\t"<<reads_result.fastq2_result.n_ratio<<endl;
-	/*
-	if(gp.total_reads_num!=-1){	//global reads number limit
-		if(gp.output_reads_num>gp.total_reads_num){
-			fs->output_reads_num++;
-			min_value=1;
-			return min_value;
-			//cout<<"total_reads_num discard"<<endl;
-		}
-	}
-	*/
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(reads_result.fastq1_result.read_tile,gp.tile)){
 			fs->tile_num++;
@@ -261,13 +207,6 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 			return min_value;
 		}
 	}
-	/*
-	if(reads_result.fastq1_result.in_adapter_list){	//whether in adapter list
-		fs->in_adapter_list_num++;
-		min_value=1;
-		return min_value;
-	}
-	*/
 
 	if(gp.min_read_length!=-1){
 		int v=pe_dis(fq1.sequence.size()<gp.min_read_length,fq2.sequence.size()<gp.min_read_length);
@@ -283,7 +222,7 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 		}
 			//cout<<"min_read_length discard"<<endl;
 	}else{
-		if(fq1.sequence.size()==0 || fq2.sequence.size()==0){
+		if(fq1.sequence.empty() || fq2.sequence.empty()) {
 			return 1;
 		}
 	}
@@ -429,38 +368,6 @@ void C_pe_fastq_filter::pe_trim(C_global_parameter& gp){
 	fastq_trim(fq1,gp);
 	fastq_trim(fq2,gp);
 }
-
-C_pe_fastqs_filter::C_pe_fastqs_filter(vector<string> seq_id1,vector<string> sequence1,vector<string> qual_seq1,vector<string> seq_id2,vector<string> sequence2,vector<string> qual_seq2,C_global_parameter gp,C_global_variable& gv){
-	/*vector<int> trimmed_index;
-	vector<int> filtered_index;
-	vector<int> output_index;
-	int reads_num;
-	*/
-	v_seq_id1=seq_id1;
-	v_sequence1=sequence1;
-	v_qual_seq1=qual_seq1;
-	v_seq_id2=seq_id2;
-	v_sequence2=sequence2;
-	v_qual_seq2=qual_seq2;
-	for(int i=0;i!=seq_id1.size();i++){
-		C_fastq a,b;
-		a.seq_id=seq_id1[i];
-		a.sequence=sequence1[i];
-		a.qual_seq=qual_seq1[i];
-		b.seq_id=seq_id2[i];
-		b.sequence=sequence2[i];
-		b.qual_seq=qual_seq2[i];
-		C_pe_fastq_filter pe_fastq_filter=C_pe_fastq_filter(a,b,gp);
-		pe_fastq_filter.pe_trim(gp);
-		/*
-		if(pe_fastq_filter.pe_discard(gv,gp)!=1){
-			filtered_index.push_back(1);
-		}else{
-			filtered_index.push_back(0);
-		}
-		*/
-	}
-}
 int C_pe_fastq_filter::pe_dis(bool a,bool b){
 	int return_value=0;
 	if(a)
@@ -468,64 +375,4 @@ int C_pe_fastq_filter::pe_dis(bool a,bool b){
 	if(b)
 		return_value+=2;
 	return return_value;
-}
-void C_pe_fastqs_filter::pe_output(C_global_parameter gp,gzFile outfile1,gzFile outfile2){
-	string out_content1,out_content2;
-	for(int i=0;i!=filtered_index.size();i++){
-		out_content1+=v_seq_id1[i]+"\n"+v_sequence1[i]+"\n+\n"+v_qual_seq1[i]+"\n";
-		out_content2+=v_seq_id2[i]+"\n"+v_sequence2[i]+"\n+\n"+v_qual_seq2[i]+"\n";
-		
-		/*
-		if(filtered_index[i]==1){
-			if(gp.whether_add_pe_info){
-				v_seq_id1[i]=v_seq_id1[i]+"/1";
-				v_seq_id2[i]=v_seq_id2[i]+"/2";
-			}
-			if(!gp.base_convert.empty()){
-				gp.base_convert=gp.base_convert.replace(gp.base_convert.find("TO"),2,"");
-				gp.base_convert=gp.base_convert.replace(gp.base_convert.find("2"),1,"");
-				if(gp.base_convert.size()!=2){
-					cerr<<"Error:base_conver value format error"<<endl;
-					exit(1);
-				}
-				for(string::size_type ix=0;ix!=v_sequence1[i].size();ix++){
-					if(toupper(v_sequence1[i][ix])==toupper(gp.base_convert[0]))
-						v_sequence1[i][ix]=gp.base_convert[1];
-				}
-				for(string::size_type ix=0;ix!=v_sequence2[i].size();ix++){
-					if(toupper(v_sequence2[i][ix])==toupper(gp.base_convert[0]))
-						v_sequence2[i][ix]=gp.base_convert[1];
-				}
-			}
-			if(gp.output_file_type=="fasta"){
-				v_seq_id1[i]=v_seq_id1[i].replace(v_seq_id1[i].find("@"),1,"");
-				out_content1=">"+v_seq_id1[i]+"\n"+v_sequence2[i]+"\n";
-				v_seq_id1[i]=v_seq_id2[i].replace(v_seq_id2[i].find("@"),1,"");
-				out_content2=">"+v_seq_id2[i]+"\n"+v_sequence2[i]+"\n";
-			}else if(gp.output_file_type=="fastq"){
-				if(gp.outputQualityPhred!=gp.qualityPhred){
-					for(string::size_type ix=0;ix!=v_qual_seq1[i].size();ix++){
-						v_qual_seq1[i][ix]=(char)(v_qual_seq1[i][ix]-atoi(gp.outputQualityPhred.c_str()));
-					}
-				}
-				
-				//out_content1=v_seq_id1[i]+"\n"+v_sequence1[i]+"\n+\n"+v_qual_seq1[i]+"\n";
-				//out_content2=v_seq_id2[i]+"\n"+v_sequence2[i]+"\n+\n"+v_qual_seq2[i]+"\n";
-				//gzwrite(outfile1,out_content1.c_str(),out_content1.size());
-				//gzwrite(outfile2,out_content2.c_str(),out_content2.size());
-			}else{
-				cerr<<"Error:output_file_type value error"<<endl;
-				exit(1);
-			}
-				
-		}
-		*/
-	}
-	if(gp.is_streaming){
-		cout<<out_content1;
-	}else{
-		gzwrite(outfile1,out_content1.c_str(),out_content1.size());
-		gzwrite(outfile2,out_content2.c_str(),out_content2.size());
-	}
-
 }

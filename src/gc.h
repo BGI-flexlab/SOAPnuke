@@ -16,20 +16,20 @@ public:
 	float first10_quar,last10_quar;	
 };
 
-quartile_result cal_quar_from_map(map<int,int> data);
-quartile_result cal_quar_from_array(unsigned long long data[],int len);
+//quartile_result cal_quar_from_map(map<int,int> data);
+quartile_result cal_quar_from_array(long long data[],int len);
 vector<string> get_pe_hard_trim(string a);
-vector<string> get_se_hard_trim(string a);
+//vector<string> get_se_hard_trim(string a);
 void check_gz_file(string a);
 int check_gz_empty(string a);
-void remove_space(string &a);
-int file_exist_and_not_empty(string file_name);
-void uniq_vector(vector<string> &a);
+//void remove_space(string &a);
+//int file_exist_and_not_empty(string file_name);
+//void uniq_vector(vector<string> &a);
 string get_local_time();
 void line_split(string line_info,char sep,vector<string> &elements);
 void line_split(string line_info,char sep,set<string> &elements);
 void line_split(string line_info,vector<string> &elements);
-int count_gc(string a);
+//int count_gc(string a);
 void int2string(int &a,string &b);
 void double2string(double &a,string &b);
 void float2string(float &a,string &b);

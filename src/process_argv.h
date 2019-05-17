@@ -11,6 +11,9 @@ using namespace::std;
 #ifndef PACKAGEVERSION
 #define PACKAGEVERSION "2.0"
 #endif
+#ifndef MINORVERSION
+#define MINORVERSION "7"
+#endif
 void check_module(int argc,char* argv[]);
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp);
 bool check_parameter(int argc,char* argv[],C_global_parameter& gp);

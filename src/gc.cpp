@@ -57,7 +57,7 @@ quartile_result cal_quar_from_map(map<int,int> data){
 	}
 	return return_value;
 }
-quartile_result cal_quar_from_array(unsigned long long data[],int len){
+quartile_result cal_quar_from_array(long long data[],int len){
 	//cout<<len<<"\there"<<endl;
 	quartile_result return_value;
 	unsigned long long total_num(0);
@@ -120,8 +120,9 @@ int check_gz_empty(string a){
 	if(gzgets(gzfp,line_info,MAXLEN)!=NULL){
 		return 1;
 	}
+    gzclose(gzfp);
 	return -1;
-	gzclose(gzfp);
+	
 }
 void remove_space(string &a){
 	string b;
@@ -171,11 +172,11 @@ void line_split(string line_info,char sep,vector<string> &elements){
 		if(line_info[ix]!=sep){
 			element+=line_info[ix];
 		}else{
-			elements.push_back(element);
+			elements.emplace_back(element);
 			element="";
 		}
 	}
-	elements.push_back(element);
+	elements.emplace_back(element);
 }
 void line_split(string line_info,vector<string> &elements){
 	elements.clear();
@@ -184,11 +185,11 @@ void line_split(string line_info,vector<string> &elements){
 		if(!isspace(line_info[ix])){
 			element+=line_info[ix];
 		}else{
-			elements.push_back(element);
+			elements.emplace_back(element);
 			element="";
 		}
 	}
-	elements.push_back(element);
+	elements.emplace_back(element);
 }
 void line_split(string line_info,char sep,set<string> &elements){
 	elements.clear();
@@ -294,7 +295,7 @@ string join_vector(vector<string> a,string sep){
 	return result;
 }
 string link_dir_file(string dir,string file){
-	string::size_type index;
+	//string::size_type index;
 	// remove null char in the start or end;
 	dir.erase(0,dir.find_first_not_of(" "));  
 	dir.erase(dir.find_last_not_of(" ")+1);

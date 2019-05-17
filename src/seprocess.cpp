@@ -21,26 +21,31 @@
 using namespace::std;
 #define READBUF 500
 #define random(x) (rand()%x)
-mutex se_read_m,se_stat_m,se_write_m;
-C_filter_stat se_local_fs[max_thread];
-C_fastq_file_stat se_local_raw_stat1[max_thread],se_local_trim_stat1[max_thread],se_local_clean_stat1[max_thread];
-gzFile gz_fq_se;
-string se_sticky_reads1[max_thread];
-map<int,int> se_out;
-int exceed_output_se(0);
-string se_new_fq1_path;
-unsigned long long se_buffer(1024*1024*2);
-int se_bq_check(0);
+
 seProcess::seProcess(C_global_parameter m_gp){
 	gp=m_gp;
 	gv=C_global_variable();
 	used_threads_num=0;
-	processed_reads=0;
 	srand((unsigned)time(NULL));
 	ostringstream tmpstring;
 	tmpstring<<rand()%100;
 	random_num=tmpstring.str();
 	limit_end=0;
+	gz_trim_out1=new gzFile[gp.threads_num];
+	gz_clean_out1=new gzFile[gp.threads_num];
+	nongz_clean_out1=new FILE*[gp.threads_num];
+	t_start_pos=new off_t[gp.threads_num];
+	t_end_pos=new off_t[gp.threads_num];
+	multi_gzfq1=new gzFile[gp.threads_num];
+	gzFile* multi_gzfq1;
+
+	se_local_fs=new C_filter_stat[gp.threads_num];
+	se_local_raw_stat1=new C_fastq_file_stat[gp.threads_num];
+	se_local_trim_stat1=new C_fastq_file_stat[gp.threads_num];
+	se_local_clean_stat1=new C_fastq_file_stat[gp.threads_num];
+	se_sticky_reads1=new string[gp.threads_num];
+	se_buffer=2*1024*1024;
+	se_bq_check=0;
 }
 void seProcess::print_stat(){
 	string filter_out=gp.output_dir+"/Statistics_of_Filtered_Reads.txt";
@@ -77,20 +82,20 @@ void seProcess::print_stat(){
 	}
 	of_filter_stat<<"Item\tTotal\tPercentage"<<endl;
 	vector<string> filter_items;
-	filter_items.push_back("Reads limited to output number");
-	filter_items.push_back("Reads with filtered tile");
-	filter_items.push_back("Reads with filtered fov");
-	filter_items.push_back("Reads too short");
-	filter_items.push_back("Reads too long");
-	filter_items.push_back("Reads with contam sequence");
-	filter_items.push_back("Reads with n rate exceed");
-	filter_items.push_back("Reads with highA");
-	filter_items.push_back("Reads with polyX");
-	filter_items.push_back("Reads with low quality");
-	filter_items.push_back("Reads with low mean quality");
-	filter_items.push_back("Reads with adapter");
-	filter_items.push_back("Reads with global contam sequence");
-	map<string,unsigned long long> filter_number;
+	filter_items.emplace_back("Reads limited to output number");
+	filter_items.emplace_back("Reads with filtered tile");
+	filter_items.emplace_back("Reads with filtered fov");
+	filter_items.emplace_back("Reads too short");
+	filter_items.emplace_back("Reads too long");
+	filter_items.emplace_back("Reads with contam sequence");
+	filter_items.emplace_back("Reads with n rate exceed");
+	filter_items.emplace_back("Reads with highA");
+	filter_items.emplace_back("Reads with polyX");
+	filter_items.emplace_back("Reads with low quality");
+	filter_items.emplace_back("Reads with low mean quality");
+	filter_items.emplace_back("Reads with adapter");
+	filter_items.emplace_back("Reads with global contam sequence");
+	map<string,long long> filter_number;
 	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
 	filter_number["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num;
 	filter_number["Reads too short"]=gv.fs.short_len_num;
@@ -105,7 +110,7 @@ void seProcess::print_stat(){
 	filter_number["Reads too long"]=gv.fs.long_len_num;
 	//filter_number["Reads limited to output number"]=gv.fs.output_reads_num;
 	unsigned long long total_filter_fq1_num=0;
-	for(map<string,unsigned long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
+	for(map<string,long long>::iterator ix=filter_number.begin();ix!=filter_number.end();ix++){
 		total_filter_fq1_num+=ix->second;
 	}
 	//int total_filter_fq1_num=gv.fs.output_reads_num+gv.fs.include_contam_seq_num+gv.fs.include_adapter_seq_num+gv.fs.n_ratio_num+gv.fs.highA_num+gv.fs.tile_num+gv.fs.low_qual_base_ratio_num+gv.fs.mean_quality_num+gv.fs.short_len_num;
@@ -456,9 +461,15 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 	
 
 }
-void* seProcess::stat_se_fqs(SEstatOption opt){
+void* seProcess::stat_se_fqs(SEstatOption opt,string dataType){
 	opt.stat1->gs.reads_number+=opt.fq1s->size();
-	int normal_bq(0);
+	//int normal_bq(0);
+	int qualityBase=0;
+	if(dataType=="clean"){
+		qualityBase=gp.outputQualityPhred;
+	}else{
+		qualityBase=gp.qualityPhred;
+	}
 	for(vector<C_fastq>::iterator ix=opt.fq1s->begin();ix!=opt.fq1s->end();ix++){
 		if((*ix).head_hdcut>0 || (*ix).head_lqcut>0){
 			if((*ix).head_hdcut>=(*ix).head_lqcut){
@@ -501,7 +512,7 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 			}
 		}
 		for(string::size_type i=0;i!=(*ix).qual_seq.size();i++){	//process quality sequence
-			int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
+			int base_quality=((*ix).qual_seq)[i]-qualityBase;
 			/*
 			if(base_quality>MAX_QUAL){
 				cerr<<"Error:quality is too high,please check the quality system parameter or fastq file"<<endl;
@@ -616,6 +627,7 @@ void* seProcess::stat_se_fqs(SEstatOption opt){
 		se_stat_m.unlock();
 		//exit(1);
 	}
+    return &se_bq_check;
 }
 
 void seProcess::filter_se_fqs(SEcalOption opt){
@@ -636,7 +648,7 @@ void seProcess::filter_se_fqs(SEcalOption opt){
 		//*i=se_fastq_filter.read;
 		if(!gp.trim_fq1.empty()){
 			preOutput(1,se_fastq_filter.read);
-			opt.trim_result1->push_back(se_fastq_filter.read);
+			opt.trim_result1->emplace_back(se_fastq_filter.read);
 		}
 		int whether_discard(0);
 		if(gp.module_name=="filtersRNA"){
@@ -647,7 +659,7 @@ void seProcess::filter_se_fqs(SEcalOption opt){
 		if(whether_discard!=1){
 			if(!gp.clean_fq1.empty()){
 				preOutput(1,se_fastq_filter.read);
-				opt.clean_result1->push_back(se_fastq_filter.read);
+				opt.clean_result1->emplace_back(se_fastq_filter.read);
 			}
 		}
 	}
@@ -671,10 +683,10 @@ void  seProcess::preOutput(int type,C_fastq& a){
 void seProcess::seWrite_split(vector<C_fastq>& se1){
 	output_split_fastqs("1",se1);
 }
-void seProcess::seWrite(vector<C_fastq>& se1,string type,gzFile out1){
+void seProcess::seWrite(vector<C_fastq>& se1,gzFile out1){
 	output_fastqs("1",se1,out1);
 }
-void seProcess::seWrite(vector<C_fastq>& se1,string type,FILE* out1){
+void seProcess::seWrite(vector<C_fastq>& se1,FILE* out1){
 	output_fastqs("1",se1,out1);
 }
 void seProcess::C_fastq_init(C_fastq& a){
@@ -721,59 +733,17 @@ int seProcess::read(vector<C_fastq>& pe1,ifstream& infile1){
 			}
 			if(file1_line_num%4==0){
 				fastq1.qual_seq=buf1;
-				pe1.push_back(fastq1);
-				//fq1s.push_back(fastq1);
+				pe1.emplace_back(fastq1);
+				//fq1s.emplace_back(fastq1);
 			}
 		}else{
 			return -1;
 		}
 		
 	}
+    return 0;
 }
-int seProcess::read_gz(vector<C_fastq>& se1){
-	char buf1[READBUF];
-	C_fastq fastq1;
-	C_fastq_init(fastq1);
-	int file1_line_num(0);
-	for(int i=0;i<gp.patchSize*4;i++){
-		if(gzgets(gzfp1,buf1,READBUF)!=NULL){
-			file1_line_num++;
-			if(file1_line_num%4==1){
-				fastq1.seq_id.assign(buf1);
-				fastq1.seq_id.erase(fastq1.seq_id.size()-1);
-			}
-			if(file1_line_num%4==2){
-				fastq1.sequence.assign(buf1);
-				fastq1.sequence.erase(fastq1.sequence.size()-1);
-			}
-			if(file1_line_num%4==0){
-				fastq1.qual_seq.assign(buf1);
-				fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
-				se1.push_back(fastq1);
-			}
-		}else{
-			return -1;
-		}
-	}
-}
-void seProcess::create_thread_outputFile(int index){
-	if(!gp.trim_fq1.empty()){	//create output trim files handle
-		ostringstream trim_outfile1;
-		trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".trim.r1.fq.gz";
-		gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
-		gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
-		gzbuffer(gz_trim_out1[index],1024*1024*16);
-	}
-	if(!gp.clean_fq1.empty()){	//create output clean files handle
-		if(gp.output_clean<=0){
-			ostringstream outfile1;
-			outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<".clean.r1.fq.gz";
-			gz_clean_out1[index]=gzopen(outfile1.str().c_str(),"wb");
-			gzsetparams(gz_clean_out1[index], 2, Z_DEFAULT_STRATEGY);
-			gzbuffer(gz_clean_out1[index],1024*1024*16);
-		}
-	}
-}
+
 void seProcess::create_thread_trimoutputFile(int index){
 	if(!gp.trim_fq1.empty()){	//create output trim files handle
 		ostringstream trim_outfile1;
@@ -814,14 +784,12 @@ void* seProcess::sub_thread(int index){
 	}
 	int min_len=1024*4*10;
 	if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
-		//create_thread_outputFile(index);
 		create_thread_trimoutputFile(index);
 		create_thread_cleanoutputFile(index);
 	}else if(!gp.trim_fq1.empty()){
 		create_thread_trimoutputFile(index);
 	}
-	//create_thread_outputFile(index);
-	
+
 	//char *fq1_buf,*fq2_buf;
 	unsigned long long mmap_start(start_pos);
 	unsigned long long copysz(se_buffer);
@@ -880,7 +848,7 @@ void* seProcess::sub_thread(int index){
 		for(int i=head_idx;i<=tail_idx;i++){
 			if(buf1[i]=='\n'){
 				if(line_num%4==3){
-					fq1s.push_back(fastq1);
+					fq1s.emplace_back(fastq1);
 					fastq1.seq_id.clear();
 					fastq1.sequence.clear();
 					fastq1.qual_seq.clear();
@@ -922,12 +890,17 @@ void* seProcess::sub_thread(int index){
 	if(!gp.clean_fq1.empty()){
 		if(index!=0){
 			if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
-				gzclose(gz_clean_out1[index]);
+				if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+					gzclose(gz_clean_out1[index]);
+				}else{
+					fclose(nongz_clean_out1[index]);
+				}
 			}
 		}
 	}
 	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+    return &se_bq_check;
 }
 void seProcess::run_pigz(){	//split raw files with pigz and "split" command
 	ostringstream cmd1;
@@ -935,25 +908,6 @@ void seProcess::run_pigz(){	//split raw files with pigz and "split" command
 	cmd1<<"pigz -c -d -p "<<pigz_thread<<" "<<gp.fq1_path<<" > "<<gp.output_dir<<"/raw.r1.fq";
 	if(system(cmd1.str().c_str())==-1){
 		cerr<<"Error:run pigz error"<<endl;
-		exit(1);
-	}
-}
-void seProcess::run_pigz_split(int type){
-	ostringstream cmd1;
-	int pigz_thread=gp.threads_num>16?gp.threads_num:16;
-	int split_line_num=gp.split_line*4;
-	if(type==1){
-		if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
-			cmd1<<"pigz -c -d -p "<<pigz_thread<<" "<<gp.fq1_path<<" | split -l "<<split_line_num<<" -d - "<<gp.output_dir<<"/tmp"<<random_num<<".r1.fq.";
-		}else{
-			cmd1<<"split -l "<<split_line_num<<" -d "<<gp.fq1_path<<" "<<gp.output_dir<<"/tmp"<<random_num<<".r1.fq.";
-		}
-	}else if(type==2){
-		cerr<<"Error:pigz&split error"<<endl;
-		exit(1);
-	}
-	if(system(cmd1.str().c_str())==-1){
-		cerr<<"Error:pigz&split error"<<endl;
 		exit(1);
 	}
 }
@@ -991,52 +945,6 @@ void seProcess::merge_stat_nonssd(){
 			update_stat(se_local_clean_stat1[i],se_local_fs[i],"clean");
 		}
 	}
-}
-void seProcess::merge_data(){
-	if(!gp.trim_fq1.empty()){
-		string trim_file1;
-		trim_file1=gp.output_dir+"/"+gp.trim_fq1;
-		if(check_gz_empty(trim_file1)==1){
-			string rm_cmd="rm "+trim_file1;
-			system(rm_cmd.c_str());
-		}
-	}
-	if(!gp.clean_fq1.empty()){
-		string clean_file1;
-		clean_file1=gp.output_dir+"/"+gp.clean_fq1;
-		if(check_gz_empty(clean_file1)==1){
-			string rm_cmd="rm "+clean_file1;
-			system(rm_cmd.c_str());
-		}
-	}
-	for(int i=0;i!=gp.threads_num;i++){
-		if(!gp.trim_fq1.empty()){
-			ostringstream trim_out_fq1_tmp;
-			trim_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r1.fq.gz";
-			
-			if(access(trim_out_fq1_tmp.str().c_str(),0)!=-1){
-
-				ostringstream cat_cmd1;
-				cat_cmd1<<"cat "<<trim_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq1<<";rm "<<trim_out_fq1_tmp.str();
-				if(system(cat_cmd1.str().c_str())==-1){
-					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
-				}
-			}
-			
-		}
-		if(!gp.clean_fq1.empty()){
-			ostringstream clean_out_fq1_tmp;
-			clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1){
-				ostringstream cat_cmd1;
-				cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
-				if(system(cat_cmd1.str().c_str())==-1){
-					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
-				}
-			}
-		}
-	}
-	
 }
 void seProcess::merge_trim_data(){
 	if(!gp.trim_fq1.empty()){
@@ -1093,61 +1001,6 @@ void seProcess::merge_clean_data(){
 	}
 	
 }
-void seProcess::merge_data(int index){	//cat all output files to a single large file in limit output mode
-	if(!gp.trim_fq1.empty()){
-		string trim_file1;
-		trim_file1=gp.output_dir+"/"+gp.trim_fq1;
-		if(check_gz_empty(trim_file1)==1){
-			string rm_cmd="rm "+trim_file1;
-			system(rm_cmd.c_str());
-		}
-	}
-	if(!gp.clean_fq1.empty()){
-		string clean_file1;
-		clean_file1=gp.output_dir+"/"+gp.clean_fq1;
-		if(check_gz_empty(clean_file1)==1){
-			string rm_cmd="rm "+clean_file1;
-			system(rm_cmd.c_str());
-		}
-	}
-	for(int i=0;i!=gp.threads_num;i++){
-		if(!gp.trim_fq1.empty()){
-			ostringstream trim_out_fq1_tmp;
-			trim_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".trim.r1.fq.gz";
-			
-			if(access(trim_out_fq1_tmp.str().c_str(),0)!=-1){
-				ostringstream cat_cmd1;
-				cat_cmd1<<"cat "<<trim_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.trim_fq1<<";rm "<<trim_out_fq1_tmp.str();
-				if(system(cat_cmd1.str().c_str())==-1){
-					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
-				}
-			}
-			
-		}
-		if(!gp.clean_fq1.empty()){
-			ostringstream clean_out_fq1_tmp;
-			if(i==index){
-				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/last.r1.fq.gz";
-			}else{
-				clean_out_fq1_tmp<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-			}
-			if(access(clean_out_fq1_tmp.str().c_str(),0)!=-1){
-				ostringstream cat_cmd1;
-				if(i<=index){
-					cat_cmd1<<"cat "<<clean_out_fq1_tmp.str()<<" >>"<<gp.output_dir<<"/"<<gp.clean_fq1<<";rm "<<clean_out_fq1_tmp.str();
-					if(i==index){
-						cat_cmd1<<";rm "<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<i<<".clean.r1.fq.gz";
-					}
-				}else{
-					cat_cmd1<<"rm "<<clean_out_fq1_tmp.str();
-				}
-				if(system(cat_cmd1.str().c_str())==-1){
-					cerr<<"Error:cat file error,"<<cat_cmd1.str()<<endl;
-				}
-			}
-		}
-	}
-}
 void seProcess::merge_clean_data(int index){	//cat all output files to a single large file in limit output mode
 	if(!gp.clean_fq1.empty()){
 		string clean_file1;
@@ -1194,13 +1047,11 @@ void seProcess::create_thread_read(int index){
 void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 	of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
 	if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)){
-		//create_thread_outputFile(index);
 		create_thread_trimoutputFile(index);
 		create_thread_cleanoutputFile(index);
 	}else if(!gp.trim_fq1.empty()){
 		create_thread_trimoutputFile(index);
 	}
-	//create_thread_outputFile(index);
 	create_thread_read(index);
 	
 	char buf1[READBUF];
@@ -1225,7 +1076,7 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 				if(block_line_num1%4==0){
 					fastq1.qual_seq.assign(buf1);
 					fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
-					fq1s.push_back(fastq1);
+					fq1s.emplace_back(fastq1);
 					if(fq1s.size()==gp.patchSize){
 						if(index==0)
 							of_log<<get_local_time()<<" processed_reads:\t"<<file1_line_num/4<<endl;
@@ -1238,7 +1089,7 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 			}
 			file1_line_num++;
 		}else{
-			if(fq1s.size()>0){
+			if(!fq1s.empty()){
 				thread_process_reads(index,fq1s);
 				if(limit_end>0){
 					break;
@@ -1257,16 +1108,17 @@ void* seProcess::sub_thread_nonssd_realMultiThreads(int index){
 		gzclose(gz_trim_out1[index]);
 	}
 	if(!gp.clean_fq1.empty()){
-		if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false))
-			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+		if(gp.output_clean<=0 && !(gp.total_reads_num>0 && gp.total_reads_num_random==false)) {
+			if (gp.clean_fq1.rfind(".gz") == gp.clean_fq1.size() - 3) {
 				gzclose(gz_clean_out1[index]);
-			}else{
+			} else {
 				fclose(nongz_clean_out1[index]);
 			}
-			
+		}
 	}
 	check_disk_available();
 	of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+    return &se_bq_check;
 }
 void seProcess::process_nonssd(){
 	string mkdir_str="mkdir -p "+gp.output_dir;
@@ -1352,7 +1204,7 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 	SEstatOption opt_raw;
 	opt_raw.fq1s=&fq1s;
 	opt_raw.stat1=&se_local_raw_stat1[index];
-	stat_se_fqs(opt_raw);		//statistic raw fastqs
+	stat_se_fqs(opt_raw,"raw");		//statistic raw fastqs
 	fq1s.clear();
 	//add_raw_trim(se_local_raw_stat1[index],raw_cut);
 	
@@ -1360,7 +1212,7 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 	if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
 		opt_trim.fq1s=&trim_result1;
 		opt_trim.stat1=&se_local_trim_stat1[index];
-		stat_se_fqs(opt_trim);	//statistic trim fastqs
+		stat_se_fqs(opt_trim,"trim");	//statistic trim fastqs
 	}
 	/*
 	if(!gp.clean_fq1.empty()){
@@ -1371,7 +1223,7 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 	*/
 	//
 	if(!gp.trim_fq1.empty()){
-		seWrite(trim_result1,"trim",gz_trim_out1[index]);	//output trim files
+		seWrite(trim_result1,gz_trim_out1[index]);	//output trim files
 		trim_result1.clear();
 	}
 	if(!gp.clean_fq1.empty()){
@@ -1398,27 +1250,28 @@ void seProcess::thread_process_reads(int index,vector<C_fastq> &fq1s){
 			se_write_m.unlock();
 		}else{
 			if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
-				seWrite(clean_result1,"clean",gz_clean_out1[index]);	//output clean files
+				seWrite(clean_result1,gz_clean_out1[index]);	//output clean files
 			}else{
-				seWrite(clean_result1,"clean",nongz_clean_out1[index]);	//output clean files
+				seWrite(clean_result1,nongz_clean_out1[index]);	//output clean files
 			}
 			
 		}
 		opt_clean.fq1s=&clean_result1;
-		stat_se_fqs(opt_clean);	//statistic clean fastqs
+		stat_se_fqs(opt_clean,"clean");	//statistic clean fastqs
 		clean_result1.clear();
 		/*thread_write_m[index].lock();
 		thread pewrite_t(bind(&seProcess::peWrite,this,clean_result1,clean_result2,"clean",gz_clean_out1[index],gz_clean_out2[index]));
 		thread_write_m[index].unlock();*/
 		if(gp.is_streaming){
 			se_write_m.lock();
-			C_global_variable tmp_gv;
-			tmp_gv.fs=*(opt2.se_local_fs);
-			tmp_gv.raw1_stat=*(opt_raw.stat1);
-			//tmp_gv.trim1_stat=local_trim_stat1[index];
-			//tmp_gv.trim2_stat=local_trim_stat2[index];
-			tmp_gv.clean1_stat=*(opt_clean.stat1);
-			seStreaming_stat(tmp_gv);
+			C_global_variable* tmp_gv=new C_global_variable();
+			tmp_gv->fs=*(opt2.se_local_fs);
+			tmp_gv->raw1_stat=*(opt_raw.stat1);
+			//tmp_gv->trim1_stat=local_trim_stat1[index];
+			//tmp_gv->trim2_stat=local_trim_stat2[index];
+			tmp_gv->clean1_stat=*(opt_clean.stat1);
+			seStreaming_stat(*tmp_gv);
+			delete tmp_gv;
 			se_write_m.unlock();
 		}
 	}
@@ -1524,7 +1377,7 @@ void seProcess::process_some_reads(int index,int out_number){
 				if(file1_line_num%4==3){
 					fastq1.qual_seq.assign(buf1);
 					fastq1.qual_seq.erase(fastq1.qual_seq.size()-1);
-					fq1s.push_back(fastq1);
+					fq1s.emplace_back(fastq1);
 					if(fq1s.size()==gp.patchSize || fq1s.size()==rest_number){
 						of_log<<get_local_time()<<" last sticky thread processed reads:\t"<<file1_line_num/4<<endl;
 						//thread_process_reads(index,fq1s,fq2s);
@@ -1552,8 +1405,8 @@ void seProcess::limit_process_reads(int index,vector<C_fastq> &fq1s,gzFile gzfq1
 	SEstatOption opt_clean;
 	opt_clean.fq1s=&fq1s;
 	opt_clean.stat1=&se_local_clean_stat1[index];
-	stat_se_fqs(opt_clean);		//statistic raw fastqs
-	seWrite(fq1s,"clean",gzfq1);
+	stat_se_fqs(opt_clean,"raw");		//statistic raw fastqs
+	seWrite(fq1s,gzfq1);
 	fq1s.clear();
 }
 void seProcess::process(){
@@ -1627,7 +1480,7 @@ void seProcess::process(){
 		for(int i=0;i!=fq1_unprocess.size();i++){
 			if(fq1_unprocess[i]=='\n'){
 				if(line_num%4==3){
-					fq1s.push_back(fastq1);
+					fq1s.emplace_back(fastq1);
 					fastq1.seq_id.clear();
 					fastq1.sequence.clear();
 					fastq1.qual_seq.clear();
@@ -1653,8 +1506,13 @@ void seProcess::process(){
 		gzclose(gz_trim_out1[0]);
 	}
 	if(!gp.clean_fq1.empty()){
-		if(gp.output_clean<=0 && !(gp.l_total_reads_num>0 && gp.total_reads_num_random==false))
-			gzclose(gz_clean_out1[0]);
+		if(gp.output_clean<=0 && !(gp.l_total_reads_num>0 && gp.total_reads_num_random==false)) {
+			if (gp.clean_fq1.rfind(".gz") == gp.clean_fq1.size() - 3) {
+				gzclose(gz_clean_out1[0]);
+			} else {
+				fclose(nongz_clean_out1[0]);
+			}
+		}
 	}
 
 	//
@@ -1741,33 +1599,6 @@ void seProcess::make_tmpDir(){
 		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
 		exit(1);
 	}
-}
-void seProcess::output_fastqs2(int type,vector<C_fastq> &fq1,ofstream& outfile){
-	//m.lock();
-	string out_content;
-	for(int i=0;i!=fq1.size();i++){
-	//for(vector<C_fastq>::iterator i=fq1->begin();i!=fq1->end();i++){
-		if(gp.output_file_type=="fasta"){
-			fq1[i].seq_id=fq1[i].seq_id.replace(fq1[i].seq_id.find("@"),1,">");
-			out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n";
-		}else if(gp.output_file_type=="fastq"){
-			if(gp.outputQualityPhred!=gp.qualityPhred){
-				for(string::size_type ix=0;ix!=fq1[i].qual_seq.size();ix++){
-					fq1[i].qual_seq[ix]=(char)(fq1[i].qual_seq[ix]-gp.outputQualityPhred);
-				}
-			}
-			out_content+=fq1[i].seq_id+"\n"+fq1[i].sequence+"\n+\n"+fq1[i].qual_seq+"\n";
-		}else{
-			cerr<<"Error:output_file_type value error"<<endl;
-			exit(1);
-		}
-	}
-	if(gp.is_streaming){
-		cout<<out_content;
-	}else{
-		outfile<<out_content;
-	}
-	//m.unlock();
 }
 void seProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	//m.lock();
@@ -1919,33 +1750,11 @@ void seProcess::output_split_fastqs(string type,vector<C_fastq> &fq1){
 			gzwrite(gz_fq_se,out_content.c_str(),out_content.size());
 		}
 	}
-	//m.unlock();
 }
 void seProcess::seStreaming_stat(C_global_variable& local_gv){
 	cout<<"#Total_statistical_information"<<"\n";
-	/*int output_reads_num;
-	int in_adapter_list_num;
-	int include_adapter_seq_num;
-	int include_contam_seq_num;
-	int n_ratio_num;
-	int highA_num,polyX_num;
-	int tile_num,fov_num;
-	int low_qual_base_ratio_num;
-	int mean_quality_num;
-	int short_len_num,long_len_num;
-	int over_lapped_num;
-	int no_3_adapter_num,int_insertNull_num;
-	*/
 	int total=local_gv.fs.include_adapter_seq_num+local_gv.fs.include_contam_seq_num+local_gv.fs.low_qual_base_ratio_num+local_gv.fs.mean_quality_num+local_gv.fs.n_ratio_num+local_gv.fs.over_lapped_num+local_gv.fs.highA_num+local_gv.fs.polyX_num;
 	cout<<total<<" "<<local_gv.fs.include_adapter_seq_num<<" "<<local_gv.fs.include_contam_seq_num<<" "<<local_gv.fs.low_qual_base_ratio_num<<" "<<local_gv.fs.mean_quality_num<<" "<<local_gv.fs.n_ratio_num<<" "<<local_gv.fs.over_lapped_num<<" "<<local_gv.fs.highA_num<<" "<<local_gv.fs.polyX_num<<"\n";
-	/*int read_max_length;
-	int read_length;
-	int reads_number;
-	unsigned long long base_number;
-	unsigned long long a_number,c_number,g_number,t_number,n_number;
-	//unsigned long long a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
-	unsigned long long q20_num,q30_num;
-	*/
 	cout<<"#Fq1_statistical_information"<<"\n";
 	cout<<local_gv.raw1_stat.gs.read_length<<" "<<local_gv.clean1_stat.gs.read_length<<" "<<local_gv.raw1_stat.gs.reads_number<<" "<<local_gv.clean1_stat.gs.reads_number<<" "<<local_gv.raw1_stat.gs.base_number<<" "<<local_gv.clean1_stat.gs.base_number<<" "<<local_gv.raw1_stat.gs.a_number<<" "<<local_gv.clean1_stat.gs.a_number<<" "<<local_gv.raw1_stat.gs.c_number<<" "<<local_gv.clean1_stat.gs.c_number<<" "<<local_gv.raw1_stat.gs.g_number<<" "<<local_gv.clean1_stat.gs.g_number<<" "<<local_gv.raw1_stat.gs.t_number<<" "<<local_gv.clean1_stat.gs.t_number<<" "<<local_gv.raw1_stat.gs.n_number<<" "<<local_gv.clean1_stat.gs.n_number<<" "<<local_gv.raw1_stat.gs.q20_num<<" "<<local_gv.clean1_stat.gs.q20_num<<" "<<local_gv.raw1_stat.gs.q30_num<<" "<<local_gv.clean1_stat.gs.q30_num<<"\n";
 	cout<<"#Base_distributions_by_read_position"<<"\n";

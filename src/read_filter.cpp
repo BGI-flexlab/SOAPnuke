@@ -465,7 +465,7 @@ vector<int> hasContams(string& ref_sequence,string& contam,C_global_parameter& g
 		for(int i=0;i!=contams.size();i++){
 			float tmp_mr=atof(mrs[i].c_str());
 			int tmp_pos=hasContam(ref_sequence,contams[i],gp,tmp_mr);
-			return_poses.push_back(tmp_pos);
+			return_poses.emplace_back(tmp_pos);
 			if(tmp_pos>=0 && tmp_pos<gp.min_read_length){
 				break;
 			}
@@ -756,6 +756,7 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
         }
         return -1;
 	}
+    return -1;
 }
 int sRNA_findAdapter(string sequence,string adapter,C_global_parameter& gp)
 {
@@ -921,7 +922,7 @@ vector<int> hasGlobalContams(string& ref_sequence,C_global_parameter& gp){
 		}else{
 			push_pos=reverse_pos;
 		}
-		return_poses.push_back(push_pos);
+		return_poses.emplace_back(push_pos);
 		if(push_pos>=0 && push_pos<gp.min_read_length){
 			break;
 		}

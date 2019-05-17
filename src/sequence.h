@@ -10,7 +10,7 @@
 
 class C_sequence_stat_result{	//basic sequence stat information
 public:
-	C_sequence_stat_result():seq_len(0),a_num(0),c_num(0),g_num(0),t_num(0),n_num(0),contig_base(0){};
+	C_sequence_stat_result():seq_len(0),a_num(0),c_num(0),g_num(0),t_num(0),n_num(0),contig_base(0),a_ratio(0),c_ratio(0),g_ratio(0),t_ratio(0),n_ratio(0),gc_ratio(0){};
 	int seq_len;
 	int a_num,c_num,g_num,t_num,n_num;
 	float a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
@@ -19,7 +19,7 @@ public:
 };
 class C_fastq_stat_result:public C_sequence_stat_result{	//fastq stat information
 public:
-	C_fastq_stat_result():in_adapter_list(0),include_contam(-1),include_global_contam(-1),include_5_adapter(false),include_3_adapter(-1),include_adapter_seq(-1),qual_len(0),low_qual_base_num(0){};
+	C_fastq_stat_result():in_adapter_list(0),include_contam(-1),include_global_contam(-1),include_5_adapter(false),include_3_adapter(-1),include_adapter_seq(-1),qual_len(0),low_qual_base_num(0),low_qual_base_ratio(0),mean_quality(0),q20_num(0),q30_num(0){};
 	bool in_adapter_list;
 	int include_adapter_seq;
 	bool include_5_adapter;	//only used in sRNA
@@ -42,21 +42,18 @@ public:
 
 class C_sequence{	//sequence
 public:
-	void output();
+	//void output();
 	string sequence;
 };
 
 class C_fasta:public C_sequence{	//fasta
 public:
-	void output();
+	//void output();
 	string seq_name;
 };
 
 class C_fastq:public C_sequence{	//fastq,include adapter seq and trim information
 public:
-	void output();
-	void output2(int type,C_global_parameter gp,gzFile outfile);
-	void clear();
 	string seq_id;
 	string qual_seq;
 	string adapter_seq;
@@ -72,7 +69,7 @@ public:
 };
 class C_pe_fastq{	//pe fastq
 public:
-	void output();
+	//void output();
 	C_fastq fastq1;
 	C_fastq fastq2;
 };
@@ -102,23 +99,6 @@ public:
 	int sRNA_discard(C_filter_stat* fs,C_global_parameter& gp);
 };
 
-class C_pe_fastqs_filter{	//pe fastqs filter,not used in the code
-public:
-	C_pe_fastqs_filter(vector<string> seq_id1,vector<string> sequence1,vector<string> qual_seq1,vector<string> seq_id2,vector<string> sequence2,vector<string> qual_seq2,C_global_parameter gp,C_global_variable& gv);
-	//void pe_trim();
-	//void pe_discard();
-	void pe_output(C_global_parameter gp,gzFile outfile1,gzFile outfile2);
-	vector<string> v_seq_id1;
-	vector<string> v_sequence1;
-	vector<string> v_qual_seq1;
-	vector<string> v_seq_id2;
-	vector<string> v_sequence2;
-	vector<string> v_qual_seq2;
-	//vector<int> trimmed_index;
-	vector<int> filtered_index;
-	//vector<int> output_index;
-	int reads_num;
-};
 
 
 #endif
