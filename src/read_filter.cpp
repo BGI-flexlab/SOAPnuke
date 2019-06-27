@@ -129,7 +129,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
         if(gp.seq_type=="0"){
             for(i=0;i<seq_id_len;i++){
                 if(fq_read.seq_id[i]=='C')
-                    if(i+8<fq_read.seq_id.size() && fq_read.seq_id[i+4]=='R' && fq_read.seq_id[i+8]=='_')
+                    if(i+8<fq_read.seq_id.size() && fq_read.seq_id[i+4]=='R')
                         break;
             }
         }else{
