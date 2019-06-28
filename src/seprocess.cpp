@@ -923,7 +923,7 @@ void seProcess::merge_stat(){
 	}
 }
 void seProcess::merge_stat(int index){
-	for(int i=0;i<=gp.threads_num;i++){
+	for(int i=0;i!=gp.threads_num;i++){
 		update_stat(se_local_raw_stat1[i],se_local_fs[i],"raw");
 		if(!gp.trim_fq1.empty()){
 			update_stat(se_local_trim_stat1[i],se_local_fs[i],"trim");
