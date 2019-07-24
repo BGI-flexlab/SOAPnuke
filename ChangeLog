@@ -110,7 +110,7 @@ SOAPnuke Change Log
 	* 修复了Adapter过滤的bug
 	* 添加了污染物过滤功能
 
-2018-8-17 <chenyuxin@genomics.cn>
+2018-8-17 <gongchun@genomics.cn>
 	* 版本升级为2.0 beta
 	* 保留了之前的filter，filterMeta和filtersRNA模块，删除了filterDGE模块，如有需求，后续添加。
 	* 统一了模块间的运行逻辑，除了adapter检测部分的算法差异，其它类似。主要步骤包括统计原始数据，过滤原始数据，统计过滤后的原始数据。
@@ -121,13 +121,41 @@ SOAPnuke Change Log
 	* 去除了rmdup去重复功能
 	* 当增加线程数时，运行效率得到显著提升。1.3G reads（PE50）在非ssd模式16线程下运行时间为70min左右
 
-2018-12-1 <chenyuxin@genomics.cn>
+2018-12-1 <gongchun@genomics.cn>
 	* 版本升级为2.0.1
 	* 修正了若干Bug
 	* 修改了过滤后fastq文件的split模块
 	* 放宽了adapter检测条件
 
-2018-12-26 <chenyuxin@genomics.cn>
+2018-12-26 <gongchun@genomics.cn>
 	* 版本升级为2.0.2
 	* 保证了多线程输出结果的顺序一致
 	* 降低内存和提升速度
+
+2019-1-10 <gongchun@genomics.cn>
+	* 版本升级为2.0.3
+	* SE trimming 和 fov 过滤部分的debug
+
+2019-2-1 <gongchun@genomics.cn>
+	* 版本升级为2.0.5
+	* 增加对过滤后数据提取的功能
+	* 修复程序在读取数据被打断或读取过多内容时引发的bug
+
+2019-3-31 <gongchun@genomics.cn>
+	* 版本升级为2.0.6
+	* 修复了不稳定输出的bug
+	* 优化了全局污染物匹配算法
+
+2019-5-17 <gongchun@genomics.cn>
+	* 版本升级为2.0.7
+	* 修复了在MaxOS上运行引发的bug，以及其他bug
+
+2019-6-28 <gongchun@genomics.cn>
+	* 版本升级为2.0.8
+	* 升级了README的内容，以顺应2.X的版本
+	* 优化了fov的匹配算法
+
+2019-7-24 <gongchun@genomics.cn>
+	* 版本升级为2.1.0
+	* 将输出顺序改为输入文件中的reads顺序，显著提升了split功能速度
+	* 增强了随机提取reads数目的随机性
