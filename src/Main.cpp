@@ -15,18 +15,10 @@ int main(int argc,char* argv[]){
 	check_parameter(argc,argv,gp);	//check global parameter whether correct
 	if(!gp.fq2_path.empty()){	//PE data
 		peProcess new_task(gp);
-		if(gp.mode=="ssd"){	//ssd mode
-			new_task.process();
-		}else{	//non ssd mode
-			new_task.process_nonssd();
-		}
+        new_task.process();
 	}else{	//SE data
 		seProcess new_task(gp);
-		if(gp.mode=="ssd"){
-			new_task.process();
-		}else{
-			new_task.process_nonssd();
-		}
+        new_task.process();
 	}
 	return 0;
 }

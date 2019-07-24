@@ -134,11 +134,35 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
         {
             //case 'E':gp.mode.assign(optarg);break;
             case 'j':gp.is_streaming=true;break;
-            case '1':gp.fq1_path.assign(optarg);break;
+            case '1':{
+                gp.fq1_path.assign(optarg);
+                if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
+                    gp.inputGzformat=true;
+                }else{
+                    gp.inputGzformat=false;
+                }
+                break;
+            }
             case '2':gp.fq2_path.assign(optarg);break;
-            case 'R':gp.trim_fq1.assign(optarg);break;
+            case 'R':{
+                gp.trim_fq1.assign(optarg);
+                if(gp.trim_fq1.rfind(".gz")==gp.trim_fq1.size()-3){
+                    gp.trimOutGzformat=true;
+                }else{
+                    gp.trimOutGzformat=false;
+                }
+                break;
+            }
             case 'W':gp.trim_fq2.assign(optarg);break;
-            case 'C':gp.clean_fq1.assign(optarg);break;
+            case 'C':{
+                gp.clean_fq1.assign(optarg);
+                if(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3){
+                    gp.cleanOutGzFormat=true;
+                }else{
+                    gp.cleanOutGzFormat=false;
+                }
+                break;
+            }
             case 'D':gp.clean_fq2.assign(optarg);break;
             case 'o':gp.output_dir.assign(optarg);break;
             case '5':gp.seq_type.assign(optarg);break;
@@ -198,9 +222,10 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                 tmp_str.assign(optarg);
                 if(tmp_str.find("head")==string::npos){
                     gp.total_reads_num_random=true;
+                    //gp.catWhenrunning=false;
                     for(int i=0;i!=tmp_str.size();i++){
                         if(!isdigit(tmp_str[i]) && tmp_str[i]!='.'){
-                            cerr<<"Error:-L value should be a integer or float"<<endl;
+                            cerr<<"Error:-L value should be a positive integer or float"<<endl;
                             exit(1);
                         }
                     }
@@ -213,13 +238,18 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     }else{
                         for(int i=0;i!=tmp_str.size();i++){
                             if(!isdigit(tmp_str[i])){
-                                cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
+                                cerr<<"Error:-L value should be an integer when with head suffix"<<endl;
                                 exit(1);
                             }
                         }
                     }
                 }
+
                 float tmp_val=atof(optarg);
+                if(tmp_val==0){
+                    cerr<<"Error:-L value should be a positive integer or float"<<endl;
+                    exit(1);
+                }
                 gp.total_reads_num=tmp_val;
                 if(tmp_val<1){
                     gp.f_total_reads_ratio=tmp_val;
@@ -233,10 +263,78 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                 }
                 break;
             }
-            case 'w':gp.output_clean=atoi(optarg);break;
-            case 'M':gp.adaMis=atoi(optarg);wrong_paras["filtersRNA"].emplace_back("-M|--adaMis");break;
-            case 'A':gp.adaMR=atof(optarg);wrong_paras["filtersRNA"].emplace_back("-A|adaMR");break;
-            case '9':gp.adaEdge=atoi(optarg);wrong_paras["filtersRNA"].emplace_back("-9|--adaEdge");break;
+            case 'w':{
+                string paraCheck(optarg);
+                for(int i=0;i!=paraCheck.size();i++){
+                    if(!isdigit(paraCheck[i])){
+                        cerr<<"Error:-w value should be a positive integer"<<endl;
+                        exit(1);
+                    }
+                }
+                gp.cleanOutSplit=atoi(paraCheck.c_str());
+                if(gp.cleanOutSplit==0){
+                    cerr<<"Error:-w value should be a positive integer"<<endl;
+                    exit(1);
+                }
+                break;
+            }
+            case 'M':{
+                wrong_paras["filtersRNA"].emplace_back("-M|--adaMis");
+                string tmp_str;
+                tmp_str.assign(optarg);
+                if(tmp_str.find(",")==string::npos){
+                    gp.adaMis=atoi(optarg);
+                    gp.adaMis2=gp.adaMis;
+                }else{
+                    vector<string> values;
+                    line_split(tmp_str,',',values);
+                    if(values.size()<2){
+                        cerr<<"Error:expected two values in -M parameter"<<endl;
+                        exit(1);
+                    }
+                    gp.adaMis=atoi(values[0].c_str());
+                    gp.adaMis2=atoi(values[1].c_str());
+                }
+                break;
+            }
+            case 'A':{
+                wrong_paras["filtersRNA"].emplace_back("-A|adaMR");
+                string tmp_str;
+                tmp_str.assign(optarg);
+                if(tmp_str.find(",")==string::npos){
+                    gp.adaMR=atof(optarg);
+                    gp.adaMR2=gp.adaMR;
+                }else{
+                    vector<string> values;
+                    line_split(tmp_str,',',values);
+                    if(values.size()<2){
+                        cerr<<"Error:expected two values in -A parameter"<<endl;
+                        exit(1);
+                    }
+                    gp.adaMR=atof(values[0].c_str());
+                    gp.adaMR2=atof(values[1].c_str());
+                }
+                break;
+            }
+            case '9':{
+                wrong_paras["filtersRNA"].emplace_back("-9|--adaEdge");
+                string tmp_str;
+                tmp_str.assign(optarg);
+                if(tmp_str.find(",")==string::npos){
+                    gp.adaEdge=atoi(optarg);
+                    gp.adaEdge2=gp.adaEdge;
+                }else{
+                    vector<string> values;
+                    line_split(tmp_str,',',values);
+                    if(values.size()<2){
+                        cerr<<"Error:expected two values in -9 parameter"<<endl;
+                        exit(1);
+                    }
+                    gp.adaEdge=atoi(values[0].c_str());
+                    gp.adaEdge2=atoi(values[1].c_str());
+                }
+                break;
+            }
             case 'S':gp.adaRCtg=atoi(optarg);wrong_paras["filter"].emplace_back("-S|--adaRCtg");break;
             case 's':gp.adaRAr=atof(optarg);wrong_paras["filter"].emplace_back("-s|--adaRAr");break;
             case 'U':gp.adaRMa=atoi(optarg);wrong_paras["filter"].emplace_back("-U|--adaRMa");break;
@@ -264,7 +362,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
         gp.mode="ssd";
     }
     if(gp.patchSize==0){
-        gp.patchSize=gp.threads_num*10000/8;
+        gp.patchSize=gp.threads_num*20000/8;
     }
     /*
     int min_adapter_length=gp.adapter1_seq.size()>gp.adapter2_seq.size()?gp.adapter2_seq.size():gp.adapter1_seq.size();
@@ -307,7 +405,7 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
                 cerr<<"Error:the format of clean fastq1 is inconsistent with fastq2"<<endl;
                 exit(1);
             }
-            if(gp.output_clean>0 || gp.total_reads_num>0){
+            if(gp.cleanOutSplit>0 || gp.total_reads_num>0){
                 if(gp.clean_fq1.rfind(".gz")!=gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")!=gp.clean_fq2.size()-3){
                     cerr<<"Error:the clean out fastq should be non-gz format when clean output reads are limited"<<endl;
                     exit(1);
@@ -395,7 +493,7 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
             }
         }
     }
-    if(gp.output_clean!=0 && gp.output_clean<gp.patchSize){
+    if(gp.cleanOutSplit!=0 && gp.cleanOutSplit<gp.patchSize){
         cerr<<"Error: output reads in each clean fastq file(-w) should be more than patch size(-e)"<<endl;
         exit(1);
     }
@@ -458,22 +556,20 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
             cerr<<"Error:base_convert value format error"<<endl;
             exit(1);
         }else{
-            char sep=gp.base_convert.find("TO")!=string::npos?'O':'2';
-            gp.base_convert.replace(gp.base_convert.find("TO"),2,"O");
-            vector<string> tmp_eles;
-            line_split(gp.base_convert,sep,tmp_eles);
-            if(tmp_eles[0].size()!=1 || acgt_s.find(tmp_eles[0])==acgt_s.end() || tmp_eles[1].size()!=1 || acgt_s.find(tmp_eles[1])==acgt_s.end()){
+            string firstC=gp.base_convert.substr(0,1);
+            string lastC=gp.base_convert.substr(gp.base_convert.size()-1,1);
+            if(acgt_s.find(firstC)==acgt_s.end() || acgt_s.find(lastC)==acgt_s.end()){
                 cerr<<"Error:base_convert value format error"<<endl;
                 exit(1);
             }
         }
     }
-    if(gp.output_clean>0 && gp.total_reads_num>0){
+    if(gp.cleanOutSplit>0 && gp.total_reads_num>0){
         cerr<<"Error:-w and -L cannot be both assigned"<<endl;
         exit(1);
     }
-    if(gp.output_clean>0){
-        gp.clean_file_reads=gp.output_clean;
+    if(gp.cleanOutSplit>0){
+        gp.clean_file_reads=gp.cleanOutSplit;
     }else if(gp.l_total_reads_num>0){
         gp.clean_file_reads=gp.l_total_reads_num;
     }
@@ -512,8 +608,8 @@ void printUsage(string c_module){
     cout << "\t-8, --outFileType\tSTR\t\toutput file format: fastq or fasta[fastq]\n";
     cout << "\t-0, --log\t\tSTR\t\tlog file\n";
     cout << "\n";
-    cout << "\t-f, --adapter1\t\tSTR\t\tadapter sequence of fq1 file (5' adapter when filtersRNA mode)\n";
-    cout << "\t-r, --adapter2\t\tSTR\t\tadapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)\n";
+    cout << "\t-f, --adapter1\t\tSTR\t\tadapter sequence of fq1 file\n";
+    cout << "\t-r, --adapter2\t\tSTR\t\tadapter sequence of fq2 file (if PE)\n";
     cout << "\t-Z, --contam1\t\tSTR\t\tcontaminant sequence(s) for fq1 file, split by comma\n";
     cout << "\t-z, --contam2\t\tSTR\t\tcontaminant sequence(s) for fq2 file, split by comma\n";
     cout << "\t-Y, --ctMatchR\t\tFLOAT/STR\tcontam's shortest consistent matching ratio [default:0.2]\n";
@@ -523,8 +619,8 @@ void printUsage(string c_module){
     cout << "\t-5, --seqType\t\tINT\t\tSequence fq name type, 0->old fastq name, 1->new fastq name [0]\n";
     cout << "\t\t\t\t\t\t\t\told fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
     cout << "\t\t\t\t\t\t\t\tnew fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
-    cout << "\t-R, --trimFq1\t\tSTR\t\ttrim fq1 file name(gz format)\n";
-    cout << "\t-W, --trimFq2\t\tSTR\t\ttrim fq2 file name\n";
+    cout << "\t-R, --trimFq1\t\tSTR\t\ttrim fq1 file name(gz format)[optional]\n";
+    cout << "\t-W, --trimFq2\t\tSTR\t\ttrim fq2 file name[optional]\n";
     cout << "\t-K, --tile\t\tSTR\t\ttile number to ignore reads, such as [1101-1104,1205]\n";
     cout << "\t-F, --fov\t\tSTR\t\tfov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
     cout << "\tAdapter related:\n";
@@ -532,9 +628,9 @@ void printUsage(string c_module){
     cout << "\t-a, --contam_trim\t\t\ttrim read when find contam[default:discard]\n";
     if(c_module=="filter" || c_module=="filtermeta"){
         //cout << "filter and filtermeta module adapter related parameter\n";
-        cout << "\t-M, --adaMis\t\tINT\t\tthe max mismatch number when match the adapter (depend on -f/-r)  [1]\n";
-        cout << "\t-A, --adaMR\t\tFLOAT\t\tadapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
-        cout << "\t-9, --adaEdge\t\tINT\t\tthe min length for segmental alignment [6]\n";
+        cout << "\t-M, --adaMis\t\tINT,[INT]\tthe max mismatch number when match the adapter (depend on -f/-r).If different values are required for fq1 and fq2, you can set two values seperated by comma,e.g. 1,2 (same as -A/-9)[1]\n";
+        cout << "\t-A, --adaMR\t\tFLOAT,[FLOAT]\tadapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
+        cout << "\t-9, --adaEdge\t\tINT,[INT]\tthe min length for segmental alignment [6]\n";
     }else if(c_module=="filtersRNA"){
         //cout << "filtersRNA module adapter related parameter\n";
     cout << "  find 5' adapter\n";
@@ -579,7 +675,7 @@ void printUsage(string c_module){
     cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";
     cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
     cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
-    cout << "\t-w, --output_clean\tINT\t\tmax reads number in each output clean fastq file\n";
+    cout << "\t-w, --cleanOutSplit\tINT\t\tmax reads number in each output clean fastq file\n";
 //      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
     
     
@@ -591,7 +687,7 @@ void printUsage(string c_module){
     cout << "\t-h, --help\t\t\t\thelp" << endl;
     cout << "\t-v, --version\t\t\t\tshow version" << endl;
     if(c_module=="filter"){
-        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01 -M 2 --adaMR 0.5 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 16"<<endl;
+        cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01  -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 8"<<endl;
     }
     exit(1);
 }

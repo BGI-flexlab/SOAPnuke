@@ -174,8 +174,12 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 //C_pe_fastq_filter::C_pe_fastq_filter(C_single_fastq_filter a,C_single_fastq_filter b,C_global_parameter gp){
 
 C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& gp){
+	C_global_parameter gp2=gp;
+	gp2.adaMis=gp2.adaMis2;
+	gp2.adaMR=gp2.adaMR2;
+	gp2.adaEdge=gp2.adaEdge2;
 	C_single_fastq_filter fastq1=C_single_fastq_filter(a,gp);
-	C_single_fastq_filter fastq2=C_single_fastq_filter(b,gp);
+	C_single_fastq_filter fastq2=C_single_fastq_filter(b,gp2);
 	fq1=fastq1.read;
 	fq2=fastq2.read;
 	//reads_result.fastq1_result=stat_read(fastq1.read,gp);
