@@ -19,7 +19,7 @@ public:
 //quartile_result cal_quar_from_map(map<int,int> data);
 quartile_result cal_quar_from_array(long long data[],int len);
 vector<string> get_pe_hard_trim(string a);
-//vector<string> get_se_hard_trim(string a);
+vector<string> get_se_hard_trim(string a);
 void check_gz_file(string a);
 int check_gz_empty(string a);
 //void remove_space(string &a);

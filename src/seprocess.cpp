@@ -713,7 +713,7 @@ void seProcess::C_fastq_init(C_fastq& a){
 		a.adapter_seq2=gp.adapter2_seq;
 	}
 	if(!gp.trim.empty()){
-		vector<string> tmp_eles=get_pe_hard_trim(gp.trim);
+		vector<string> tmp_eles=get_se_hard_trim(gp.trim);
 		a.head_trim_len=tmp_eles[0];
 		a.tail_trim_len=tmp_eles[1];
 	}
@@ -760,6 +760,16 @@ void* seProcess::sub_thread(int index){
     long long block_line_num1(0);
     int thread_read_block=4*gp.patchSize*patch;
     vector<C_fastq> fq1s;
+    gzFile tmpRead=gzopen((gp.fq1_path).c_str(), "rb");
+    int spaceNum=0;
+    if (gzgets(tmpRead, buf1, READBUF) != NULL){
+        string tmpLine(buf1);
+        while(isspace(tmpLine[tmpLine.size()-1])){
+            spaceNum++;
+            tmpLine.erase(tmpLine.size()-1);
+        }
+    }
+    gzclose(tmpRead);
     bool inputGzformat=true;
     if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
         inputGzformat=true;
@@ -773,13 +783,13 @@ void* seProcess::sub_thread(int index){
                     block_line_num1++;
                     if (block_line_num1 % 4 == 1) {
                         fastq1.seq_id.assign(buf1);
-                        fastq1.seq_id.erase(fastq1.seq_id.size() - 1, 1);
+                        fastq1.seq_id.erase(fastq1.seq_id.size() - spaceNum, spaceNum);
                     } else if (block_line_num1 % 4 == 2) {
                         fastq1.sequence.assign(buf1);
-                        fastq1.sequence.erase(fastq1.sequence.size() - 1, 1);
+                        fastq1.sequence.erase(fastq1.sequence.size() - spaceNum, spaceNum);
                     } else if (block_line_num1 % 4 == 0) {
                         fastq1.qual_seq.assign(buf1);
-                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - 1, 1);
+                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - spaceNum, spaceNum);
                         fq1s.emplace_back(fastq1);
                         if (fq1s.size() == gp.patchSize) {
                             if (end_sub_thread == 1) {
@@ -824,13 +834,13 @@ void* seProcess::sub_thread(int index){
                     block_line_num1++;
                     if (block_line_num1 % 4 == 1) {
                         fastq1.seq_id.assign(buf1);
-                        fastq1.seq_id.erase(fastq1.seq_id.size() - 1, 1);
+                        fastq1.seq_id.erase(fastq1.seq_id.size() - spaceNum, spaceNum);
                     } else if (block_line_num1 % 4 == 2) {
                         fastq1.sequence.assign(buf1);
-                        fastq1.sequence.erase(fastq1.sequence.size() - 1, 1);
+                        fastq1.sequence.erase(fastq1.sequence.size() - spaceNum, spaceNum);
                     } else if (block_line_num1 % 4 == 0) {
                         fastq1.qual_seq.assign(buf1);
-                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - 1, 1);
+                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - spaceNum, spaceNum);
                         fq1s.emplace_back(fastq1);
                         if (fq1s.size() == gp.patchSize) {
                             if (end_sub_thread == 1) {

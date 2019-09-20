@@ -1452,6 +1452,16 @@ void* peProcess::sub_thread(int index){
 	int thread_read_block=4*gp.patchSize*patch;
 	vector<C_fastq> fq1s,fq2s;
 	bool inputGzformat=true;
+	gzFile tmpRead=gzopen((gp.fq1_path).c_str(), "rb");
+	int spaceNum=0;
+    if (gzgets(tmpRead, buf1, READBUF) != NULL){
+        string tmpLine(buf1);
+        while(isspace(tmpLine[tmpLine.size()-1])){
+            spaceNum++;
+            tmpLine.erase(tmpLine.size()-1);
+        }
+    }
+    gzclose(tmpRead);
 	if(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3){
 	    inputGzformat=true;
 	}else{
@@ -1465,15 +1475,15 @@ void* peProcess::sub_thread(int index){
                     block_line_num1++;
                     if (block_line_num1 % 4 == 1) {
                         fastq1.seq_id.assign(buf1);
-                        fastq1.seq_id.erase(fastq1.seq_id.size() - 1);
+                        fastq1.seq_id.erase(fastq1.seq_id.size() - spaceNum,spaceNum);
                     }
                     if (block_line_num1 % 4 == 2) {
                         fastq1.sequence.assign(buf1);
-                        fastq1.sequence.erase(fastq1.sequence.size() - 1);
+                        fastq1.sequence.erase(fastq1.sequence.size() - spaceNum,spaceNum);
                     }
                     if (block_line_num1 % 4 == 0) {
                         fastq1.qual_seq.assign(buf1);
-                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - 1);
+                        fastq1.qual_seq.erase(fastq1.qual_seq.size() - spaceNum,spaceNum);
                     }
                 }
                 file1_line_num++;
@@ -1483,13 +1493,13 @@ void* peProcess::sub_thread(int index){
                     block_line_num2++;
                     if (block_line_num2 % 4 == 1) {
                         fastq2.seq_id.assign(buf2);
-                        fastq2.seq_id.erase(fastq2.seq_id.size() - 1, 1);
+                        fastq2.seq_id.erase(fastq2.seq_id.size() - spaceNum,spaceNum);
                     } else if (block_line_num2 % 4 == 2) {
                         fastq2.sequence.assign(buf2);
-                        fastq2.sequence.erase(fastq2.sequence.size() - 1, 1);
+                        fastq2.sequence.erase(fastq2.sequence.size() - spaceNum,spaceNum);
                     } else if (block_line_num2 % 4 == 0) {
                         fastq2.qual_seq.assign(buf2);
-                        fastq2.qual_seq.erase(fastq2.qual_seq.size() - 1, 1);
+                        fastq2.qual_seq.erase(fastq2.qual_seq.size() - spaceNum,spaceNum);
                         fq1s.emplace_back(fastq1);
                         fq2s.emplace_back(fastq2);
 
