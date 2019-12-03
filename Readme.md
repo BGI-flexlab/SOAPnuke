@@ -1,5 +1,6 @@
 ## Getting started	
 	For 2.X:
+	# Make sure you have ZLIB version >= 1.2.3.5.
 	make
 	./SOAPnuke
 
@@ -109,7 +110,7 @@ Module **filter** has following paramters for running:
 ## Availability
 
 SOAPnuke is released under [GPLv3][1]. The latest source code is [freely
-available at github][2]. Before compiling our program, please make sure that you have installed these following libraries: boost, zlib, log4cplus (1.0.3) and openssl. After you acquire the source code, modify the **CmakeLists.txt** according to locations of libraries mentioned above. Then, you can use `cmake .` and `make` to compile.
+available at github][2]. 
 
 ## Frequently asked questions (FAQs)
 
