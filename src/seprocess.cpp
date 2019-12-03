@@ -34,7 +34,8 @@ seProcess::seProcess(C_global_parameter m_gp){
 	gz_clean_out1=new gzFile[gp.threads_num];
 	nongz_clean_out1=new FILE*[gp.threads_num];
 	multi_gzfq1=new gzFile[gp.threads_num];
-	gzFile* multi_gzfq1;
+    multi_Nongzfq1=new FILE*[gp.threads_num];
+	//gzFile* multi_gzfq1;
 
 	se_local_fs=new C_filter_stat[gp.threads_num];
 	se_local_raw_stat1=new C_fastq_file_stat[gp.threads_num];
