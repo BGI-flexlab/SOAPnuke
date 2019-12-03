@@ -12,7 +12,7 @@ using namespace::std;
 #define PACKAGEVERSION "2.1"
 #endif
 #ifndef MINORVERSION
-#define MINORVERSION "0"
+#define MINORVERSION "1"
 #endif
 void check_module(int argc,char* argv[]);
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp);

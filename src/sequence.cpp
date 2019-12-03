@@ -58,7 +58,7 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 	}
 	
 	if(gp.polyX_num!=-1){
-		if(read_result.contig_base>gp.polyX_num){	//check polyX ratio whether is too high
+		if(read_result.contig_base>=gp.polyX_num){	//check polyX ratio whether is too high
 			fs->polyX_num++;
 			min_value=1;
 			return min_value;
@@ -137,7 +137,7 @@ int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 		}
 	}
 	if(gp.polyX_num!=-1){
-		if(read_result.contig_base>gp.polyX_num){	//check polyX ratio whether is too high
+		if(read_result.contig_base>=gp.polyX_num){	//check polyX ratio whether is too high
 			fs->polyX_num++;
 			min_value=1;
 			return min_value;
@@ -299,7 +299,7 @@ int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 		}
 	}
 	if(gp.polyX_num!=-1){
-		int v=pe_dis(reads_result.fastq1_result.contig_base>gp.polyX_num,reads_result.fastq2_result.contig_base>gp.polyX_num);	//check polyX ratio whether is too high
+		int v=pe_dis(reads_result.fastq1_result.contig_base>=gp.polyX_num,reads_result.fastq2_result.contig_base>=gp.polyX_num);	//check polyX ratio whether is too high
 		if(v>0){
 			switch(v){
 				case 1:fs->polyX_num1++;break;

@@ -256,6 +256,7 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 				contig_base=1;
 			}
 		}
+        last_char=fq_read.sequence[ix];
 		switch((fq_read.sequence)[ix]){
 		//switch((fq_read.sequence)[ix]){
 			case 'a':
@@ -332,7 +333,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 	bool ht_flag(0),lqt_flag(0),index_flag(0),ada_trim_flag(0),contam_trim_flag(0);
 	if(!hard_trim.empty())
 		ht_flag=1;
-	if(!low_qual_head_trim.empty() && !low_qual_tail_trim.empty())
+	if(!low_qual_head_trim.empty() || !low_qual_tail_trim.empty())
 		lqt_flag=1;
 	if(gp.index_remove)
 		index_flag=1;
@@ -362,17 +363,21 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 		}
 		if(lqt_flag){	//low quality end trim
 			vector<string> head_eles,tail_eles;
-			int head_low_qual_threshold,head_low_qual_trim_length_limit,tail_low_qual_threshold,tail_low_qual_trim_length_limit;
+			int head_low_qual_threshold(0),head_low_qual_trim_length_limit(0),tail_low_qual_threshold(0),tail_low_qual_trim_length_limit(0);
 			line_split(low_qual_head_trim,',',head_eles);
 			line_split(low_qual_tail_trim,',',tail_eles);
-			if(head_eles.size()!=2 || tail_eles.size()!=2){
+			if(head_eles.size()!=2 && tail_eles.size()!=2){
 				cerr<<"Error:low quality base at end format error,"<<low_qual_head_trim<<" "<<low_qual_head_trim<<endl;
 				exit(1);
 			}
-			head_low_qual_threshold=atoi(head_eles[0].c_str());
-			head_low_qual_trim_length_limit=atoi(head_eles[1].c_str());
-			tail_low_qual_threshold=atoi(tail_eles[0].c_str());
-			tail_low_qual_trim_length_limit=atoi(tail_eles[1].c_str());
+			if(head_eles.size()==2) {
+                head_low_qual_threshold = atoi(head_eles[0].c_str());
+                head_low_qual_trim_length_limit = atoi(head_eles[1].c_str());
+            }
+			if(tail_eles.size()==2) {
+                tail_low_qual_threshold = atoi(tail_eles[0].c_str());
+                tail_low_qual_trim_length_limit = atoi(tail_eles[1].c_str());
+            }
 			int qual_basis=gp.qualityPhred;
 			int head_ix(0),tail_ix(0);
 			for(int ix=0;ix!=head_low_qual_trim_length_limit;ix++){
@@ -385,7 +390,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			}
 			for(int ix=0;ix!=tail_low_qual_trim_length_limit;ix++){
 				int base_quality=read.qual_seq[read.qual_seq.size()-ix-1]-qual_basis;
-				if(base_quality<head_low_qual_threshold){
+				if(base_quality<tail_low_qual_threshold){
 					tail_ix++;
 				}else{
 					break;

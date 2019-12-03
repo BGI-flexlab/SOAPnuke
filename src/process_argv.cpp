@@ -511,6 +511,13 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
                 exit(1);
             }
         }
+        for(int i=0;i<gp.trim.size();i++){
+            if(!isdigit(gp.trim[i]) && gp.trim[i]!=','){
+                cerr<<"Error,trim value format error:"<<gp.trim<<endl;
+                cerr<<"e.g.: -t 10 2 10 2"<<endl;
+                exit(1);
+            }
+        }
     }
     if(!gp.trimBadHead.empty()){
         vector<string> tmp_eles;

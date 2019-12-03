@@ -159,3 +159,7 @@ SOAPnuke Change Log
 	* 版本升级为2.1.0
 	* 将输出顺序改为输入文件中的reads顺序，显著提升了split功能速度
 	* 增强了随机提取reads数目的随机性
+
+2019-12-3 <gongchun@genomics.cn>
+	* 版本升级为2.1.1
+	* 修复了SE trim、polyX和随机截取数量太大的bug

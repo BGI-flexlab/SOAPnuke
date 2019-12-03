@@ -2290,10 +2290,18 @@ void peProcess::run_extract_random(){
     }
     if(total_clean_reads<gp.l_total_reads_num){
         cerr<<"Warning:the reads number in clean fastq file("<<total_clean_reads<<") is less than you assigned to output("<<gp.l_total_reads_num<<")"<<endl;
+        return;
     }
     //cout<<gp.l_total_reads_num<<"\t"<<total_clean_reads<<endl;
     //vector<int> include_threads;
+    float f_interval=(float)total_clean_reads/gp.l_total_reads_num;
+    if(f_interval<1.1){
+        return;
+    }
+    // todo: if 1.1<f_interval<2, implement extract more random
     int interval=total_clean_reads/gp.l_total_reads_num;
+    if(interval==1)
+        return;
     string in1=gp.output_dir+"/"+gp.clean_fq1;
     string in2=gp.output_dir+"/"+gp.clean_fq2;
     string out1=gp.cleanOutGzFormat?gp.output_dir+"/cleanRandomExtractReads.r1.fq.gz":gp.output_dir+"/cleanRandomExtractReads.r1.fq";
