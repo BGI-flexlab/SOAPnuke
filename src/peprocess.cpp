@@ -1400,9 +1400,7 @@ void peProcess::merge_stat(){
 		if(!gp.trim_fq1.empty()){
 			update_stat(local_trim_stat1[i],local_trim_stat2[i],local_fs[i],"trim");
 		}
-		if(!gp.clean_fq1.empty()){
-			update_stat(local_clean_stat1[i],local_clean_stat2[i],local_fs[i],"clean");
-		}
+        update_stat(local_clean_stat1[i],local_clean_stat2[i],local_fs[i],"clean");
 	}
 }
 void peProcess::run_cmd(string cmd){
@@ -2014,7 +2012,7 @@ void* peProcess::smallFilesProcess(){
     if(gp.cleanOutSplit>0){
 
 
-        int sticky_tail_reads_number = 0;
+//        int sticky_tail_reads_number = 0;
         string tidyFile1=gp.output_dir+"/split.0."+gp.clean_fq1;
         string tidyFile2=gp.output_dir+"/split.0."+gp.clean_fq1;
         ostringstream rmCmd1,rmCmd2;
@@ -2086,7 +2084,7 @@ void* peProcess::smallFilesProcess(){
                 }
                 break;
             }
-            int stopIndex=0;
+            
 
             int ready_cycles = readyCleanFiles1[0].size();
             for (int i = 1; i < gp.threads_num; i++) {

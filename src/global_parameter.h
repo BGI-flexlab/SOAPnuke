@@ -100,6 +100,9 @@ public:
 	bool inputGzformat;
 	//filterMeta module
 		//adapter find method is same as filter module
+
+    //cram reference
+    string reference;
 };
 
 #endif

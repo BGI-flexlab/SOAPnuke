@@ -18,17 +18,18 @@ We don't recommend using 1.X anymore, since 2.X outweighs it much in performance
 	
 ## Introduction
 
-SOAPnuke is a novel analysis tool developed for ultrafast quality control and preprocessing of high throughput sequencing (HTS) data. It consists of three modules: **filter**, **filtersRNA** and **filterMeta**. 
+SOAPnuke is a novel analysis tool developed for ultrafast quality control and preprocessing of high throughput sequencing (HTS) data. It consists of four modules: **filter**, **filtersRNA**, **filterMeta** and **filtersHTS**. 
 
 Module **filter** is designed for general usage, while **filtersRNA** and **filterMeta** are used for datasets from specific experiments as their names suggest. All these modules combines quality control and preprocessing to speed up the report on statistics graphs of raw datasets, preprocessed datasets and preprocessing status. Moreover, Hadoop MapReduce framework is introduced to provide great acceleration for parallel large datasets performing with good scalability, while it also supports standalone running.
 
 All usages start with executable file **SOAPnuke**, and different modules are invoked with different sub-commands like this:
 
 	Program: SOAPnuke
-	Version: 2.0.7
+	Version: 2.1.2
 	Contact: GongChun<gongchun@genomics.cn>  ChenYuxin<chenyuxin@genomics.cn>
 	Command:
          filter        preprocessing sequences
+         filterHts     preprocessing BAM/CRAM file
          filtersRNA    preprocessing sRNA sequences
          filterMeta    preprocessing Meta sequences
 
@@ -105,7 +106,9 @@ Module **filter** has following paramters for running:
 	-h, --help				help
 	-v, --version				show version
 
-**filtersRNA** and **filterMeta**	 mainly differ in adapter recognization and some default values for filtering parameters. 
+**filtersRNA** and **filterMeta** mainly differ in adapter recognization and some default values for filtering parameters. 
+
+**filtersHTS** is used to preprocess BAM/CRAM file. **filtersHTS** only supports those bam/cram files with reads sorted by readID, instead of those sorted by location on refernce genome.
 
 ## Availability
 

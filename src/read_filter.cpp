@@ -688,7 +688,7 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
 		float misGrad = (adptLen-gp.adaEdge)/(gp.adaMis+1);
         int r1, mis, maxSegMatch;
         int segMatchThr = (int)ceil(adptLen * gp.adaMR);
-        int misMatchTemp, segMatchTemp;
+        int misMatchTemp;
         int minEdge5 = adptLen - 5;
         for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
         {

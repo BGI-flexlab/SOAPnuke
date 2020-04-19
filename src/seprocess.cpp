@@ -911,9 +911,7 @@ void seProcess::merge_stat(){
 		if(!gp.trim_fq1.empty()){
 			update_stat(se_local_trim_stat1[i],se_local_fs[i],"trim");
 		}
-		if(!gp.clean_fq1.empty()){
-			update_stat(se_local_clean_stat1[i],se_local_fs[i],"clean");
-		}
+        update_stat(se_local_clean_stat1[i],se_local_fs[i],"clean");
 	}
 }
 void seProcess::create_thread_read(int index){
@@ -1018,7 +1016,7 @@ void* seProcess::smallFilesProcess(){
     if(gp.cleanOutSplit>0){
         int outputFileIndex=0;
         int cur_avaliable_total_reads_number = 0;
-        int sticky_tail_reads_number = 0;
+//        int sticky_tail_reads_number = 0;
         string tidyFile1=gp.output_dir+"/split.0."+gp.clean_fq1;
         ostringstream rmCmd1;
         rmCmd1<<"rm "<<gp.output_dir << "/split.*fq*";
@@ -1075,7 +1073,7 @@ void* seProcess::smallFilesProcess(){
                 }
                 break;
             }
-            int stopIndex=0;
+//            int stopIndex=0;
 
             int ready_cycles = readyCleanFiles1[0].size();
             for (int i = 1; i < gp.threads_num; i++) {
@@ -1363,7 +1361,7 @@ void seProcess::extractReadsToFile(int cycle,int thread_index,int reads_number,s
         }
     }else{
         cleanSmallFile1<<gp.output_dir<<"/thread."<<thread_index<<"."<<cycle<<".clean.r1.fq";
-        FILE* nongzCleanSmall1,*nongzCleanSmall2;
+        FILE* nongzCleanSmall1;
         nongzCleanSmall1=fopen(cleanSmallFile1.str().c_str(),"r");
 
         FILE* splitNonGzFq1;

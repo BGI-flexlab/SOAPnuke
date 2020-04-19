@@ -12,7 +12,7 @@ using namespace::std;
 #define PACKAGEVERSION "2.1"
 #endif
 #ifndef MINORVERSION
-#define MINORVERSION "1"
+#define MINORVERSION "2"
 #endif
 void check_module(int argc,char* argv[]);
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp);
@@ -20,5 +20,5 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp);
 void printUsage(string c_module);
 void printVersion();
 void printModule();
-
+void printHtsUsage();
 #endif

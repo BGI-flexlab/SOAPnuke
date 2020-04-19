@@ -13,7 +13,8 @@ endif
 $(info $(GCC_VERSION_STRING))
 
 MIN_ZLIB_VERSION = "1.2.3.5"
-ZLIB_VERSION := $(shell readlink $(whereis libz) | sed 's/libz.so.\(.*\)$/\1/g')
+ZLIB_LOCATION := $(shell ldconfig -p | grep libz | head -n 1 | cut -d ">" -f 2) 
+ZLIB_VERSION := $(shell readlink $(ZLIB_LOCATION) | sed 's/\(.*\)libz\.so\.\(.*\)$/\2/g/'| sed 's/.//')
 IS_ZLIB_ABOVE_MIN_VERSION := $(shell expr "$(ZLIB_VERSION)" ">=" "$(MIN_ZLIB_VERSION)")
 ifeq "$(IS_ZLIB_ABOVE_MIN_VERSION)" "1"
     ZLIB_VERSION_STRING := "ZLIB version Passes, $(ZLIB_VERSION) >= $(MIN_ZLIB_VERSION)"
@@ -29,7 +30,7 @@ exe=SOAPnuke
 
 
 $(exe):${objfile}
-	$(cc) $(objfile) -o $@ -lz -lpthread -o $@
+	$(cc) $(objfile) -o $@ -lz -lpthread -lhts -o $@
 
 ${obj}/%.o:${src}/%.cpp mk_dir
 	$(cc) -std=c++11 -g -O3 -c $< -o $@ 

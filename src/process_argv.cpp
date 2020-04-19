@@ -17,6 +17,7 @@ void check_module(int argc,char* argv[]){
         modules.insert("filter");
         modules.insert("filtersRNA");
         modules.insert("filterMeta");
+        modules.insert("filterHts");
         string module=argv[1];
         if(modules.find(module)==modules.end()){
             if(module=="-h" || module=="--help"){
@@ -29,7 +30,11 @@ void check_module(int argc,char* argv[]){
             }
         }else{
             if(argc==2){
-                printUsage(module);
+                if(module=="filterHts"){
+                    printHtsUsage();
+                }else {
+                    printUsage(module);
+                }
             }
         }
     }
@@ -38,7 +43,7 @@ void check_module(int argc,char* argv[]){
 int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 	//const char *shortOptions = "f:r:1:2:K:M:A:l:T:q:n:m:p:d3in:N:t:e:c:SO:P:Q:L:I:G:a:o:C:D:R:W:5:6:7:8:9:Eb:x:y:z:hv";
     string c_module(argv[1]);
-    const char *shortOptions ="j1:2:R:W:C:D:o:5:8:Jaf:r:Z:z:c:d:k:Y:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:3:4:L:w:M:A:9:S:s:U:u:b:0:hv";
+    const char *shortOptions ="j1:2:R:W:C:D:o:5:8:E:Jaf:r:Z:z:c:d:k:Y:K:F:iQ:G:l:q:m:x:y:n:p:g:X:t:B:O:P:7e:T:3:4:L:w:M:A:9:S:s:U:u:b:0:hv";
     const struct option longOptions[] =
             {
                 //common parameter
@@ -55,7 +60,8 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     //input and output file type
                     { "seqType"  , 1, NULL, '5' },
                     {"outFileType",1,NULL,'8'},
-
+                    //reference for cram input
+                    {"ref",1,NULL,'E'},
                     {"ada_trim",0,NULL,'J'},
                     {"contam_trim",0,NULL,'a'},
                     { "adapter1", 1, NULL, 'f' },
@@ -132,7 +138,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
     {
         switch (nextOpt)
         {
-            //case 'E':gp.mode.assign(optarg);break;
+            case 'E':gp.reference.assign(optarg);break;
             case 'j':gp.is_streaming=true;break;
             case '1':{
                 gp.fq1_path.assign(optarg);
@@ -373,70 +379,82 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
     return 0;
 }
 bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
-    if(!gp.fq1_path.empty()){
-        check_gz_file(gp.fq1_path);
-    }else{
-        cerr<<"Error:input fastq1 is required"<<endl;
-        exit(1);
-    }
-    if(gp.output_dir.empty()){
-        cerr<<"Error:output directory is required"<<endl;
-        exit(1);
-    }
-    bool pe_data=false;
-    if(!gp.fq2_path.empty()){
-        pe_data=true;
-        check_gz_file(gp.fq2_path);
-        if(gp.fq1_path==gp.fq2_path){
-            cerr<<"Error:input fq1 and fq2 are the same,please check the parameters"<<endl;
+    //对于filterHts模块不再做检查
+    bool pe_data = false;
+    if(gp.module_name!="filterHts") {
+        if (!gp.fq1_path.empty()) {
+            check_gz_file(gp.fq1_path);
+        } else {
+            cerr << "Error:input fastq1 is required" << endl;
             exit(1);
         }
-    }
-    if(gp.clean_fq1.empty()){
-        cerr<<"Error:output clean fastq is required"<<endl;
-        exit(1);
-    }else{
-        if(pe_data){
-             if(gp.clean_fq2.empty()){
-                cerr<<"Error:output clean fastq2 is required"<<endl;
+        if (gp.output_dir.empty()) {
+            cerr << "Error:output directory is required" << endl;
+            exit(1);
+        }
+        if (!gp.fq2_path.empty()) {
+            pe_data = true;
+            check_gz_file(gp.fq2_path);
+            if (gp.fq1_path == gp.fq2_path) {
+                cerr << "Error:input fq1 and fq2 are the same,please check the parameters" << endl;
                 exit(1);
             }
-            if(!(gp.clean_fq1.rfind(".gz")==gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")==gp.clean_fq2.size()-3) && !(gp.clean_fq1.rfind(".gz")!=gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")!=gp.clean_fq2.size()-3)){
-                cerr<<"Error:the format of clean fastq1 is inconsistent with fastq2"<<endl;
-                exit(1);
-            }
-            if(gp.cleanOutSplit>0 || gp.total_reads_num>0){
-                if(gp.clean_fq1.rfind(".gz")!=gp.clean_fq1.size()-3 && gp.clean_fq2.rfind(".gz")!=gp.clean_fq2.size()-3){
-                    cerr<<"Error:the clean out fastq should be non-gz format when clean output reads are limited"<<endl;
+        }
+        if (gp.clean_fq1.empty()) {
+            cerr << "Error:output clean fastq is required" << endl;
+            exit(1);
+        } else {
+            if (pe_data) {
+                if (gp.clean_fq2.empty()) {
+                    cerr << "Error:output clean fastq2 is required" << endl;
                     exit(1);
+                }
+                if (!(gp.clean_fq1.rfind(".gz") == gp.clean_fq1.size() - 3 &&
+                      gp.clean_fq2.rfind(".gz") == gp.clean_fq2.size() - 3) &&
+                    !(gp.clean_fq1.rfind(".gz") != gp.clean_fq1.size() - 3 &&
+                      gp.clean_fq2.rfind(".gz") != gp.clean_fq2.size() - 3)) {
+                    cerr << "Error:the format of clean fastq1 is inconsistent with fastq2" << endl;
+                    exit(1);
+                }
+                if (gp.cleanOutSplit > 0 || gp.total_reads_num > 0) {
+                    if (gp.clean_fq1.rfind(".gz") != gp.clean_fq1.size() - 3 &&
+                        gp.clean_fq2.rfind(".gz") != gp.clean_fq2.size() - 3) {
+                        cerr << "Error:the clean out fastq should be non-gz format when clean output reads are limited"
+                             << endl;
+                        exit(1);
+                    }
                 }
             }
         }
-    }
-    if(!pe_data && gp.module_name!="filtersRNA"){
-        if(!gp.adapter2_seq.empty()){
-            cerr<<"Error:no need adapter2"<<endl;
+        if (!pe_data && gp.module_name != "filtersRNA") {
+            if (!gp.adapter2_seq.empty()) {
+                cerr << "Error:no need adapter2" << endl;
+                exit(1);
+            }
+        }
+        if (!pe_data) {
+            if (!gp.trim_fq2.empty() || !gp.clean_fq2.empty()) {
+                cerr << "Error:input file is not pe data" << endl;
+                exit(1);
+            }
+        } else {
+            if (!(gp.fq1_path.rfind(".gz") == gp.fq1_path.size() - 3 &&
+                  gp.fq2_path.rfind(".gz") == gp.fq2_path.size() - 3) &&
+                !(gp.fq1_path.rfind(".gz") != gp.fq1_path.size() - 3 &&
+                  gp.fq2_path.rfind(".gz") != gp.fq2_path.size() - 3)) {
+                cerr << "Error:the format of input fastq1 is inconsistent with fastq2" << endl;
+                exit(1);
+            }
+        }
+
+        if (gp.seq_type != "0" && gp.seq_type != "1") {
+            cerr << "Error:seq_type value should be 0 or 1" << endl;
             exit(1);
         }
-    }
-    if(!pe_data){
-        if(!gp.trim_fq2.empty() || !gp.clean_fq2.empty()){
-            cerr<<"Error:input file is not pe data"<<endl;
+        if (gp.output_file_type != "fastq" && gp.output_file_type != "fasta") {
+            cerr << "Error:output_file_type value should be fastq or fasta" << endl;
             exit(1);
         }
-    }else{
-        if(!(gp.fq1_path.rfind(".gz")==gp.fq1_path.size()-3 && gp.fq2_path.rfind(".gz")==gp.fq2_path.size()-3) && !(gp.fq1_path.rfind(".gz")!=gp.fq1_path.size()-3 && gp.fq2_path.rfind(".gz")!=gp.fq2_path.size()-3)){
-            cerr<<"Error:the format of input fastq1 is inconsistent with fastq2"<<endl;
-            exit(1);
-        }
-    }
-    if(gp.seq_type!="0" && gp.seq_type!="1"){
-        cerr<<"Error:seq_type value should be 0 or 1"<<endl;
-        exit(1);
-    }
-    if(gp.output_file_type!="fastq" && gp.output_file_type!="fasta"){
-        cerr<<"Error:output_file_type value should be fastq or fasta"<<endl;
-        exit(1);
     }
     if(!gp.adapter_discard_or_trim.empty()){
         if(gp.adapter_discard_or_trim!="trim" && gp.adapter_discard_or_trim!="discard"){
@@ -497,56 +515,58 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
         cerr<<"Error: output reads in each clean fastq file(-w) should be more than patch size(-e)"<<endl;
         exit(1);
     }
-    if(!gp.trim.empty()){
-        vector<string> tmp_eles;
-        line_split(gp.trim,',',tmp_eles);
-        if(pe_data){
-            if(tmp_eles.size()!=4){
-                cerr<<"Error:trim value format error"<<endl;
-                exit(1);
+    if(gp.module_name!="filterHts") {
+        if (!gp.trim.empty()) {
+            vector<string> tmp_eles;
+            line_split(gp.trim, ',', tmp_eles);
+            if (pe_data) {
+                if (tmp_eles.size() != 4) {
+                    cerr << "Error:trim value format error" << endl;
+                    exit(1);
+                }
+            } else {
+                if (tmp_eles.size() != 2) {
+                    cerr << "Error:trim value format error" << endl;
+                    exit(1);
+                }
             }
-        }else{
-            if(tmp_eles.size()!=2){
-                cerr<<"Error:trim value format error"<<endl;
-                exit(1);
-            }
-        }
-        for(int i=0;i<gp.trim.size();i++){
-            if(!isdigit(gp.trim[i]) && gp.trim[i]!=','){
-                cerr<<"Error,trim value format error:"<<gp.trim<<endl;
-                cerr<<"e.g.: -t 10 2 10 2"<<endl;
-                exit(1);
-            }
-        }
-    }
-    if(!gp.trimBadHead.empty()){
-        vector<string> tmp_eles;
-        line_split(gp.trimBadHead,',',tmp_eles);
-        if(pe_data){
-            if(tmp_eles.size()!=2){
-                cerr<<"Error:trimBadHead value format error"<<endl;
-                exit(1);
-            }
-        }else{
-            if(tmp_eles.size()!=1){
-                cerr<<"Error:trimBadHead value format error"<<endl;
-                exit(1);
+            for (int i = 0; i < gp.trim.size(); i++) {
+                if (!isdigit(gp.trim[i]) && gp.trim[i] != ',') {
+                    cerr << "Error,trim value format error:" << gp.trim << endl;
+                    cerr << "e.g.: -t 10 2 10 2" << endl;
+                    exit(1);
+                }
             }
         }
-        
-    }
-    if(!gp.trimBadTail.empty()){
-        vector<string> tmp_eles;
-        line_split(gp.trimBadTail,',',tmp_eles);
-        if(pe_data){
-            if(tmp_eles.size()!=2){
-                cerr<<"Error:trimBadTail value format error"<<endl;
-                exit(1);
+        if (!gp.trimBadHead.empty()) {
+            vector<string> tmp_eles;
+            line_split(gp.trimBadHead, ',', tmp_eles);
+            if (pe_data) {
+                if (tmp_eles.size() != 2) {
+                    cerr << "Error:trimBadHead value format error" << endl;
+                    exit(1);
+                }
+            } else {
+                if (tmp_eles.size() != 1) {
+                    cerr << "Error:trimBadHead value format error" << endl;
+                    exit(1);
+                }
             }
-        }else{
-            if(tmp_eles.size()!=1){
-                cerr<<"Error:trimBadTail value format error"<<endl;
-                exit(1);
+
+        }
+        if (!gp.trimBadTail.empty()) {
+            vector<string> tmp_eles;
+            line_split(gp.trimBadTail, ',', tmp_eles);
+            if (pe_data) {
+                if (tmp_eles.size() != 2) {
+                    cerr << "Error:trimBadTail value format error" << endl;
+                    exit(1);
+                }
+            } else {
+                if (tmp_eles.size() != 1) {
+                    cerr << "Error:trimBadTail value format error" << endl;
+                    exit(1);
+                }
             }
         }
     }
@@ -597,10 +617,93 @@ void printModule(){
     cout << "Contact: GongChun<gongchun@genomics.cn>  ChenYuXin<chenyuxin@genomics.cn>"<<endl;
     cout << "Command:\n";
     cout << "         filter        preprocessing sequences\n";
+    cout << "         filterHts     preprocessing BAM/CRAM file\n";
     cout << "         filtersRNA    preprocessing sRNA sequences\n";
     //cout << "         filterDGE     preprocessing DGE sequences\n";   //not include filterDGE in thie version
     cout << "         filterMeta    preprocessing Meta sequences\n";
     cout << endl;
+    exit(1);
+}
+void printHtsUsage(){
+    cout << "Usage: "<<"filterHts"<<" [OPTION]... \n";
+    cout<<"\ncommon options\n";
+    cout << "\t-E, --ref\t\tFILE\t\treference file(required when process cram foramt)\n";
+    cout << "\t-1, \t\t\tFILE\t\tinput bam/cram file(required)\n";
+    cout << "\t-2, \t\t\tFILE\t\toutput bam/cram file(required)\n";
+//    cout << "\t-C, --cleanFq1\t\tSTR\t\tclean fq1 file name(required,gz format)\n";
+//    cout << "\t-D, --cleanFq2\t\tSTR\t\tclean fq2 file name\n";
+    cout << "\t-o, --outDir\tSTR\t\toutput directory, directory must exists\n";
+//    cout << "\t-8, --outFileType\tSTR\t\toutput file format: fastq or fasta[fastq]\n";
+    cout << "\t-0, --log\t\tSTR\t\tlog file\n";
+    cout << "\n";
+    cout << "\t-f, --adapter1\t\tSTR\t\tadapter sequence of read1\n";
+    cout << "\t-r, --adapter2\t\tSTR\t\tadapter sequence of read2 (if PE)\n";
+    cout << "\t-Z, --contam1\t\tSTR\t\tcontaminant sequence(s) for read1, split by comma\n";
+    cout << "\t-z, --contam2\t\tSTR\t\tcontaminant sequence(s) for read2, split by comma\n";
+    cout << "\t-Y, --ctMatchR\t\tFLOAT/STR\tcontam's shortest consistent matching ratio [default:0.2]\n";
+    cout << "\t-c, --global_contams\tSTR\t\tglobal contaminant sequences which need to be detected, split by comma if more than 1\n";
+    cout << "\t-d, --glob_cotm_mR\tSTR\t\tminimum match ratio in global contaminant sequences detection\n";
+    cout << "\t-k, --glob_cotm_mM\tSTR\t\tmaximum mismatch number in global contaminant sequences detection\n";
+    cout << "\t-5, --seqType\t\tINT\t\tSequence fq name type, 0->old fastq name, 1->new fastq name [0]\n";
+    cout << "\t\t\t\t\t\t\t\told fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
+    cout << "\t\t\t\t\t\t\t\tnew fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
+//    cout << "\t-R, --trimFq1\t\tSTR\t\ttrim fq1 file name(gz format)[optional]\n";
+//    cout << "\t-W, --trimFq2\t\tSTR\t\ttrim fq2 file name[optional]\n";
+    cout << "\t-K, --tile\t\tSTR\t\ttile number to ignore reads, such as [1101-1104,1205]\n";
+    cout << "\t-F, --fov\t\tSTR\t\tfov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]\n";
+    cout << "\tAdapter related:\n";
+    cout << "\t-J, --ada_trim\t\t\t\ttrim read when find adapter[default:discard]\n";
+    cout << "\t-a, --contam_trim\t\t\ttrim read when find contam[default:discard]\n";
+        //cout << "filter and filtermeta module adapter related parameter\n";
+    cout << "\t-M, --adaMis\t\tINT,[INT]\tthe max mismatch number when match the adapter (depend on -f/-r).If different values are required for fq1 and fq2, you can set two values seperated by comma,e.g. 1,2 (same as -A/-9)[1]\n";
+    cout << "\t-A, --adaMR\t\tFLOAT,[FLOAT]\tadapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
+    cout << "\t-9, --adaEdge\t\tINT,[INT]\tthe min length for segmental alignment [6]\n";
+    cout<<endl;
+
+    cout << "\t-l, --lowQual\t\tINT\t\tlow quality threshold  [default:5]\n";
+    cout << "\t-q, --qualRate\t\tFLOAT\t\tlow quality rate  [default:0.5]\n";
+    cout << "\t-n, --nRate\t\tFLOAT\t\tN rate threshold  [default:0.05]\n";
+    //cout << "\t-N, --maskLowQual INT       Turn those bases with low quality into N, set INT as the quality threshold  [-1]\n";
+    cout << "\t-m, --mean\t\tFLOAT\t\tfilter reads with low average quality\n";
+    cout << "\t-p, --highA\t\tFLOAT\t\tfilter reads if ratio of A in a read exceed [FLOAT]\n";
+    cout << "\t-g, --polyG_tail\tFLOAT\t\tfilter reads if found polyG in tail [INT]\n";
+    cout << "\t-X, --polyX\t\tINT\t\tfilter reads if a read contains polyX [INT]\n";
+    //cout << "\t-d, --rmdup                 remove PCR duplications\n";
+    //cout << "\t-3, --dupRate               keep PCR duplicated reads and calculate duplications rate\n";
+    cout << "\t-i, --index\t\t\t\tremove index\n";
+    cout << "\t-L, --totalReadsNum\tINT/FLOAT\tnumber/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).\n";
+    cout << "\t    \t\t\t\t\tIt will extract reads randomly through the total clean fq file by default, you also can get the head reads\n";
+    cout << "\t    \t\t\t\t\tfor save time by add head suffix to the integer(e.g. -L 10000000head)\n";
+//    cout << "\t-t, --trim\t\tINT,INT,INT,INT\n";
+//    cout << "\t    \t\t\t\t\ttrim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])\n";
+//
+//    cout << "\t-x, --trimBadHead\tINT,INT\t\tTrim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+//    cout << "\t-y, --trimBadTail\tINT,INT\t\tTrim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]\n";
+    cout << "\n";
+
+    cout << "\t-O, --overlap\t\tINT\t\tfilter the small insert size.Not filter until the value exceed 1[-1]\n";
+    cout << "\t-P, --mis\t\tFLOAT\t\tthe maximum mismatch ratio when find overlap between PE reads(depend on -O)[0.1]\n";
+    cout << "\n";
+    //cout << "\t-6, --split_line\tINT\t\tsplit raw fastq by <split_line>, default 10M reads per file (if ssd mode is open)\n";
+    cout << "\t-e, --patch\t\tINT\t\treads number of a patch processed[400000]\n";
+//    cout << "\t-T, --thread\t\tINT\t\tthreads number used in process[6]" << endl;
+    cout << "\n";
+    cout << "\t-Q, --qualSys\t\tINT\t\tquality system 1:64, 2:33[default:2]\n";
+    cout << "\t-G, --outQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";
+    cout << "\t-3, --maxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
+    cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
+//    cout << "\t-w, --cleanOutSplit\tINT\t\tmax reads number in each output clean fastq file\n";
+//      cout << "\t-a, --append      STR       the log's output place : console or file  [console]\n";
+
+
+    cout << "\n";
+
+    cout << "\t-7, --pe_info\t\t\t\tAdd /1, /2 at the end of fastq name.[default:not add]\n";
+    cout << "\t-B, --baseConvert\tSTR\t\tconvert base when write data,example:TtoU\n";
+    cout << "\n";
+    cout << "\t-h, --help\t\t\t\thelp" << endl;
+    cout << "\t-v, --version\t\t\t\tshow version" << endl;
+    cout << "\tExample:  ./SOAPnuke filterHts -l 10 -q 0.1 -n 0.01 -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  --ref chr21.fa -1 input.bam -2 output.cram  -o result"<<endl;
     exit(1);
 }
 void printUsage(string c_module){
