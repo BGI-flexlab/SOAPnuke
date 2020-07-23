@@ -31,8 +31,6 @@ We don't recommend using 1.X anymore, since 2.X outweighs it much in performance
 
 As a novel analysis tool developed for quality control and preprocessing of FASTQ and SAM/BAM data, SOAPnuke includes three modules for different usage scenarios: **filter**, **filterHts** and **filterStLFR**. 
 
-Module **filter** is designed for general usage, while **filtersRNA** and **filterMeta** are used for datasets from specific experiments as their names suggest. All these modules combines quality control and preprocessing to speed up the report on statistics graphs of raw datasets, preprocessed datasets and preprocessing status. Moreover, Hadoop MapReduce framework is introduced to provide great acceleration for parallel large datasets performing with good scalability, while it also supports standalone running.
-
 All usages start with executable file **SOAPnuke**, and different modules are invoked with different sub-commands like this:
 
 	Program: SOAPnuke
@@ -40,82 +38,82 @@ All usages start with executable file **SOAPnuke**, and different modules are in
 	Contact: GongChun<gongchun@genomics.cn>  ChenYuxin<chenyuxin@genomics.cn>
 	Command:
          filter        preprocessing sequences
-         filterHts     preprocessing sRNA sequences
-         filterStLFR   preprocessing Meta sequences
+         filterHts     preprocessing HTS sequences
+         filterStLFR   preprocessing stLFR sequences
 
 ## Parameter
 Module **filter** has following paramters for running:
 	
-	-1, --fq1	        	FILE		fq1 file(required)
-	-2, --fq2	        	FILE		fq2 file, used when pe
-	-C, --cleanFq1	    	STR	    	clean fq1 file name(required,gz format)
-	-D, --cleanFq2		    STR	    	clean fq2 file name
-	-o, --outDir	    	STR	    	output directory, directory must exists
-	-8, --outFileType   	STR	    	output file format: fastq or fasta[fastq]
-	-0, --log	        	STR	    	log file
+	-1, --fq1		FILE		fq1 file(required)
+	-2, --fq2		FILE		fq2 file, used when pe
+	-C, --cleanFq1		STR		clean fq1 file name(required,gz format)
+	-D, --cleanFq2		STR		clean fq2 file name
+	-o, --outDir		STR		output directory, directory must exists
+	-8, --outFileType	STR		output file format: fastq or fasta[fastq]
+	-0, --log		STR		log file
 
-	-f, --adapter1	    	STR	    	adapter sequence of fq1 file (5' adapter when filtersRNA mode)
-	-r, --adapter2	    	STR	    	adapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)
-	-Z, --contam1		    STR	    	contaminant sequence(s) for fq1 file, split by comma
-	-z, --contam2	    	STR	    	contaminant sequence(s) for fq2 file, split by comma
-	-Y, --ctMatchR	    	FLOAT/STR	contam's shortest consistent matching ratio [default:0.2]
-	-c, --global_contams    STR		    global contaminant sequences which need to be detected, split by comma if more than 1
-	-d, --glob_cotm_mR	    STR	        minimum match ratio in global contaminant sequences detection
-	-k, --glob_cotm_mM	    STR	    	maximum mismatch number in global contaminant sequences detection
-	-5, --seqType		    INT		    Sequence fq name type, 0->old fastq name, 1->new fastq name [0]
-						                old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2
-						                new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC
-	-R, --trimFq1		    STR		    trim fq1 file name(gz format)
-	-W, --trimFq2		    STR	    	trim fq2 file name
-	-K, --tile	        	STR	    	tile number to ignore reads, such as [1101-1104,1205]
-	-F, --fov		        STR	    	fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]
+	-f, --adapter1		STR		adapter sequence of fq1 file (5' adapter when filtersRNA mode)
+	-r, --adapter2		STR		adapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)
+	-Z, --contam1		STR		contaminant sequence(s) for fq1 file, split by comma
+	-z, --contam2		STR		contaminant sequence(s) for fq2 file, split by comma
+	-Y, --ctMatchR		FLOAT/STR	contam's shortest consistent matching ratio [default:0.2]
+	-c, --global_contams	STR		global contaminant sequences which need to be detected, split by comma if more than 1
+	-d, --glob_cotm_mR	STR		minimum match ratio in global contaminant sequences detection
+	-k, --glob_cotm_mM	STR		maximum mismatch number in global contaminant sequences detection
+	-5, --seqType		INT		Sequence fq name type, 0->old fastq name, 1->new fastq name [0]
+							old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2
+							new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC
+	-R, --trimFq1		STR		trim fq1 file name(gz format)
+	-W, --trimFq2		STR		trim fq2 file name
+	-K, --tile		STR		tile number to ignore reads, such as [1101-1104,1205]
+	-F, --fov		STR		fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]
 	
 	Adapter related:
-	-J, --ada_trim			        	trim read when find adapter[default:discard]
-	-a, --contam_trim		        	trim read when find contam[default:discard]
+	-J, --ada_trim				trim read when find adapter[default:discard]
+	-a, --contam_trim			trim read when find contam[default:discard]
 	
 	find 5' adapter
-	-S, --adaRCtg	    	INT	    	mini 5' adapter continuous alignment length (default: 6)
-	-s, --adaRAr	    	FLOAT		mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)
+	-S, --adaRCtg		INT		mini 5' adapter continuous alignment length (default: 6)
+	-s, --adaRAr		FLOAT		mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)
 	
 	find 3' adapter
-	-U, --adaRMa	    	INT	    	mini alignment length when find 3' adapter (default: 5)
-	-u, --adaREr	    	FLOAT		Max error rate when find 3' adapter (mismatch/match) (default: 0.4)
-	-b, --adaRMm	    	INT		    Max mismatch number when find 3' adapter (default: 4)
+	-U, --adaRMa		INT		mini alignment length when find 3' adapter (default: 5)
+	-u, --adaREr		FLOAT		Max error rate when find 3' adapter (mismatch/match) (default: 0.4)
+	-b, --adaRMm		INT		Max mismatch number when find 3' adapter (default: 4)
 
-	-l, --lowQual	    	INT		    low quality threshold  [default:5]
-	-q, --qualRate	    	FLOAT		low quality rate  [default:0.5]
-	-n, --nRate	        	FLOAT		N rate threshold  [default:0.05]
-	-m, --mean	        	FLOAT		filter reads with low average quality
-	-p, --highA	        	FLOAT		filter reads if ratio of A in a read exceed [FLOAT]
-	-g, --polyG_tail	    FLOAT		filter reads if found polyG in tail [INT]
-	-X, --polyX	        	INT		    filter reads if a read contains polyX [INT]
-	-i, --index			            	remove index
-	-L, --totalReadsNum	INT/FLOAT   	number/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).
-						                It will extract reads randomly through the total clean fq file by default, you also can get the head reads for save time by add head suffix to the integer(e.g. -L 10000000head)
-	-t, --trim		   INT,INT,INT,INT	trim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])
-	-x, --trimBadHead	    INT,INT		Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
-	-y, --trimBadTail	    INT,INT		Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
+	-l, --lowQual		INT		low quality threshold  [default:5]
+	-q, --qualRate		FLOAT		low quality rate  [default:0.5]
+	-n, --nRate		FLOAT		N rate threshold  [default:0.05]
+	-m, --mean		FLOAT		filter reads with low average quality
+	-p, --highA		FLOAT		filter reads if ratio of A in a read exceed [FLOAT]
+	-g, --polyG_tail	FLOAT		filter reads if found polyG in tail [INT]
+	-X, --polyX		INT		filter reads if a read contains polyX [INT]
+	-i, --index				remove index
+	-L, --totalReadsNum	INT/FLOAT	number/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).
+						It will extract reads randomly through the total clean fq file by default, you also can get the head reads
+						for save time by add head suffix to the integer(e.g. -L 10000000head)
+	-t, --trim		INT,INT,INT,INT	trim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])
+	-x, --trimBadHead	INT,INT		Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
+	-y, --trimBadTail	INT,INT		Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
 
-	-O, --overlap	    	INT	    	filter the small insert size.Not filter until the value exceed 1[-1]
-	-P, --mis		        FLOAT		the maximum mismatch ratio when find overlap between PE reads(depend on -O)[0.1]
+	-O, --overlap		INT		filter the small insert size.Not filter until the value exceed 1[-1]
+	-P, --mis		FLOAT		the maximum mismatch ratio when find overlap between PE reads(depend on -O)[0.1]
 
-	-e, --patch	        	INT	    	reads number of a patch processed[400000]
-	-T, --thread	    	INT	    	threads number used in process[6]
+	-e, --patch		INT		reads number of a patch processed[400000]
+	-T, --thread		INT		threads number used in process[6]
 
-	-Q, --qualSys	    	INT	    	quality system 1:64, 2:33[default:2]
-	-G, --outQualSys    	INT	    	out quality system 1:64, 2:33[default:2]
-	-3, --maxReadLen    	INT	    	read max length,default 49 for filtersRNA
-	-4, --minReadLen    	INT	    	read min length,default 18 for filtersRNA,30 for other modules
-	-w, --output_clean  	INT		    max reads number in each output clean fastq file
+	-Q, --qualSys		INT		quality system 1:64, 2:33[default:2]
+	-G, --outQualSys	INT		out quality system 1:64, 2:33[default:2]
+	-3, --maxReadLen	INT		read max length,default 49 for filtersRNA
+	-4, --minReadLen	INT		read min length,default 18 for filtersRNA,30 for other modules
+	-w, --output_clean	INT		max reads number in each output clean fastq file
 
-	-7, --pe_info			        	Add /1, /2 at the end of fastq name.[default:not add]
-	-B, --baseConvert	    STR	       	convert base when write data,example:TtoU
+	-7, --pe_info				Add /1, /2 at the end of fastq name.[default:not add]
+	-B, --baseConvert	STR		convert base when write data,example:TtoU
 
-	-h, --help			            	help
-	-v, --version			        	show version
+	-h, --help				help
+	-v, --version				show version
 
-**filterHts** and **filterStLFR**	 mainly differ in adapter recognization and some default values for filtering parameters. 
 
 ## Availability
 
@@ -136,9 +134,6 @@ SOAPnuke only works with sequence data of FASTQ format temporarily, but we are c
 
 **Filter** module are designed to deal with sequences from most experiments. Compared to it, the other three modules with edited parameter-sets and tailored functions deal with specific data. These designs have refered to existing pipelines of data preprocessing.
 
-**Filter-sRNA** module deals with small-RNA reads. In sRNA experiment, mRNA sequences must be filtered out, so a parameter of mRNA_FilePath is available. In addition, functions are reduced with reference to existing pipelines.
-
-**Filter-meta** module deals with metagenomics data. It does not have new functions since meta data do not have unique features compared to other data. However, we still modify its functions and parameters according to existing pipelines.
  
 #### <a name="qcn"></a>3. Can I choose a part of quality-control statistics instead of all?
 
