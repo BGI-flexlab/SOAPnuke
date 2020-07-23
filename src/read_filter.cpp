@@ -168,21 +168,31 @@ C_fastq_stat_result stat_read(C_fastq& fq_read,C_global_parameter& gp){ //stat s
 	}
 */	
     if(gp.module_name=="filtersRNA"){
-    	int ada_pos=sRNA_findAdapter(fq_read.sequence,fq_read.adapter_seq2,gp);
+    	int ada_pos=sRNA_findAdapter(fq_read.sequence,gp.adapter2_seq,gp);
     	return_value.include_3_adapter=ada_pos;
-    	return_value.include_5_adapter=sRNA_hasAdapter(fq_read.sequence,fq_read.adapter_seq,gp);
+    	return_value.include_5_adapter=sRNA_hasAdapter(fq_read.sequence,gp.adapter1_seq,gp);
     }else{
-    	int ada_pos=adapter_pos(fq_read.sequence,fq_read.adapter_seq,gp);
+        int ada_pos=-1;
+        //多个adapter序列，顺序查找，找到符合条件即退出
+        int cycleSize=fq_read.pairPos==1?gp.ada1s.size():gp.ada2s.size();
+        for(int i=0;i<cycleSize;i++) {
+            string adaSeq=fq_read.pairPos==1?gp.ada1s[i]:gp.ada2s[i];
+            ada_pos = adapter_pos(fq_read.sequence, adaSeq, gp);
+            if(ada_pos>=0){
+                break;
+            }
+        }
 	    if(ada_pos>=0){
 	    	return_value.include_adapter_seq=1;
 	    	fq_read.adacut_pos=fq_read.sequence.size()-ada_pos;
 	    }
-	    if(fq_read.contam_seq.find(",")==string::npos){
-	    	fq_read.contam_pos=hasContam(fq_read.sequence,fq_read.contam_seq,gp);
+	    string contamSeq=fq_read.pairPos==1?gp.contam1_seq:gp.contam2_seq;
+	    if(contamSeq.find(",")==string::npos){
+	    	fq_read.contam_pos=hasContam(fq_read.sequence,contamSeq,gp);
 	    	if(fq_read.contam_pos>=0)
 	    		return_value.include_contam=1;
 	    }else{
-	    	vector<int> contam_poses=hasContams(fq_read.sequence,fq_read.contam_seq,gp);
+	    	vector<int> contam_poses=hasContams(fq_read.sequence,contamSeq,gp);
 	    	for(vector<int>::iterator ix=contam_poses.begin();ix!=contam_poses.end();ix++){
 	    		if(*ix>=0){
 	    			return_value.include_contam=1;
@@ -348,10 +358,26 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 			if(gp.seq_type=="0"){
 			/* old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2\n";
         cout << "\t                                  new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC\n";
-        */	
-                read.seq_id=read.seq_id.substr(0,read.seq_id.find("#")-0);
+        */
+//                read.seq_id=read.seq_id.substr(0,read.seq_id.find("#")-0);
+                string tmpId="";
+                bool cpFlag=1;
+                for(int i=0;i<read.seq_id.size();i++){
+                    if(read.seq_id[i]=='#'){
+                        cpFlag=0;
+                    }
+                    if(cpFlag){
+                        tmpId+=read.seq_id[i];
+                    }else{
+                        if(read.seq_id[i]=='/'){
+                            cpFlag=1;
+                            tmpId+=read.seq_id[i];
+                        }
+                    }
+                }
+                read.seq_id=tmpId;
             }else{
-            	read.seq_id=read.seq_id.substr(0,read.seq_id.find_last_of("#")-0);
+            	read.seq_id=read.seq_id.substr(0,read.seq_id.find_last_of(":")-0);
             }
 		}
 		int head_cut(0),tail_cut(0);
@@ -404,7 +430,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 		if(ada_trim_flag){
 			//cout<<read.sequence<<endl;
 			if(gp.module_name=="filtersRNA"){
-				int ada_pos=sRNA_findAdapter(read.sequence,read.adapter_seq2,gp);
+				int ada_pos=sRNA_findAdapter(read.sequence,gp.adapter2_seq,gp);
 				if(ada_pos>2 && ada_pos<read.sequence.size()){
 					read.sequence=read.sequence.substr(0,ada_pos);
 					read.qual_seq=read.qual_seq.substr(0,ada_pos);
@@ -414,17 +440,17 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 				tail_cut=tail_cut>=read.adacut_pos?tail_cut:read.adacut_pos;
 			}
 		}
-		if(contam_trim_flag){
-			if(read.global_contam_5pos>=0 && read.sequence.size()-read.global_contam_5pos>tail_cut){
-				tail_cut=read.sequence.size()-read.global_contam_5pos;
-			}
-			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut){
-				tail_cut=read.sequence.size()-read.contam_pos;
-			}
-			if(read.global_contam_3pos>=0 && read.sequence.size()-read.global_contam_3pos>head_cut){
-				head_cut=read.sequence.size()-read.global_contam_3pos;
-			}
-		}
+//		if(contam_trim_flag){
+//			if(read.global_contam_5pos>=0 && read.sequence.size()-read.global_contam_5pos>tail_cut){
+//				tail_cut=read.sequence.size()-read.global_contam_5pos;
+//			}
+//			if(read.contam_pos>=0 && read.sequence.size()-read.contam_pos>tail_cut){
+//				tail_cut=read.sequence.size()-read.contam_pos;
+//			}
+//			if(read.global_contam_3pos>=0 && read.sequence.size()-read.global_contam_3pos>head_cut){
+//				head_cut=read.sequence.size()-read.global_contam_3pos;
+//			}
+//		}
 		if(gp.polyG_tail!=-1){
 			int polyG_n=polyG_number(read.sequence);
 			if(polyG_n>=gp.polyG_tail){
@@ -679,88 +705,85 @@ int hasContam(string& ref_sequence,string& contam,C_global_parameter& gp){
     return -1;
 }
 int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
-	if(gp.module_name=="filter" || gp.module_name=="filterMeta"){
-		int adptLen=adapter.size();
-		if(adptLen==0){
-			return -1;
-		}
-		int readLen=ref_sequence.size();
-		float misGrad = (adptLen-gp.adaEdge)/(gp.adaMis+1);
-        int r1, mis, maxSegMatch;
-        int segMatchThr = (int)ceil(adptLen * gp.adaMR);
-        int misMatchTemp, segMatchTemp;
-        int minEdge5 = adptLen - 5;
-        for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
-        {
-            mis = 0;
-            maxSegMatch = 0;
-            misMatchTemp = r1/misGrad;
-
-            for (int c = 0; c < r1+minEdge5; ++c)
-            {
-                if (adapter[adptLen-r1-minEdge5+c] == ref_sequence[c]){
-                    maxSegMatch++;
-                    if (maxSegMatch >= segMatchThr)
-                        return 0;
-                }
-                else{
-                    mis++;
-                    maxSegMatch = 0;
-                    if (mis > misMatchTemp)
-                        break;
-                }
-            }
-            if (mis <= misMatchTemp)
-                return 0;
-        }
-        for (r1 = 0; r1 <= readLen - adptLen; ++r1)
-        {
-            maxSegMatch = 0;
-            mis = 0;
-
-            for (int c = 0; c < adptLen; ++c)
-            {
-                if (adapter[c] == ref_sequence[r1 + c]){
-                    maxSegMatch ++;
-                    if (maxSegMatch >= segMatchThr)
-                        return r1;
-                }
-                else{
-                    mis++;
-                    maxSegMatch = 0;
-                    if (mis > gp.adaMis)
-                        break;
-                }
-            }
-            if (mis <= gp.adaMis)
-                return r1;
-        }
-        for (r1 = 0; r1 < adptLen - gp.adaEdge; ++r1)
-        {
-            mis = 0;
-            maxSegMatch = 0;
-            misMatchTemp = r1/misGrad;
-
-            for (int c = 0; c < r1+gp.adaEdge; ++c)
-            {
-                if (adapter[c] == ref_sequence[readLen-r1-gp.adaEdge+c]){
-                    maxSegMatch++;
-                    if (maxSegMatch >= segMatchThr)
-                        return readLen-r1-gp.adaEdge;
-                }
-                else{
-                    mis++;
-                    maxSegMatch = 0;
-                    if (mis > misMatchTemp)
-                        break;
-                }
-            }
-
-            if (mis <= misMatchTemp)
-                return readLen-r1-gp.adaEdge;
-        }
+    int adptLen=adapter.size();
+    if(adptLen==0){
         return -1;
-	}
+    }
+    int readLen=ref_sequence.size();
+    float misGrad = (adptLen-gp.adaEdge)/(gp.adaMis+1);
+    int r1, mis, maxSegMatch;
+    int segMatchThr = (int)ceil(adptLen * gp.adaMR);
+    int misMatchTemp;
+    int minEdge5 = adptLen - 5;
+    for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
+    {
+        mis = 0;
+        maxSegMatch = 0;
+        misMatchTemp = r1/misGrad;
+
+        for (int c = 0; c < r1+minEdge5; ++c)
+        {
+            if (adapter[adptLen-r1-minEdge5+c] == ref_sequence[c]){
+                maxSegMatch++;
+                if (maxSegMatch >= segMatchThr)
+                    return 0;
+            }
+            else{
+                mis++;
+                maxSegMatch = 0;
+                if (mis > misMatchTemp)
+                    break;
+            }
+        }
+        if (mis <= misMatchTemp)
+            return 0;
+    }
+    for (r1 = 0; r1 <= readLen - adptLen; ++r1)
+    {
+        maxSegMatch = 0;
+        mis = 0;
+
+        for (int c = 0; c < adptLen; ++c)
+        {
+            if (adapter[c] == ref_sequence[r1 + c]){
+                maxSegMatch ++;
+                if (maxSegMatch >= segMatchThr)
+                    return r1;
+            }
+            else{
+                mis++;
+                maxSegMatch = 0;
+                if (mis > gp.adaMis)
+                    break;
+            }
+        }
+        if (mis <= gp.adaMis)
+            return r1;
+    }
+    for (r1 = 0; r1 < adptLen - gp.adaEdge; ++r1)
+    {
+        mis = 0;
+        maxSegMatch = 0;
+        misMatchTemp = r1/misGrad;
+
+        for (int c = 0; c < r1+gp.adaEdge; ++c)
+        {
+            if (adapter[c] == ref_sequence[readLen-r1-gp.adaEdge+c]){
+                maxSegMatch++;
+                if (maxSegMatch >= segMatchThr)
+                    return readLen-r1-gp.adaEdge;
+            }
+            else{
+                mis++;
+                maxSegMatch = 0;
+                if (mis > misMatchTemp)
+                    break;
+            }
+        }
+
+        if (mis <= misMatchTemp)
+            return readLen-r1-gp.adaEdge;
+    }
     return -1;
 }
 int sRNA_findAdapter(string sequence,string adapter,C_global_parameter& gp)
@@ -1040,106 +1063,7 @@ int global_contam_pos(string& ref_sequence,string& global_contam,float min_match
 	}
 	return -1;
 }
-int smithWatermanAlign(string query, string target) { // Smith-Waterman algorithm
-		// the match in query must be started on base 0
-	float match_[5][5];
-	string chr_("ACGTN");
-	int queryLen = query.length();
-	int targetLen = target.length();
-	int i, j;
-	int open = 100;
 
-	float **scoreMatrix, **directMatrix; // 0: up, 1: left, 2: northwest, 3: itself
-	int maxcol, maxrow;
-	float maxScore;
-	scoreMatrix = (float **) malloc(sizeof(float *) * (targetLen + 1));
-	for (i = 0; i <= targetLen; i++) {
-		scoreMatrix[i] = (float *) malloc(sizeof(float) * (targetLen + 1));
-	}
-	directMatrix = (float **) malloc(sizeof(float *) * (targetLen + 1));
-	for (i = 0; i <= targetLen; i++) {
-		directMatrix[i] = (float *) malloc(sizeof(float) * (targetLen + 1));
-	}
-
-	for (i = 0; i <= targetLen; i++) {
-		scoreMatrix[0][i] = 0;
-		directMatrix[0][i] = 1;
-	}
-	for (i = 0; i <= queryLen; i++) {
-		scoreMatrix[i][0] = i * open * (-1);
-		directMatrix[i][0] = 0;
-	}
-	directMatrix[0][0] = 3;
-	for (i = 1; i <= queryLen; i++) {
-		for (j = 1; j <= targetLen; j++) {
-			float a = scoreMatrix[i - 1][j - 1] + match_[chr_.find(toupper(query[i - 1]))][chr_.find(toupper(target[j - 1]))];
-			float b = scoreMatrix[i - 1][j] - open;
-			float c = scoreMatrix[i][j - 1] - open;
-			float temp1;
-			if (b >= c) {
-				directMatrix[i][j] = 0;
-				temp1 = b;
-			} else {
-				directMatrix[i][j] = 1;
-				temp1 = c;
-			}
-			if (a >= temp1) {
-				directMatrix[i][j] = 2;
-				scoreMatrix[i][j] = a;
-			} else {
-				scoreMatrix[i][j] = temp1;
-			}
-			if (maxScore < scoreMatrix[i][j]) {
-				maxScore = scoreMatrix[i][j];
-				maxcol = j;
-				maxrow = i;
-			}
-		}
-	}
-	// trace back start point
-	int row = queryLen;
-	int col = targetLen;
-
-	// output
-	float colmaxS = scoreMatrix[0][targetLen];
-	row = 0;
-	for (j = 1; j <= queryLen; j++) {
-		if (scoreMatrix[j][targetLen] >= colmaxS) {
-			row = j;
-			colmaxS = scoreMatrix[j][targetLen];
-		}
-	}
-
-	int queryS = -1, queryE, targetS = -1, targetE;
-	targetE = col;
-	queryE = row;
-	while (directMatrix[row][col] != 3) {
-		if (directMatrix[row][col] == 0) {
-			row--;
-		} else if (directMatrix[row][col] == 1) {
-			col--;
-		} else if (directMatrix[row][col] == 2) {
-			targetS = col;
-			queryS = row;
-			col--;
-			row--;
-		}
-	}
-
-	// free memory
-	for (i = 0; i <= targetLen; i++) {
-		free(scoreMatrix[i]);
-	}
-	for (i = 0; i <= targetLen; i++) {
-		free(directMatrix[i]);
-	}
-	free(scoreMatrix);
-	free(directMatrix);
-
-	//cout << queryS << "," << queryE << "," << targetS << "," << targetE;
-	return targetS;
-	
-}
 string reversecomplementary(string& a){	//get reverse complementary sequence
 	string b;
 	map<char,char> dna_base_pair;

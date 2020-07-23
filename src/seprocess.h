@@ -12,6 +12,7 @@
 #include "global_variable.h"
 #include "sequence.h"
 #include <algorithm>
+#include <fstream>
 #define max_thread 48
 struct SEstatOption
 {
@@ -91,7 +92,7 @@ private:
 	vector<C_fastq> fq1s;
 	vector<C_fastq> trim_output_fq1;
 	vector<C_fastq> clean_output_fq1;
-	
+
 	//C_fastq fastq1;
 	int used_threads_num;
 	string random_num;

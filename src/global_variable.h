@@ -10,7 +10,49 @@ using namespace::std;
 //#define REAL_MAX 50
 class C_filter_stat{
 public:
-	C_filter_stat():in_adapter_list_num(0),include_adapter_seq_num(0),include_contam_seq_num(0),n_ratio_num(0),highA_num(0),polyX_num(0),tile_num(0),fov_num(0),low_qual_base_ratio_num(0),mean_quality_num(0),short_len_num(0),long_len_num(0),over_lapped_num(0),no_3_adapter_num(0),int_insertNull_num(0),include_adapter_seq_num1(0),include_adapter_seq_num2(0),include_adapter_seq_num_overlap(0),include_contam_seq_num1(0),include_contam_seq_num2(0),include_contam_seq_num_overlap(0),n_ratio_num1(0),n_ratio_num2(0),n_ratio_num_overlap(0),highA_num1(0),highA_num2(0),highA_num_overlap(0),polyX_num1(0),polyX_num2(0),polyX_num_overlap(0),low_qual_base_ratio_num1(0),low_qual_base_ratio_num2(0),low_qual_base_ratio_num_overlap(0),mean_quality_num1(0),mean_quality_num2(0),mean_quality_num_overlap(0),short_len_num1(0),short_len_num2(0),short_len_num_overlap(0),long_len_num1(0),long_len_num2(0),long_len_num_overlap(0){
+	C_filter_stat(){
+        in_adapter_list_num=0;
+        include_adapter_seq_num=0;
+        include_contam_seq_num=0;
+        n_ratio_num=0;
+        highA_num=0;
+        polyX_num=0;
+        tile_num=0;
+        fov_num=0;
+        low_qual_base_ratio_num=0;
+        mean_quality_num=0;
+        short_len_num=0;
+        long_len_num=0;
+        over_lapped_num=0;
+        no_3_adapter_num=0;
+        include_adapter_seq_num1=0;
+        include_adapter_seq_num2=0;
+        int_insertNull_num=0;
+        include_adapter_seq_num_overlap=0;
+        include_contam_seq_num1=0;
+        include_contam_seq_num2=0;
+        include_contam_seq_num_overlap=0;
+        n_ratio_num1=0;
+        n_ratio_num2=0;
+        n_ratio_num_overlap=0;
+        highA_num1=0;
+        highA_num2=0;
+        highA_num_overlap=0;
+        polyX_num1=0;
+        polyX_num2=0;
+        polyX_num_overlap=0;
+        low_qual_base_ratio_num1=0;
+        low_qual_base_ratio_num2=0;
+        low_qual_base_ratio_num_overlap=0;
+        mean_quality_num1=0;
+        mean_quality_num2=0;
+        mean_quality_num_overlap=0;
+        short_len_num1=0;
+        short_len_num2=0;
+        short_len_num_overlap=0;
+        long_len_num1=0;
+        long_len_num2=0;
+        long_len_num_overlap=0;
 		include_global_contam_seq_num=include_global_contam_seq_num1=include_global_contam_seq_num2=include_global_contam_seq_num_overlap=0;
 		polyG_num=polyG_num1=polyG_num2=polyG_num_overlap=0;
 	};

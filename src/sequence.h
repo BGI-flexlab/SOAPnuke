@@ -10,7 +10,7 @@
 
 class C_sequence_stat_result{	//basic sequence stat information
 public:
-	C_sequence_stat_result():seq_len(0),a_num(0),c_num(0),g_num(0),t_num(0),n_num(0),contig_base(0),a_ratio(0),c_ratio(0),g_ratio(0),t_ratio(0),n_ratio(0),gc_ratio(0){};
+	C_sequence_stat_result():seq_len(0),a_num(0),c_num(0),g_num(0),t_num(0),n_num(0),a_ratio(0),c_ratio(0),g_ratio(0),t_ratio(0),n_ratio(0),contig_base(0),gc_ratio(0){};
 	int seq_len;
 	int a_num,c_num,g_num,t_num,n_num;
 	float a_ratio,c_ratio,g_ratio,t_ratio,n_ratio;
@@ -19,7 +19,7 @@ public:
 };
 class C_fastq_stat_result:public C_sequence_stat_result{	//fastq stat information
 public:
-	C_fastq_stat_result():in_adapter_list(0),include_contam(-1),include_global_contam(-1),include_5_adapter(false),include_3_adapter(-1),include_adapter_seq(-1),qual_len(0),low_qual_base_num(0),low_qual_base_ratio(0),mean_quality(0),q20_num(0),q30_num(0){};
+	C_fastq_stat_result():in_adapter_list(0),include_adapter_seq(-1),include_5_adapter(false),include_3_adapter(-1),include_contam(-1),include_global_contam(-1),qual_len(0),low_qual_base_num(0),low_qual_base_ratio(0),mean_quality(0),q20_num(0),q30_num(0){};
 	bool in_adapter_list;
 	int include_adapter_seq;
 	bool include_5_adapter;	//only used in sRNA
@@ -56,9 +56,9 @@ class C_fastq:public C_sequence{	//fastq,include adapter seq and trim informatio
 public:
 	string seq_id;
 	string qual_seq;
-	string adapter_seq;
-	string adapter_seq2;
-	string contam_seq;
+//	string adapter_seq;
+//	string adapter_seq2;
+//	string contam_seq;
 	//string global_contams;
 	string adapter_orientation,adapter_orientation2;
 	string head_trim_len,tail_trim_len;
@@ -66,6 +66,7 @@ public:
 	int contam_pos;
 	int global_contam_5pos,global_contam_3pos;
 	int raw_length;
+	int pairPos;
 };
 class C_pe_fastq{	//pe fastq
 public:

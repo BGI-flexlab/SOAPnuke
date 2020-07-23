@@ -213,8 +213,10 @@ void seProcess::print_stat(){
 	}
 	of_readPos_qual_stat1<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
 	
-	float raw1_q20[gv.raw1_stat.gs.read_max_length],raw1_q30[gv.raw1_stat.gs.read_max_length];
-	float clean1_q20[gv.raw1_stat.gs.read_max_length],clean1_q30[gv.raw1_stat.gs.read_max_length];
+    float* raw1_q20=new float[gv.raw1_stat.gs.read_max_length];
+    float* raw1_q30=new float[gv.raw1_stat.gs.read_max_length];
+    float* clean1_q20=new float[gv.raw1_stat.gs.read_max_length];
+    float* clean1_q30=new float[gv.raw1_stat.gs.read_max_length];
 	for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
 		unsigned long long raw1_q20_num(0),raw1_q30_num(0),raw1_total(0);
@@ -265,6 +267,10 @@ void seProcess::print_stat(){
 		of_readPos_qual_stat1<<setprecision(0)<<clean1_quar.median<<"\t"<<clean1_quar.lower_quar<<"\t"<<clean1_quar.upper_quar<<"\t"<<clean1_quar.first10_quar<<"\t"<<clean1_quar.last10_quar<<endl;
 		of_q2030_stat1<<i+1<<setiosflags(ios::fixed)<<setprecision(4)<<"\t"<<raw1_q20[i]<<"\t"<<raw1_q30[i]<<"\t"<<clean1_q20[i]<<"\t"<<clean1_q30[i]<<endl;
 	}
+    delete[] raw1_q20;
+    delete[] raw1_q30;
+    delete[] clean1_q20;
+    delete[] clean1_q30;
 	of_readPos_qual_stat1.close();
 	of_q2030_stat1.close();
 	of_trim_stat1<<"Pos\tHeadLowQual\tHeadFixLen\tTailAdapter\tTailLowQual\tTailFixLen\tCleanHeadLowQual\tCleanHeadFixLen\tCleanTailAdapter\tCleanTailLowQual\tCleanTailFixLen"<<endl;
@@ -698,8 +704,8 @@ void seProcess::C_fastq_init(C_fastq& a){
 	a.seq_id="";
 	a.sequence="";
 	a.qual_seq="";
-	a.adapter_seq=gp.adapter1_seq;
-	a.contam_seq=gp.contam1_seq;
+//	a.adapter_seq=gp.adapter1_seq;
+//	a.contam_seq=gp.contam1_seq;
 	//a.global_contams=gp.global_contams;
 	a.head_hdcut=-1;
 	a.head_lqcut=-1;
@@ -710,9 +716,10 @@ void seProcess::C_fastq_init(C_fastq& a){
 	a.global_contam_5pos=-1;
 	a.global_contam_3pos=-1;
 	a.raw_length=0;
-	if(gp.module_name=="filtersRNA"){
-		a.adapter_seq2=gp.adapter2_seq;
-	}
+	a.pairPos=1;
+//	if(gp.module_name=="filtersRNA"){
+//		a.adapter_seq2=gp.adapter2_seq;
+//	}
 	if(!gp.trim.empty()){
 		vector<string> tmp_eles=get_se_hard_trim(gp.trim);
 		a.head_trim_len=tmp_eles[0];
@@ -911,9 +918,7 @@ void seProcess::merge_stat(){
 		if(!gp.trim_fq1.empty()){
 			update_stat(se_local_trim_stat1[i],se_local_fs[i],"trim");
 		}
-		if(!gp.clean_fq1.empty()){
-			update_stat(se_local_clean_stat1[i],se_local_fs[i],"clean");
-		}
+        update_stat(se_local_clean_stat1[i],se_local_fs[i],"clean");
 	}
 }
 void seProcess::create_thread_read(int index){
@@ -1018,7 +1023,7 @@ void* seProcess::smallFilesProcess(){
     if(gp.cleanOutSplit>0){
         int outputFileIndex=0;
         int cur_avaliable_total_reads_number = 0;
-        int sticky_tail_reads_number = 0;
+//        int sticky_tail_reads_number = 0;
         string tidyFile1=gp.output_dir+"/split.0."+gp.clean_fq1;
         ostringstream rmCmd1;
         rmCmd1<<"rm "<<gp.output_dir << "/split.*fq*";
@@ -1075,7 +1080,7 @@ void* seProcess::smallFilesProcess(){
                 }
                 break;
             }
-            int stopIndex=0;
+//            int stopIndex=0;
 
             int ready_cycles = readyCleanFiles1[0].size();
             for (int i = 1; i < gp.threads_num; i++) {
@@ -1363,7 +1368,7 @@ void seProcess::extractReadsToFile(int cycle,int thread_index,int reads_number,s
         }
     }else{
         cleanSmallFile1<<gp.output_dir<<"/thread."<<thread_index<<"."<<cycle<<".clean.r1.fq";
-        FILE* nongzCleanSmall1,*nongzCleanSmall2;
+        FILE* nongzCleanSmall1;
         nongzCleanSmall1=fopen(cleanSmallFile1.str().c_str(),"r");
 
         FILE* splitNonGzFq1;
@@ -1490,6 +1495,7 @@ void seProcess::thread_process_reads(int index,int& cycle,vector<C_fastq> &fq1s)
         trim_result1.clear();
         closeSmallTrimFileHandle(index);
     }
+    opt_clean.fq1s=&clean_result1;
     if(!gp.clean_fq1.empty()){
         opt_clean.stat1=&se_local_clean_stat1[index];
         if(gp.cleanOutGzFormat){
@@ -1498,7 +1504,7 @@ void seProcess::thread_process_reads(int index,int& cycle,vector<C_fastq> &fq1s)
             seWrite(clean_result1,nongz_clean_out1[index]);	//output clean files
         }
         closeSmallCleanFileHandle(index);
-        opt_clean.fq1s=&clean_result1;
+        
         stat_se_fqs(opt_clean,"clean");	//statistic clean fastqs
         if(gp.is_streaming){
             se_write_m.lock();
@@ -1550,6 +1556,10 @@ void seProcess::run_extract_random(){
 	}
 	//cout<<gp.l_total_reads_num<<"\t"<<total_clean_reads<<endl;
 	//vector<int> include_threads;
+    if(gp.l_total_reads_num==0){
+        cerr<<"Error:assigned reads number should not be 0"<<endl;
+        return;
+    }
     int interval=total_clean_reads/gp.l_total_reads_num;
 	if(interval==1)
 	    return;

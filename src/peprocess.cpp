@@ -347,11 +347,16 @@ void peProcess::print_stat(){	//print statistic information to the file
 	}
 	of_readPos_qual_stat1<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
 	of_readPos_qual_stat2<<"Mean\tMedian\tLower quartile\tUpper quartile\t10th percentile\t90th percentile"<<endl;
-	float raw1_q20[gv.raw1_stat.gs.read_max_length],raw1_q30[gv.raw1_stat.gs.read_max_length];
-	float raw2_q20[gv.raw2_stat.gs.read_max_length],raw2_q30[gv.raw2_stat.gs.read_max_length];
-	float clean1_q20[gv.raw1_stat.gs.read_max_length],clean1_q30[gv.raw1_stat.gs.read_max_length];
-	float clean2_q20[gv.raw2_stat.gs.read_max_length],clean2_q30[gv.raw2_stat.gs.read_max_length];
-	for(int i=0;i!=gv.raw1_stat.gs.read_length;i++){
+	int readMaxLength=gv.raw1_stat.gs.read_max_length>gv.raw2_stat.gs.read_max_length?gv.raw1_stat.gs.read_max_length:gv.raw2_stat.gs.read_max_length;
+	float* raw1_q20=new float[readMaxLength];
+	float* raw1_q30=new float[readMaxLength];
+	float* raw2_q20=new float[readMaxLength];
+	float* raw2_q30=new float[readMaxLength];
+	float* clean1_q20=new float[readMaxLength];
+	float* clean1_q30=new float[readMaxLength];
+	float* clean2_q20=new float[readMaxLength];
+	float* clean2_q30=new float[readMaxLength];
+	for(int i=0;i!=readMaxLength;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
 		of_readPos_qual_stat2<<i+1<<"\t";
 		long long raw1_q20_num(0),raw1_q30_num(0),raw1_total(0);
@@ -399,7 +404,7 @@ void peProcess::print_stat(){	//print statistic information to the file
 
 	of_q2030_stat1<<"Position in reads\tPercentage of Q20+ bases\tPercentage of Q30+ bases\tPercentage of Clean Q20+\tPercentage of Clean Q30+"<<endl;
 	of_q2030_stat2<<"Position in reads\tPercentage of Q20+ bases\tPercentage of Q30+ bases\tPercentage of Clean Q20+\tPercentage of Clean Q30+"<<endl;
-	for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
+	for(int i=0;i!=readMaxLength;i++){
 		of_readPos_qual_stat1<<i+1<<"\t";
 		of_readPos_qual_stat2<<i+1<<"\t";
 		long long clean1_q20_num(0),clean1_q30_num(0),clean1_total(0);
@@ -434,6 +439,14 @@ void peProcess::print_stat(){	//print statistic information to the file
 		of_q2030_stat1<<i+1<<setiosflags(ios::fixed)<<setprecision(2)<<"\t"<<100*raw1_q20[i]<<"%\t"<<100*raw1_q30[i]<<"%\t"<<100*clean1_q20[i]<<"%\t"<<100*clean1_q30[i]<<"%"<<endl;
 		of_q2030_stat2<<i+1<<setiosflags(ios::fixed)<<setprecision(2)<<"\t"<<100*raw2_q20[i]<<"%\t"<<100*raw2_q30[i]<<"%\t"<<100*clean2_q20[i]<<"%\t"<<100*clean2_q30[i]<<"%"<<endl;
 	}
+    delete[] raw1_q20;
+    delete[] raw1_q30;
+    delete[] raw2_q20;
+    delete[] raw2_q30;
+    delete[] clean1_q20;
+    delete[] clean1_q30;
+    delete[] clean2_q20;
+    delete[] clean2_q30;
 	of_readPos_qual_stat1.close();
 	of_readPos_qual_stat2.close();
 	of_q2030_stat1.close();
@@ -1129,10 +1142,12 @@ void peProcess::C_fastq_init(C_fastq& a,C_fastq& b){
 	b.seq_id="";
 	b.sequence="";
 	b.qual_seq="";
-	a.adapter_seq=gp.adapter1_seq;
-	b.adapter_seq=gp.adapter2_seq;
-	a.contam_seq=gp.contam1_seq;
-	b.contam_seq=gp.contam2_seq;
+	a.pairPos=1;
+	b.pairPos=2;
+//	a.adapter_seq=gp.adapter1_seq;
+//	b.adapter_seq=gp.adapter2_seq;
+//	a.contam_seq=gp.contam1_seq;
+//	b.contam_seq=gp.contam2_seq;
 	//a.global_contams=gp.global_contams;
 	//b.global_contams=gp.global_contams;
 	a.head_hdcut=-1;
@@ -1210,14 +1225,14 @@ void peProcess::create_thread_smalltrimoutputFile(int index,int cycle){
     if(gp.trim_fq1.rfind(".gz")==gp.trim_fq1.size()-3){	//create output trim files handle
         trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<"."<<cycle<<".trim.r1.fq.gz";
         trim_outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<"."<<cycle<<".trim.r2.fq.gz";
-        gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"wb");
+        gz_trim_out1[index]=gzopen(trim_outfile1.str().c_str(),"ab");
         if(!gz_trim_out1[index]){
             cerr<<"Error:cannot write to the file,"<<trim_outfile1.str()<<endl;
             exit(1);
         }
         gzsetparams(gz_trim_out1[index], 2, Z_DEFAULT_STRATEGY);
         gzbuffer(gz_trim_out1[index],1024*1024*8);
-        gz_trim_out2[index]=gzopen(trim_outfile2.str().c_str(),"wb");
+        gz_trim_out2[index]=gzopen(trim_outfile2.str().c_str(),"ab");
         if(!gz_trim_out2[index]){
             cerr<<"Error:cannot write to the file,"<<trim_outfile2.str()<<endl;
             exit(1);
@@ -1227,11 +1242,11 @@ void peProcess::create_thread_smalltrimoutputFile(int index,int cycle){
     }else{
         trim_outfile1<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<"."<<cycle<<".trim.r1.fq";
         trim_outfile2<<gp.output_dir<<"/"<<tmp_dir<<"/thread."<<index<<"."<<cycle<<".trim.r2.fq";
-        if((nongz_clean_out1[index]=fopen(trim_outfile1.str().c_str(),"w"))==NULL){
+        if((nongz_clean_out1[index]=fopen(trim_outfile1.str().c_str(),"a"))==NULL){
             cerr<<"Error:cannot write to the file,"<<trim_outfile1.str()<<endl;
             exit(1);
         }
-        if((nongz_clean_out2[index]=fopen(trim_outfile2.str().c_str(),"w"))==NULL){
+        if((nongz_clean_out2[index]=fopen(trim_outfile2.str().c_str(),"a"))==NULL){
             cerr<<"Error:cannot write to the file,"<<trim_outfile2.str()<<endl;
             exit(1);
         }
@@ -1326,7 +1341,7 @@ void peProcess::thread_process_reads(int index,int cycle,vector<C_fastq> &fq1s,v
 		pair_check++;
 	}
 	filter_pe_fqs(opt2);		//filter raw fastqs by the given parameters
-	delete opt2;
+	
 	PEstatOption opt_raw;
 	opt_raw.fq1s=&fq1s;
 	opt_raw.stat1=&local_raw_stat1[index];
@@ -1352,7 +1367,8 @@ void peProcess::thread_process_reads(int index,int cycle,vector<C_fastq> &fq1s,v
 		trim_result2.clear();
         closeSmallTrimFileHandle(index);
 	}
-
+    opt_clean.fq1s=&clean_result1;
+    opt_clean.fq2s=&clean_result2;
 	if(!gp.clean_fq1.empty()){
 		opt_clean.stat1=&local_clean_stat1[index];
 		opt_clean.stat2=&local_clean_stat2[index];
@@ -1362,8 +1378,7 @@ void peProcess::thread_process_reads(int index,int cycle,vector<C_fastq> &fq1s,v
             peWrite(clean_result1,clean_result2,nongz_clean_out1[index],nongz_clean_out2[index]);
         }
         closeSmallCleanFileHandle(index);
-		opt_clean.fq1s=&clean_result1;
-		opt_clean.fq2s=&clean_result2;
+		
 		stat_pe_fqs(opt_clean,"clean");
 
 		if(gp.is_streaming){
@@ -1390,6 +1405,7 @@ void peProcess::thread_process_reads(int index,int cycle,vector<C_fastq> &fq1s,v
     clean_result1.clear();
     clean_result2.clear();
 	check_disk_available();
+    delete opt2;
     //cycle++;
 }
 
@@ -1400,9 +1416,7 @@ void peProcess::merge_stat(){
 		if(!gp.trim_fq1.empty()){
 			update_stat(local_trim_stat1[i],local_trim_stat2[i],local_fs[i],"trim");
 		}
-		if(!gp.clean_fq1.empty()){
-			update_stat(local_clean_stat1[i],local_clean_stat2[i],local_fs[i],"clean");
-		}
+        update_stat(local_clean_stat1[i],local_clean_stat2[i],local_fs[i],"clean");
 	}
 }
 void peProcess::run_cmd(string cmd){
@@ -1728,10 +1742,10 @@ void peProcess::catRmFile(vector<int> indexes,int cycle,string type,bool gzForma
     cmd1<<" >>"<<gp.output_dir<<"/"<<outFile1;
     cmd2<<" >>"<<gp.output_dir<<"/"<<outFile2;
     if(indexes.size()>0) {
-        bool subThreadAllDone = true;
+//        bool subThreadAllDone = true;
         for (int i = 0; i < gp.threads_num; i++) {
             if (sub_thread_done[i]!=1) {
-                subThreadAllDone = false;
+//                subThreadAllDone = false;
                 break;
             }
         }
@@ -2014,7 +2028,7 @@ void* peProcess::smallFilesProcess(){
     if(gp.cleanOutSplit>0){
 
 
-        int sticky_tail_reads_number = 0;
+//        int sticky_tail_reads_number = 0;
         string tidyFile1=gp.output_dir+"/split.0."+gp.clean_fq1;
         string tidyFile2=gp.output_dir+"/split.0."+gp.clean_fq1;
         ostringstream rmCmd1,rmCmd2;
@@ -2086,7 +2100,7 @@ void* peProcess::smallFilesProcess(){
                 }
                 break;
             }
-            int stopIndex=0;
+            
 
             int ready_cycles = readyCleanFiles1[0].size();
             for (int i = 1; i < gp.threads_num; i++) {
@@ -2294,6 +2308,10 @@ void peProcess::run_extract_random(){
     }
     //cout<<gp.l_total_reads_num<<"\t"<<total_clean_reads<<endl;
     //vector<int> include_threads;
+    if(gp.l_total_reads_num==0){
+        cerr<<"Error:assigned reads number should not be 0"<<endl;
+        return;
+    }
     float f_interval=(float)total_clean_reads/gp.l_total_reads_num;
     if(f_interval<1.1){
         return;

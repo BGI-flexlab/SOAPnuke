@@ -38,6 +38,9 @@ struct PEcalOption
 	    fq2s=NULL;
         trim_result1=trim_result2=clean_result1=clean_result2=NULL;
 	}
+    ~PEcalOption(){
+        
+    }
 };
 class peProcess{
 public:
@@ -46,7 +49,7 @@ public:
 	void print_stat();
 	void update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s_stat,C_filter_stat& fs_stat,string type);
 	void* stat_pe_fqs(PEstatOption opt,string dataType);
-	void filter_pe_fqs(PEcalOption* opt);
+    virtual void filter_pe_fqs(PEcalOption* opt);
 	int read(vector<C_fastq>& pe1,vector<C_fastq>& pe2,ifstream& infile1,ifstream& infile2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,gzFile out1,gzFile out2);
 	void peWrite(vector<C_fastq>& pe1,vector<C_fastq>& pe2,FILE* out1,FILE* out2);
@@ -55,7 +58,8 @@ public:
 	void output_fastqs(string type,vector<C_fastq> &fq1,FILE* outfile);
 	void merge_stat();
 	void C_fastq_init(C_fastq& a,C_fastq& b);
-	void* sub_thread(int index);
+
+    virtual void* sub_thread(int index);
 	void catRmFile(int index,int cycle,string type,bool gzFormat);
 	void catRmFile(vector<int> indexes,int cycle,string type,bool gzFormat);
 	void* smallFilesProcess();
