@@ -1,3 +1,35 @@
+
+
+## Introduction
+
+As a novel analysis tool developed for quality control and preprocessing of FASTQ and SAM/BAM data, SOAPnuke includes 5 modules for different usage scenarios, namely **filter**, **filterHts**, **filterStLFR**, **filtersRNA** and **filterMeta**. 
+
+**filter**: Preprocess FASTQ files, include trimming (adapter, low quality end and etc.) if set, discarding (adapter, low quality, high N base ratio and etc.) and generating statistic report.
+
+**filterHts**: Preprocess BAM/CRAM files. The process procedure remains the same as filter module. 
+
+**filterStLFR**: Preprocess stLFR FASTQ files, added with a barcode-detection step at the beginning, and support FASTQ files list as input. 
+
+**filtersRNA**: Preprocess sRNA FASTQ files. Since it is still under testing, please inform us if you encounter any bug.
+
+**filterMeta**: Preprocess Meta FASTQ files. Since it is still under testing, please inform us if you encounter any bug.
+
+**Note: Input BAM/CRAM files should be sorted by readID when it contains Paired-End data.**
+
+## PERFORMANCE
+
+SOAPnuke 2.X version shows an excellent performance compared with 1.X version. An great acceleration has been accomplished by refactoring the whole framework, optimizing multithreading and IO.
+
+This table presents a benchmark result on 628M Paired-End 150bp reads. As thread number increases, user time obviously decreases.
+
+|Software | ThreadNum | RunTime(min) | MaxMem(MB)|Parameter|
+| :-----| ----: | :----: | :----: | :----: |
+| SOAPnuke | 16| 35.7 |2270 | filter module
+| SOAPnuke | 8 | 48.4 |881 | filter module
+| SOAPnuke | 4 | 72.1 |275 | filter module
+| fastp | 8 | 62.0 |1004 |-A -w 8|
+
+
 ## Getting started
 #### Requirements
     gcc: 4.7 or higher
@@ -12,107 +44,354 @@
 
 #### QuickStart
 
+All usages start with executable file **SOAPnuke**, and different modules are invoked with different sub-commands. Here are some usage examples:
+
     filter:
     
     SOAPnuke filter -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz -o result -T 8
     
+    
     filterHts:
     
-    SOAPnuke filterHts --ref chr21.fa -1 input.bam -2 output.cram  -o result SOAPnuke filterHts -1 input.bam -2 output.bam  -o result
+    SOAPnuke filterHts --ref chr21.fa -1 input.bam -2 output.cram  -o result
+	SOAPnuke filterHts -1 input.bam  -2 output.bam -o result
+
 
     filterStLFR:
 
-    SOAPnuke filterStLFR -1 fq1.list -2 fq2.list -C clean1.gz -D clean2.gz -o result -T 8 -c config
+    filterStLFR -1 fq1.list -2 fq2.list -C clean1.gz -D clean2.gz -o result -T 8 -c config
 
-**Note:
-We don't recommend using 1.X anymore, since 2.X outweighs it much in performance and preprocessing effect. This README is basically applied to 2.X as well.**
-	
-## Introduction
 
-As a novel analysis tool developed for quality control and preprocessing of FASTQ and SAM/BAM data, SOAPnuke includes three modules for different usage scenarios: **filter**, **filterHts** and **filterStLFR**. 
+#### Detailed QC steps
 
-All usages start with executable file **SOAPnuke**, and different modules are invoked with different sub-commands like this:
+If set trim-related parameters(no trim if not set), do trimming first:
 
-	Program: SOAPnuke
-	Version: 2.1.3
-	Contact: GongChun<gongchun@genomics.cn>  ChenYuxin<chenyuxin@genomics.cn>
-	Command:
-         filter        preprocessing sequences
-         filterHts     preprocessing HTS sequences
-         filterStLFR   preprocessing stLFR sequences
+**Read ID**
+
+If parameter “index” set in config file, remove index sequence from read ID.
+
+Once “index” is set, if seqType is 0(default value), read ID would be expected like: 		    	
+
+    @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2, 
+
+“#GAAGCACG” would be removed then. 
+
+If seqType is 1, read ID would be expected like: 
+
+    @HISEQ:310:C5MH9ANXX:1:1101:3517:20432:N:0:TCGGTCAC, 
+
+“:TCGGTCAC” would be removed then.
+
+**Read sequence and quality**
+
+First, the cutting length of all trimming type would be calculated, including hard trim, low quality end trim, adapter trim and tail-polyG trim. The longest cutting would be performed.
+
+- hard trim: directly remove a certain length sequence from head or tail on read sequence
+- low quality end trim: remove low quality base starting from end until quality higher than 			cutoff
+- adapter trim: when adapter was found, the base sequence and quality sequence would be 	trimmed from the start position which match adapter
+- tail-polyG trim: if polyG number is greater than cutoff, then these polyG sequence in tail  		would be trimmed
+
+Then do **filtering**:
+
+Note that the read pair would be both discarded both when any of which fails to pass QC.
+
+Priority(High to Low):
+
+-	**Tile, may be used in some types of BGI data.**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+If you want to discard reads with certain tile ID, set the parameter like “1101-1104,1205”.
+
+-	**Fov, may be used in data from zebra-platform.**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+If you want to discard reads with certain FOV ID, set the parameter like “C001R003,C003R004”.
+
+-	**Minimal read length**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with sequence length shorter than the parameter.
+
+-	**Maximal read length**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with sequence length longer than the parameter.
+
+-	**N ratio**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with N base ratio not smaller than the parameter.
+
+-	**High A ratio**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with A base ratio not smaller than the parameter.
+
+-	**polyX number (X means any one base)**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with poly-X number not smaller than the parameter.
+
+-	**Low quality base ratio**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read with low-quality bases ratio not smaller than the parameter.
+
+-	**Mean quality**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read of which mean quality of sequence smaller than the parameter.
+
+-	**Overlapped length if PE**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read pair which is suspected to be overlapped longer then the parameter.
+
+-	**Adapter**
+
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;
+Discard a read which contains an adapter.
 
 ## Parameter
-Module **filter** has following paramters for running:
-	
-	-1, --fq1		FILE		fq1 file(required)
-	-2, --fq2		FILE		fq2 file, used when pe
-	-C, --cleanFq1		STR		clean fq1 file name(required,gz format)
-	-D, --cleanFq2		STR		clean fq2 file name
-	-o, --outDir		STR		output directory, directory must exists
-	-8, --outFileType	STR		output file format: fastq or fasta[fastq]
-	-0, --log		STR		log file
 
-	-f, --adapter1		STR		adapter sequence of fq1 file (5' adapter when filtersRNA mode)
-	-r, --adapter2		STR		adapter sequence of fq2 file (for PE reads or 3' adapter when filtersRNA)
-	-Z, --contam1		STR		contaminant sequence(s) for fq1 file, split by comma
-	-z, --contam2		STR		contaminant sequence(s) for fq2 file, split by comma
-	-Y, --ctMatchR		FLOAT/STR	contam's shortest consistent matching ratio [default:0.2]
-	-c, --global_contams	STR		global contaminant sequences which need to be detected, split by comma if more than 1
-	-d, --glob_cotm_mR	STR		minimum match ratio in global contaminant sequences detection
-	-k, --glob_cotm_mM	STR		maximum mismatch number in global contaminant sequences detection
-	-5, --seqType		INT		Sequence fq name type, 0->old fastq name, 1->new fastq name [0]
-							old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2
-							new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC
-	-R, --trimFq1		STR		trim fq1 file name(gz format)
-	-W, --trimFq2		STR		trim fq2 file name
-	-K, --tile		STR		tile number to ignore reads, such as [1101-1104,1205]
-	-F, --fov		STR		fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]
-	
-	Adapter related:
-	-J, --ada_trim				trim read when find adapter[default:discard]
-	-a, --contam_trim			trim read when find contam[default:discard]
-	
-	find 5' adapter
-	-S, --adaRCtg		INT		mini 5' adapter continuous alignment length (default: 6)
-	-s, --adaRAr		FLOAT		mini alignment rate when find 5' adapter: alignment/tag (default: 0.8)
-	
-	find 3' adapter
-	-U, --adaRMa		INT		mini alignment length when find 3' adapter (default: 5)
-	-u, --adaREr		FLOAT		Max error rate when find 3' adapter (mismatch/match) (default: 0.4)
-	-b, --adaRMm		INT		Max mismatch number when find 3' adapter (default: 4)
+### Commonly used parameters
 
-	-l, --lowQual		INT		low quality threshold  [default:5]
-	-q, --qualRate		FLOAT		low quality rate  [default:0.5]
-	-n, --nRate		FLOAT		N rate threshold  [default:0.05]
-	-m, --mean		FLOAT		filter reads with low average quality
-	-p, --highA		FLOAT		filter reads if ratio of A in a read exceed [FLOAT]
-	-g, --polyG_tail	FLOAT		filter reads if found polyG in tail [INT]
-	-X, --polyX		INT		filter reads if a read contains polyX [INT]
-	-i, --index				remove index
-	-L, --totalReadsNum	INT/FLOAT	number/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).
-						It will extract reads randomly through the total clean fq file by default, you also can get the head reads
-						for save time by add head suffix to the integer(e.g. -L 10000000head)
-	-t, --trim		INT,INT,INT,INT	trim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])
-	-x, --trimBadHead	INT,INT		Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
-	-y, --trimBadTail	INT,INT		Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
+<br>
 
-	-O, --overlap		INT		filter the small insert size.Not filter until the value exceed 1[-1]
-	-P, --mis		FLOAT		the maximum mismatch ratio when find overlap between PE reads(depend on -O)[0.1]
+#### filter module
 
-	-e, --patch		INT		reads number of a patch processed[400000]
-	-T, --thread		INT		threads number used in process[6]
+- -1 / --fq1	
 
-	-Q, --qualSys		INT		quality system 1:64, 2:33[default:2]
-	-G, --outQualSys	INT		out quality system 1:64, 2:33[default:2]
-	-3, --maxReadLen	INT		read max length,default 49 for filtersRNA
-	-4, --minReadLen	INT		read min length,default 18 for filtersRNA,30 for other modules
-	-w, --output_clean	INT		max reads number in each output clean fastq file
+fq1 file(required), .gz or normal text format are both supported
 
-	-7, --pe_info				Add /1, /2 at the end of fastq name.[default:not add]
-	-B, --baseConvert	STR		convert base when write data,example:TtoU
+- -2 / --fq2	
 
-	-h, --help				help
-	-v, --version				show version
+fq2 file(used when process PE data), format should be same as fq1 file, both are gz or both are normal text
+
+- -C / --cleanFq1
+
+reads which passed QC from fq1 file would output to this file
+
+- -D / --cleanFq2
+
+reads which passed QC from fq2 file would output to this file
+
+- -o / --out
+
+Output directory. Processed fq files and statistical results would be output to here
+
+- -f / --adapter1
+
+adapter sequence or list file of read1
+
+- -r / --adapter2
+
+adapter sequence or list file of read2
+
+- -J / --ada_trim
+
+trim read when find adapter, it’s a bool parameter, default is false which means discard the read when find adapter
+
+- -T / --thread
+
+threads number used in process, default value is 6
+
+- -c / --configFile
+
+config file which include uncommonly used parameters. Each line contains a parameter,  e.g., for value needed parameter: adaMis=2, for bool parameter: contam_trim, which means set mode as discard when find contaminant sequence
+
+- -l / --lowQual
+
+low quality threshold, default value is 5
+
+- -q / --qualRate
+
+low quality rate threshold, default value is 0.5
+
+- -n / --nRate
+
+N rate threshold, default value is 0.05
+
+- -m / --mean
+
+low average quality threshold, if you want discard reads with low average quality, you can set a value. The software do NOT check this item by default
+
+- -p / --highA
+
+ratio of A threshold in a read, the software do NOT check this item by default
+
+- -g / --polyG_tail
+
+polyG number threshold in read tail, the software do NOT check this item by default
+
+- -X / --polyX
+
+polyX number threshold, the software do NOT check this item by default
+
+- -4 / --minReadLen
+
+read minimal length, default value is 30
+
+- -h / --help
+
+Show help information
+
+- -v / --version
+
+Show version information
+
+<br>
+
+
+#### filterHts module
+
+Here we only present options different from **filter** module.
+
+- -E / --ref
+
+reference file(required when process cram format)
+
+- -1
+
+input bam/cram file(required)
+
+- -2
+
+output bam/cram file(required)
+
+<br>
+
+
+#### filterStLFR module
+
+Here we only present options different from **filter** module.
+
+- -1 / --fq1
+
+Support FASTQ files list as input
+
+- -2 / --fq2
+
+Support FASTQ files list as input
+
+<br>
+
+
+### Uncommonly used parameters
+
+- ctMatchR
+
+Contaminant sequence shortest consistent matching ratio [default:0.2]
+
+- seqType
+
+Sequence fq name type, 0->old fastq name, 1->new fastq name [0]
+
+old fastq name: @FCD1PB1ACXX:4:1101:1799:2201#GAAGCACG/2
+
+new fastq name: @HISEQ:310:C5MH9ANXX:1:1101:3517:2043 2:N:0:TCGGTCAC
+
+- trimFq1
+
+trim fq1 file name(gz format) [optional]
+
+- trimFq2
+
+trim fq2 file name [optional]. If trim related parameters were set on, these output files would include the total reads which only do trimming. For example, if read A failed QC after trimming, it will still output to -R/-W, but not to -C/-D
+
+- tile
+
+tile number to ignore reads, such as [1101-1104,1205]
+
+- fov
+
+fov number to ignore reads (only for zebra-platform data), such as [C001R003,C003R004]
+
+- barcodeListPath
+
+barcode list of two columns:sequence and barcodeID
+
+- barcodeRegionStr
+
+barcode regions, such as: 101_10,117_10,145_10 or 101_10,117_10,133_10
+
+- notCutNoLFR
+
+do not cut sequence when fail found barcode
+
+- inputAsList
+
+input file list not a file
+
+- tenX
+
+output tenX format
+
+- outFileType
+
+output file format: fastq or fasta[default: fastq]
+
+- index
+
+remove index
+
+- totalReadsNum
+
+number/fraction of reads you want to keep in the output clean FASTQ file(cannot be assigned when -w is given). It will extract reads randomly through the total clean FASTQ file by default, you also can get the head reads for save time by add head suffix to the integer(e.g. -L 10000000head)
+
+- trim
+
+trim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])
+
+- trimBadHead
+
+Trim from head ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim)  [0,0]
+
+- trimBadTail
+
+Trim from tail ends until meeting high-quality base or reach the length threshold, set (quality threshold,MaxLengthForTrim) [0,0]
+
+- overlap
+
+filter the small insert size.Not filter until the value exceed 1 [-1]
+
+- mis
+
+the maximum mismatch ratio when find overlap between PE reads(depend on -O) [0.1]
+
+- patch
+
+reads number of a patch processed [400000]
+
+- qualSys
+
+quality system 1:64, 2:33 [default:2]
+
+- outQualSys
+
+out quality system 1:64, 2:33 [default:2]
+
+- maxReadLen
+
+read max length, default 49 for filtersRNA, the software do NOT check this item by default in other modules
+
+- cleanOutSplit
+
+max reads number in each output clean FASTQ file
+
+- pe_info
+
+Add /1, /2 at the end of FASTQ name. [default: not add]
+
+- baseConvert
+
+convert base when write data, example: TtoU , means convert base T to base U in the output
+
+- log
+
+log file output path
+
+<br>
 
 
 ## Availability
@@ -120,28 +399,15 @@ Module **filter** has following paramters for running:
 SOAPnuke is released under [GPLv3][1]. The latest source code is [freely
 available at github][2]. 
 
-## Frequently asked questions (FAQs)
 
-1. [What types of data format does SOAPnuke work with?](#dataf)
-2. [What types of data does SOAPnuke work with?](#data)
-3. [Can I choose a part of quality-control statistics instead of all?](#qcn)
+## Citing SOAPnuke
 
-#### <a name="dataf"></a>1. What types of data format does SOAPnuke work with?
-
-SOAPnuke only works with sequence data of FASTQ format temporarily, but we are considering supporting SAM/BAM to provide operations on aligned datasets.
-
-#### <a name="data"></a>2. What types of data does SOAPnuke work with?
-
-**Filter** module are designed to deal with sequences from most experiments. Compared to it, the other three modules with edited parameter-sets and tailored functions deal with specific data. These designs have refered to existing pipelines of data preprocessing.
-
- 
-#### <a name="qcn"></a>3. Can I choose a part of quality-control statistics instead of all?
-
-We will realize this feature in the following versions, but all those statistics will be computed for now.
- 
-
+- Chen Y, Chen Y, Shi C, et al. SOAPnuke: a MapReduce acceleration-supported software for integrated quality control and preprocessing of high-throughput sequencing data. Gigascience. 2018;7(1):1-6. doi:10.1093/gigascience/gix120 [PMID: [29220494][3]]
 
 
 
 [1]: http://en.wikipedia.org/wiki/GNU_General_Public_License
 [2]: https://github.com/BGI-flexlab/SOAPnuke
+[3]: http://www.ncbi.nlm.nih.gov/pubmed/29220494
+
+
