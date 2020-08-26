@@ -3,6 +3,7 @@
 #include <string>
 #include <functional>
 #include <vector>
+#include "mGzip.h"
 using namespace::std;
 class C_global_parameter{
 //common parameter
@@ -70,6 +71,8 @@ public:
         notCutNoLFR=false;
         inputAsList=false;
         tenX=false;
+        barcodeNumInList=0;
+        whether_mGzip=false;
     };
 	//C_global_parameter(int argc,char* argv[]);
 
@@ -167,6 +170,10 @@ public:
     bool notCutNoLFR;
     bool inputAsList;
     bool tenX;
+    int barcodeNumInList;
+
+    bool whether_mGzip;
+    static vector<threadDataInfo> threadInfo;
 };
 
 #endif

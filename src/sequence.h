@@ -34,10 +34,12 @@ public:
 };
 class C_pe_fastq_stat_result{	//pe fastq stat information
 public:
-	C_pe_fastq_stat_result():over_lapped(1){};
+	C_pe_fastq_stat_result():over_lapped(1),containStLFRbarcode(false),stLFRbarcode(""){};
 	C_fastq_stat_result fastq1_result;
 	C_fastq_stat_result fastq2_result;
 	bool over_lapped;	//pe fastq whether overlapped
+	bool containStLFRbarcode;
+	string stLFRbarcode;
 };
 
 class C_sequence{	//sequence
@@ -92,6 +94,13 @@ public:
 	C_fastq fq1;
 	C_fastq fq2;
 	C_pe_fastq_stat_result reads_result;
+	//added for stLFR module
+	void setStLFRbarcode(string bcs){
+        reads_result.stLFRbarcode=bcs;
+	}
+	string getStLFRbarcode(){
+	    return reads_result.stLFRbarcode;
+	}
 };
 class C_sRNA_fastq_filter:public C_single_fastq_filter{	//sRNA fastq filter
 public:

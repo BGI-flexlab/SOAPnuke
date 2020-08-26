@@ -449,7 +449,10 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
     bool pe_data = false;
     if(gp.module_name!="filterHts") {
         if (!gp.fq1_path.empty()) {
-            check_gz_file(gp.fq1_path);
+            if(file_exist_and_not_empty(gp.fq1_path)==0){
+                cerr << "Error:input fastq1 is required" << endl;
+                exit(1);
+            }
         } else {
             cerr << "Error:input fastq1 is required" << endl;
             exit(1);
@@ -460,7 +463,10 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
         }
         if (!gp.fq2_path.empty()) {
             pe_data = true;
-            check_gz_file(gp.fq2_path);
+            if(file_exist_and_not_empty(gp.fq2_path)==0){
+                cerr << "Error:input fastq2 is required" << endl;
+                exit(1);
+            }
             if (gp.fq1_path == gp.fq2_path) {
                 cerr << "Error:input fq1 and fq2 are the same,please check the parameters" << endl;
                 exit(1);
@@ -728,7 +734,7 @@ void printModule(){
 void printHtsUsage(){
     cout << "Usage: "<<"filterHts"<<" [OPTION]... \n";
     cout<<"\ncommonly used parameters\n";
-    cout << "\t-E, --ref\t\tFILE\t\treference file(required when process cram foramt)\n";
+    cout << "\t-E, --ref\t\tFILE\t\treference file(required when process cram format)\n";
     cout << "\t-1, \t\t\tFILE\t\tinput bam/cram file(required)\n";
     cout << "\t-2, \t\t\tFILE\t\toutput bam/cram file(required)\n";
     cout << "\t-o, --outDir\tSTR\t\toutput directory, directory must exists\n";
@@ -785,7 +791,7 @@ void printHtsUsage(){
     cout << "\n";
 
     cout << "\tpe_info\t\t\t\tAdd /1, /2 at the end of fastq name.[default:not add]\n";
-    cout << "\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU\n";
+    cout << "\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU, means convert base T to base U in the output\n";
     cout << "\tlog\t\tSTR\t\tlog file\n";
     cout << "\n";
 
@@ -897,7 +903,7 @@ void printUsage(string c_module){
     cout << "\n";
     
     cout << "\tpe_info\t\t\t\tAdd /1, /2 at the end of fastq name.[default:not add]\n";
-    cout << "\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU\n";
+    cout << "\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU, means convert base T to base U in the output\n";
     cout << "\tlog\t\tSTR\t\tlog file\n";
     cout << "\n";
 

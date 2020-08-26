@@ -187,12 +187,17 @@ C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& g
 	reads_result.fastq1_result=fastq1.read_result;
 	reads_result.fastq2_result=fastq2.read_result;
 	reads_result.over_lapped=false;
-	if(gp.overlap_length!=-1)
-		reads_result.over_lapped=whether_over_overlapped(a,b,gp);
 }
 
 int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
+	if(gp.module_name=="filterStLFR"){
+	    string barcode=getStLFRbarcode();
+	    if(barcode!="0_0_0"){
+            fs->readsNumWithstLFRbarcode++;
+            fs->stLFRbarcodeNum.insert(barcode);
+	    }
+	}
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(reads_result.fastq1_result.read_tile,gp.tile)){
 			fs->tile_num++;

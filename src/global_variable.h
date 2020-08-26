@@ -2,6 +2,7 @@
 #define _GLOBAL_VARIABLE_H
 
 #include <string>
+#include <set>
 //#include <map>
 using namespace::std;
 #define READ_MAX_LEN 500
@@ -55,6 +56,7 @@ public:
         long_len_num_overlap=0;
 		include_global_contam_seq_num=include_global_contam_seq_num1=include_global_contam_seq_num2=include_global_contam_seq_num_overlap=0;
 		polyG_num=polyG_num1=polyG_num2=polyG_num_overlap=0;
+        readsNumWithstLFRbarcode=0;
 	};
 	//int output_reads_num;
 	int in_adapter_list_num;
@@ -75,6 +77,8 @@ public:
 	int long_len_num1,long_len_num2,long_len_num_overlap;
 	int over_lapped_num;
 	int no_3_adapter_num,int_insertNull_num;
+	int readsNumWithstLFRbarcode;
+	set<string> stLFRbarcodeNum;
 };
 class C_general_stat{
 public:

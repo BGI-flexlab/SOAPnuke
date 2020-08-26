@@ -538,6 +538,20 @@ void peProcess::print_stat(){	//print statistic information to the file
 	}
 	of_trim_stat1.close();
 	of_trim_stat2.close();
+
+	if(gp.module_name=="filterStLFR"){
+        string barcodeStat=gp.output_dir+"/split_stat_read1.log.txt";
+        ofstream ofBarcodeStat(barcodeStat.c_str());
+        long long totalBarcodeCombinedTypeNum=(long long)((long long)(gp.barcodeNumInList*gp.barcodeNumInList)*gp.barcodeNumInList);
+        ofBarcodeStat<<"Barcode_types="<<gp.barcodeNumInList<<"*"<<gp.barcodeNumInList<<"*"<<gp.barcodeNumInList<<"="<<totalBarcodeCombinedTypeNum<<endl;
+        float presentBarcodeCombinedTypeRatio=gv.fs.stLFRbarcodeNum.size()*100.0/totalBarcodeCombinedTypeNum;
+        ofBarcodeStat<<"Real_Barcode_types ="<<gv.fs.stLFRbarcodeNum.size()<<" ("<<presentBarcodeCombinedTypeRatio<<" %)"<<endl;
+        gv.fs.stLFRbarcodeNum.clear();
+        ofBarcodeStat<<"Reads_pair_num  = "<<gv.raw1_stat.gs.reads_number<<endl;
+        float readsRatioWithStLFRbarcode=gv.fs.readsNumWithstLFRbarcode*100.0/gv.raw1_stat.gs.reads_number;
+        ofBarcodeStat<<"Reads_pair_num(after split) = "<<gv.fs.readsNumWithstLFRbarcode<<" ("<<readsRatioWithStLFRbarcode<<" %)"<<endl;
+        ofBarcodeStat.close();
+	}
 }
 void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s_stat,C_filter_stat& fs_stat,string type){	//update statistic information from each thread
 	if(type=="raw"){
@@ -661,7 +675,10 @@ void peProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_fastq_file_stat& fq2s
 		gv.fs.include_global_contam_seq_num1+=fs_stat.include_global_contam_seq_num1;
 		gv.fs.include_global_contam_seq_num2+=fs_stat.include_global_contam_seq_num2;
 		gv.fs.include_global_contam_seq_num_overlap+=fs_stat.include_global_contam_seq_num_overlap;
-
+        if(gp.module_name=="filterStLFR"){
+            gv.fs.readsNumWithstLFRbarcode+=fs_stat.readsNumWithstLFRbarcode;
+            gv.fs.stLFRbarcodeNum.insert(fs_stat.stLFRbarcodeNum.begin(),fs_stat.stLFRbarcodeNum.end());
+        }
 		
 	}else if(type=="trim"){
 			//generate stat
@@ -828,6 +845,20 @@ void* peProcess::stat_pe_fqs(PEstatOption opt,string dataType){	//statistic the 
 	opt.stat2->gs.reads_number+=opt.fq2s->size();
 	vector<C_fastq>::iterator ix_end=opt.fq1s->end();
 	int qualityBase=0;
+    if(opt.fq1s->size()!=opt.fq2s->size()){
+        cerr<<"Error, reads number in fq1 and fq2 are different"<<endl;
+        exit(1);
+    }
+//    for(int i=0;i<opt.fq1s->size();i++){
+//        string fq1readID=(*(opt.fq1s->begin()+i)).seq_id;
+//        string fq2readID=(*(opt.fq2s->begin()+i)).seq_id;
+//        fq1readID.erase(fq1readID.size()-1,1);
+//        fq2readID.erase(fq2readID.size()-1,1);
+//        if(fq1readID!=fq2readID){
+//            cout<<"Error, clean readID are different in "<<fq1readID<<" and "<<fq2readID<<"\t"<<dataType<<endl;
+//            exit(1);
+//        }
+//    }
 	if(dataType=="clean"){
 		qualityBase=gp.outputQualityPhred;
 	}else{
@@ -1549,8 +1580,12 @@ void* peProcess::sub_thread(int index){
                         break;
                     }
                 }
-                gzclose(multi_gzfq1[index]);
-                gzclose(multi_gzfq2[index]);
+                if(multi_gzfq1[index]!=NULL) {
+                    gzclose(multi_gzfq1[index]);
+                }
+                if(multi_gzfq2[index]!=NULL) {
+                    gzclose(multi_gzfq2[index]);
+                }
                 break;
             }
         }
@@ -1625,8 +1660,12 @@ void* peProcess::sub_thread(int index){
                         break;
                     }
                 }
-                gzclose(multi_gzfq1[index]);
-                gzclose(multi_gzfq2[index]);
+                if(multi_Nongzfq1[index]!=NULL){
+                    fclose(multi_Nongzfq1[index]);
+                }
+                if(multi_Nongzfq2[index]!=NULL) {
+                    fclose(multi_Nongzfq2[index]);
+                }
                 break;
             }
         }

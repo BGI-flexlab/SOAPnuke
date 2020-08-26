@@ -15,6 +15,7 @@ processStLFR::processStLFR(C_global_parameter m_gp) : peProcess(m_gp) {
     string line;
     int count=0;
     while(getline(bl,line)){
+        count++;
         vector<string> eles;
         line_split(line,eles);
 
@@ -36,6 +37,7 @@ processStLFR::processStLFR(C_global_parameter m_gp) : peProcess(m_gp) {
             }
         }
     }
+    gp.barcodeNumInList=count;
     bl.close();
     vector<string> eles;
     line_split(m_gp.barcodeRegionStr,',',eles);
@@ -75,6 +77,7 @@ void processStLFR::filter_pe_fqs(PEcalOption *opt) {
     for(vector<C_fastq>::iterator i=opt->fq1s->begin();i!=i_end;i++){
         string barcodeCombine=stLFRprocessBarcode(*i,*i2);
         C_pe_fastq_filter pe_fastq_filter=C_pe_fastq_filter(*i,*i2,gp);
+        pe_fastq_filter.setStLFRbarcode(barcodeCombine);
         /*int head_hdcut,head_lqcut,tail_hdcut,tail_lqcut,adacut_pos;
     int contam_pos;
     int global_contam_pos;

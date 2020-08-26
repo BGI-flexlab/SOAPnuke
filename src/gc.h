@@ -23,7 +23,7 @@ vector<string> get_se_hard_trim(string a);
 void check_gz_file(string a);
 int check_gz_empty(string a);
 //void remove_space(string &a);
-//int file_exist_and_not_empty(string file_name);
+int file_exist_and_not_empty(string file_name);
 //void uniq_vector(vector<string> &a);
 string get_local_time();
 void line_split(string line_info,char sep,vector<string> &elements);
