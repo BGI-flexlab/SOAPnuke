@@ -8,13 +8,14 @@ As a novel analysis tool developed for quality control and preprocessing of FAST
 
 **filterHts**: Preprocess BAM/CRAM files. The process procedure remains the same as filter module. 
 
+(Note: Input BAM/CRAM files should be sorted by readID when it contains Paired-End data.)
+
 **filterStLFR**: Preprocess stLFR FASTQ files, added with a barcode-detection step at the beginning, and support FASTQ files list as input. 
 
 **filtersRNA**: Preprocess sRNA FASTQ files. Since it is still under testing, please inform us if you encounter any bug.
 
 **filterMeta**: Preprocess Meta FASTQ files. Since it is still under testing, please inform us if you encounter any bug.
 
-**Note: Input BAM/CRAM files should be sorted by readID when it contains Paired-End data.**
 
 ## PERFORMANCE
 
@@ -64,7 +65,9 @@ All usages start with executable file **SOAPnuke**, and different modules are in
 
 #### Detailed QC steps
 
-If set trim-related parameters(no trim if not set), do trimming first:
+If set trim-related parameters(no trim if not set), do **trimming** first:
+
+<br>
 
 **Read ID**
 
@@ -393,6 +396,37 @@ log file output path
 
 <br>
 
+## Plotting
+
+The three scripts in src/Rscripts/ are used for plotting QC stats from SOAPnuke.
+
+**Q20Q30.R**
+
+USAGE:
+
+    Rscript src/Rscripts/Q20Q30.R Distribution_of_Q20_Q30_bases_by_read_position_1.txt Distribution_of_Q20_Q30_bases_by_read_position_2.txt q2030.png
+
+![dWZF5F.png](https://s1.ax1x.com/2020/08/26/dWZF5F.png)
+
+<br>
+
+**base.R**
+
+USAGE:
+
+    Rscript src/Rscripts/base.R Base_distributions_by_read_position_1.txt Base_distributions_by_read_position_2.txt raw.png clean.png
+
+![dWZiUU.png](https://s1.ax1x.com/2020/08/26/dWZiUU.png)    
+
+<br>
+
+**quality.R**
+    
+    Rscript src/Rscripts/quality.R Base_quality_value_distribution_by_read_position_1.txt Base_quality_value_distribution_by_read_position_2.txt rawQuality.png cleanQuality.png 0 0
+
+![dWZAC4.png](https://s1.ax1x.com/2020/08/26/dWZAC4.png)
+
+<br>
 
 ## Availability
 

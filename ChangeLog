@@ -1,165 +1,157 @@
-SOAPnuke Change Log
 2012-12-19 <chenhaosen@genomics.cn>
-    * (FilterProcessor.cpp)修改PE测序中判断低平均质量值的方法
-      判断方法
-      1.1.0 两条read的质量值相加/read总长度 < 设定值
-      1.1.1 现在版本：read1质量值之和/read1长度 < 设定值 || read2质量值之和/read2长度 < 设定值
+	* Release 1.1.1
+    * (FilterProcessor.cpp) Change the method of determining low mean-quality for PE reads
+      From:	Sum(Q)[read1,read2] / (len(read1)+len(read2)) < Threshold
+      To:	Sum(Q)[read1]/(len(read1) < Threshold || Sum(Q)[read2]/(len(read2) < Threshold
 
 2012-12-21 <chenhaosen@genomics.cn>
-    * (PeBuffer.cpp::getReads) 初始化中result1和result2
-    * (PeBuffer.cpp::readTask) 在开始阶段初始化result 
+    * (PeBuffer.cpp::getReads) Initialize result1 and result2
+    * (PeBuffer.cpp::readTask) Initialize result at very beginning 
 
 2012-12-25 <chenhaosen@genomics.cn>
-    * 版本变为 1.1.2
-    * 修改去重模块, 去掉BTree, 使用std::map
-    * （FilterProcessor) 在去重时,使用外排+归并,降低内存耗用
+    * Release 1.1.2
+    * Change deduplication module, replace BTree with std::map
+    * (FilterProcessor) Use External sort and merge for low memory usage
 
 2013-4-7 <jiangshuai@genomics.cn>
-	* 修改版本为1.2.0.2
-	* 小RNA模块, 增加输出small.txt, clean.txt
-	* 小RNA模块, 长度分布从10开始.
-	* 修改文件 SRNACleanFA.cpp SRNAProcessor.h
+	* Release 1.2.0.2
+	* sRNA module start outputing two files: small.txt, clean.txt
+	* sRNA module, length distribution starts from 10
+	* Change SRNACleanFA.cpp and SRNAProcessor.h
 
 2013-4-9 <jiangshuai@genomics.cn>
-	* 修改版本1.3.0
-	* FqBuffer与PeBuffer, 加入过滤Tile号功能.
-	* Filter, FilterSRNA, FilterDGE都加入--tile参数, 支持过滤tile
-	* Filter, FilterSRNA, FilterDGE都基于FqBuffer与PeBuffer, 不再有自己的buffer函数.
-	* 当过滤Tile的时候, SRNA与DGE不强制输出, DNA强制输出.
+	* Release 1.3.0
+	* Tile-filter function added to FqBuffer and PeBuffer
+	* Filter, FilterSRNA, FilterDGE modules support Tile-filter function 
+	* Filter, FilterSRNA, FilterDGE modules all use FqBuffer and PeBuffer
+	* When filtering tile, FilterSRNA and FilterDGE will not mandatory output anymore, while DNA remains the same
 
 2013-4-9 <jiangshuai@genomics.cn>
-	* 修改版本1.4.0
-	* 新增加FilterMeta模块.
+	* Release 1.4.0
+	* FilterMeta added
 
 2014-9-10 <jiangshuai@genomics.cn>
-	* 修改版本1.4.2
-	* 修改FilterMeta，将最大长度限定为512
+	* Release 1.4.2
+	* Upper limit of length changed to 512 for FilterMeta
 
 2014-9-10 <jiangshuai@genomics.cn>
-	* 修改版本1.4.2.1
-	* 修改Filter模块，将最大长度上限改为1024
+	* Release 1.4.2.1
+	* Upper limit of length changed to 1024 for Filter
 
 2014-10-14 <jiangshuai@genomics.cn>
-	* 修改版本1.4.2
-	* 更新bug, PeBuffer.cpp当中，在读取reads2的时候，判断reads的碱基和质量值长度，误写为reads1的了
-	* 更新bug, FilterProcessor.cpp，在输出reads2的长度时，readLen2_误写为readLen_了
+	* Release 1.4.2
+	* Bug fixed when determing seq length of read2
+	* Bug fixed when outputing seq length of read2 in FilterProcessor.cpp
 
 2015-01-05 <jiangshuai@genomics.cn>
-	* 修改版本1.5 继承1.4.2.1，主要针对另一种测序平台
-	* 添加参数--seqtype, 对应两种fq name格式 0为原格式， 1为新格式 FilterProcessor.*, MetaProcessor.*
-	* 添加参数--polyatype, 对应两种去polya方法，0为两条都是，1为1条是就可以 FilterProcessor.*, MetaProcessor.*
-	* 先改读取adapterlist, 并比较接头 FilterProcessor, MetaProcessor
-	* 过滤index FilterProcessor.cpp
-	* 过滤Tile PeBuffer.*, FqBuffer.* FilterProcessor.cpp, MetaProcessor.cpp
-	* 处理Duplex ' ' 改为 '\t' FqFile.cpp, FilterProcessor.cpp
-	* 处理Poly A,  FilterProcessor.cpp
-	* FilterProcessor.cpp MetaProcessor.cpp PeBuffer.cpp FqBuffer.cpp PeBuffer.h FqBuffer.h FqFile.cpp MetaProcessor.h FilterProcessor.h
-2015-07-06 <jiangshuai@genomics.cn>
-	* 陈建威，增加参数，需要fastq末尾加/1,/2标识符
-	* 谭启琴， --trim 参数中有四个值  reads1前  ，reads1后 ，reads2前 ， reads2后   经过测试，发现 reads1前  这个参数不生效 
-	* 谭启琴， Hiseq4000 的质量体系已经达到了42  过滤完成后 得到的文件  Base_quality_value_distribution_by_read_position_1.txt 有42的统计，但是 Base_quality_value_distribution_by_read_position_2.txt 文件并没有统计 
-	* 谭启琴， 小RNA数据，Hiseq4000
+	* Release 1.5 
+	* Add --seqtype to process another name format
+	* Add --polyatype for 2 methods of strip PolyA, 0 for AND, 1 for OR
+	* Load adapterlist first and align adapter then
+	* Filter index
 
 2015-11-12 <lishengkang@genomics.cn>
-	* 版本升级为1.5.3，新版本修改部分包含：
-	* 新版本增加了–cutAdaptor参数，选择此参数后，SOAPnuke会截掉reads中的接头序列，而不是直接丢弃含有接头的reads。截短后的reads长度要求至少INTbp，否则整个reads丢弃。
-	* 增加了–BaseNum参数，此参数的值是截取数据所需要保留的数据量，只有在选择了–cutAdaptor的情况下能生效。选择–cutAdaptor后，同样是截取数据功能的–cut参数失效。
-	* 本版本开始–adapter1和–adapter2的值只能是接头序列，不再对adapter list进行支持
+	* Release 1.5.3
+	* Add –cutAdaptor which cut adapters at ends of reads. Only reads shorter then –BaseNum will be aborted。 -cut will be ignored when applied this param
+	* Add –BaseNum which used with -cutAdapter 
+	* No more support of adapter list
 
 2016-03-18 <lishengkang@genomics.cn>
-	* 修复raw data的GZ文件在filter tile的时未关闭的bug 
+	* Fix bug of keeping raw gz data open when filtering tile 
 
 2016-04-25 <lishengkang@genomics.cn>
-	* 修复filter中SE数据会出现截取数据量不够情况，版本升级为1.5.4
+	* Release 1.5.4
+	* Fix bug of low data volume when filtering SE data
 
 2016-06-30 <lishengkang@genomics.cn>
-	* filter版本升级到1.5.5，增加-3参数，主要是用于在设置-d参数同时，设置-3参数，在clean data中输出duplication reads；但最终的filter的所有统计并没有加入duplication reads的统计
+	* Release 1.5.5
+	* Add -3 to filter module, which accompanied with -d param to output duplicated reads while not counting them in QC stats
 
 2016-08-22 <huangzhibo@genomics.cn>
-	* 版本升级为1.5.6
-	* 增加--fov参数, 指定Zebra500数据reads name中的FOV编号（C001R001,C001R003等），含指定编号的reads将被过滤掉
-	* --fov参数类似于--tile, 两参数不能同时使用
+	* Release 1.5.6
+	* Add --fov which supporting filtering by FOV num in name of BGI-SEQ data, which can be used with --tile
 
 2016-12-8 <huangzhibo@genomics.cn>
-	* 版本升级为1.6.0
-	* 增加对Windows平台的编译支持
-	* 支持Streaming IO
+	* Release 1.6.0
+	* Support compling for Windows
+	* Support Streaming IO
 
 2017-9-15 <chenyuxin@genomics.cn>
-	* 版本升级为1.6.2
-	* CMake已无需手动修改CMakeList，可自动在环境变量中查找所需库文件
-	* 增加Python脚本辅助完成Streaming处理
-	* 增加QC结果文件的画图脚本
+	* Release 1.6.2
+	* Change CMakeList for automatic compling
+	* Add Python script in assist of Streaming processing
+	* Add plotting R-scripts for QC stats
 
 2018-4-11 <chenyuxin@genomics.cn>
-	* 版本升级为1.6.3
-	* 修复了outType和Rmdup的不兼容问题
-	* 修复了同时进行Adapter切除和长度过滤时引发的问题
-	* 添加了PolyX过滤功能
+	* Release 1.6.3
+	* Bug fixed of incompatibility between outType and Rmdup
+	* Bug fixed when performing adapter cutting and length filtering
+	* Add PolyX filtering function
 
 2018-4-23 <chenyuxin@genomics.cn>
-	* 版本升级为1.6.4
-	* 完善了CMakeList
-	* 添加了Trimming位置分布的QC结果
-	* 优化了Trimming算法
-	* 修复了大多数编译时的wanrning
+	* Release 1.6.4
+	* Fullfil CMakeList
+	* Add QC stats of trimming position
+	* Optimize trimming algorithm
+	* Fix most warning of compiling
 
 2018-6-30 <chenyuxin@genomics.cn>
-	* 版本升级为1.6.5
-	* 给sRNA模块添加了低质量值过滤功能
-	* 修复了Adapter过滤的bug
-	* 添加了污染物过滤功能
+	* Release 1.6.5
+	* Add low-Q filtering function to sRNA module
+	* Bug fixed when filtering adapter
+	* Add filtering artifacts
 
 2018-8-17 <gongchun@genomics.cn>
-	* 版本升级为2.0 beta
-	* 保留了之前的filter，filterMeta和filtersRNA模块，删除了filterDGE模块，如有需求，后续添加。
+	* Release 2.0 beta
+	* Delete filterDGE module
 	* 统一了模块间的运行逻辑，除了adapter检测部分的算法差异，其它类似。主要步骤包括统计原始数据，过滤原始数据，统计过滤后的原始数据。
 	* 整合了模块间的参数，默认值主要继承了filter模块，所以在使用其它模块时，留意按需调整，可以参考参数说明文档。
-	* filter和filterMeta支持单端测序（SE）和双端测序（PE）数据，filtersRNA支持SE数据。
+	* filter和filterMeta支持单端测序(SE)和双端测序(PE)数据，filtersRNA支持SE数据。
 	* filter和filterMeta模块的adapter检测算法做了更新
-	* 有两种运行模式：ssd和非ssd模式。当存储类型为高速IO（如固态硬盘）时，可以选择ssd模式，从而加速程序运行周期，该模式下会产生临时文件，运行结束后自动删除。默认为非ssd模式。
+	* 有两种运行模式：ssd和非ssd模式。当存储类型为高速IO(如固态硬盘)时，可以选择ssd模式，从而加速程序运行周期，该模式下会产生临时文件，运行结束后自动删除。默认为非ssd模式。
 	* 去除了rmdup去重复功能
-	* 当增加线程数时，运行效率得到显著提升。1.3G reads（PE50）在非ssd模式16线程下运行时间为70min左右
+	* 当增加线程数时，运行效率得到显著提升。1.3G reads(PE50)在非ssd模式16线程下运行时间为70min左右
 
 2018-12-1 <gongchun@genomics.cn>
-	* 版本升级为2.0.1
-	* 修正了若干Bug
-	* 修改了过滤后fastq文件的split模块
-	* 放宽了adapter检测条件
+	* Release 2.0.1
+	* Bugs fixed
+	* Change of split module for fastq files after filtering
+	* Loose standard of determining adapters
 
 2018-12-26 <gongchun@genomics.cn>
-	* 版本升级为2.0.2
-	* 保证了多线程输出结果的顺序一致
-	* 降低内存和提升速度
+	* Release 2.0.2
+	* Promise order consistent for multi-threading
+	* Lower MEM and accelerate much
 
 2019-1-10 <gongchun@genomics.cn>
-	* 版本升级为2.0.3
-	* SE trimming 和 fov 过滤部分的debug
+	* Release 2.0.3
+	* Bugs fixed of SE trimming 和 fov filtering
 
 2019-2-1 <gongchun@genomics.cn>
-	* 版本升级为2.0.5
+	* Release 2.0.5
 	* 增加对过滤后数据提取的功能
 	* 修复程序在读取数据被打断或读取过多内容时引发的bug
 
 2019-3-31 <gongchun@genomics.cn>
-	* 版本升级为2.0.6
+	* Release 2.0.6
 	* 修复了不稳定输出的bug
 	* 优化了全局污染物匹配算法
 
 2019-5-17 <gongchun@genomics.cn>
-	* 版本升级为2.0.7
+	* Release 2.0.7
 	* 修复了在MaxOS上运行引发的bug，以及其他bug
 
 2019-6-28 <gongchun@genomics.cn>
-	* 版本升级为2.0.8
+	* Release 2.0.8
 	* 升级了README的内容，以顺应2.X的版本
 	* 优化了fov的匹配算法
 
 2019-7-24 <gongchun@genomics.cn>
-	* 版本升级为2.1.0
-	* 将输出顺序改为输入文件中的reads顺序，显著提升了split功能速度
-	* 增强了随机提取reads数目的随机性
+	* Release 2.1.0
+	* 
+	将输出顺序改为输入文件中的reads顺序，显著提升了split功能速度
+	* Add randomness of random extraction
 
 2019-12-3 <gongchun@genomics.cn>
-	* 版本升级为2.1.1
-	* 修复了SE trim、polyX和随机截取数量太大的bug
+	* Release 2.1.1
+	* Bugs fixed of SE trim、polyX and random extraction
