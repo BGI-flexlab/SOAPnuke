@@ -99,18 +99,19 @@
 	* Release 1.6.5
 	* Add low-Q filtering function to sRNA module
 	* Bug fixed when filtering adapter
-	* Add filtering artifacts
+	* Add function of filtering contaminants
 
 2018-8-17 <gongchun@genomics.cn>
 	* Release 2.0 beta
 	* Delete filterDGE module
-	* 统一了模块间的运行逻辑，除了adapter检测部分的算法差异，其它类似。主要步骤包括统计原始数据，过滤原始数据，统计过滤后的原始数据。
-	* 整合了模块间的参数，默认值主要继承了filter模块，所以在使用其它模块时，留意按需调整，可以参考参数说明文档。
-	* filter和filterMeta支持单端测序(SE)和双端测序(PE)数据，filtersRNA支持SE数据。
-	* filter和filterMeta模块的adapter检测算法做了更新
-	* 有两种运行模式：ssd和非ssd模式。当存储类型为高速IO(如固态硬盘)时，可以选择ssd模式，从而加速程序运行周期，该模式下会产生临时文件，运行结束后自动删除。默认为非ssd模式。
-	* 去除了rmdup去重复功能
-	* 当增加线程数时，运行效率得到显著提升。1.3G reads(PE50)在非ssd模式16线程下运行时间为70min左右
+	* Unify running logic of all modules, which mainly differ in adapter determination now.
+	* Main pipeline includes counting raw data, filtering data and counting filtered data.
+	* Merge params of modules. Default values mainly derive from filter module, so users should be cautious when using other modules.
+	* filter and filterMeta modules support SE and PE, filtersRNA support SE only.
+	* filter and filterMeta modules update adapter determination algorithms.
+	* Have 2 running modes now: ssd and non-ssd. It is recommended to use ssd mode on high-speed IO storage(like SSD). Default to be non-ssd.
+	* Remove deduplication function.
+	* As thread number increases, running efficiency improves obviously. It costs 70 mins to process 1.3G reads (PE50) with 16 threads at non-ssd mode.
 
 2018-12-1 <gongchun@genomics.cn>
 	* Release 2.0.1
@@ -129,29 +130,43 @@
 
 2019-2-1 <gongchun@genomics.cn>
 	* Release 2.0.5
-	* 增加对过滤后数据提取的功能
-	* 修复程序在读取数据被打断或读取过多内容时引发的bug
+	* Add extraction function on filtered data.
+	* Fix bugs of data loading
 
 2019-3-31 <gongchun@genomics.cn>
 	* Release 2.0.6
-	* 修复了不稳定输出的bug
-	* 优化了全局污染物匹配算法
+	* Fix the bug of unstead output
+	* Optimize algorithms of global determination of contaminants
 
 2019-5-17 <gongchun@genomics.cn>
 	* Release 2.0.7
-	* 修复了在MaxOS上运行引发的bug，以及其他bug
+	* Fix bugs of running on MacOS and others
 
 2019-6-28 <gongchun@genomics.cn>
 	* Release 2.0.8
-	* 升级了README的内容，以顺应2.X的版本
-	* 优化了fov的匹配算法
+	* Update README to adapt to 2.X
+	* Optimize the algorithm of filtering FOV
 
 2019-7-24 <gongchun@genomics.cn>
 	* Release 2.1.0
-	* 
-	将输出顺序改为输入文件中的reads顺序，显著提升了split功能速度
+	* Change the output order to the same as input, which accelerate the split function
 	* Add randomness of random extraction
 
 2019-12-3 <gongchun@genomics.cn>
 	* Release 2.1.1
 	* Bugs fixed of SE trim、polyX and random extraction
+
+2019-4-19 <gongchun@genomics.cn>
+	* Release 2.1.2
+	* Add filterHts module
+
+2019-7-23 <gongchun@genomics.cn>
+	* Release 2.1.3
+	* Support adapter list as input
+	* Add filterStLFR module
+	* Fix bugs of adapter detection in filterHts module
+
+2020-8-27 <gongchun@genomics.cn>
+	* Release 2.1.4.beta.1
+	* Bugs fixed
+
