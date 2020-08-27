@@ -1,17 +1,17 @@
 2012-12-19 <chenhaosen@genomics.cn>
 	* Release 1.1.1
-    * (FilterProcessor.cpp) Change the method of determining low mean-quality for PE reads
-      From:	Sum(Q)[read1,read2] / (len(read1)+len(read2)) < Threshold
-      To:	Sum(Q)[read1]/(len(read1) < Threshold || Sum(Q)[read2]/(len(read2) < Threshold
+	* (FilterProcessor.cpp) Change the method of determining low mean-quality for PE reads
+		From:	Sum(Q)[read1,read2] / (len(read1)+len(read2)) < Threshold
+		To:		Sum(Q)[read1]/(len(read1) < Threshold || Sum(Q)[read2]/(len(read2) < Threshold
 
 2012-12-21 <chenhaosen@genomics.cn>
-    * (PeBuffer.cpp::getReads) Initialize result1 and result2
-    * (PeBuffer.cpp::readTask) Initialize result at very beginning 
+	* (PeBuffer.cpp::getReads) Initialize result1 and result2
+	* (PeBuffer.cpp::readTask) Initialize result at very beginning 
 
 2012-12-25 <chenhaosen@genomics.cn>
-    * Release 1.1.2
-    * Change deduplication module, replace BTree with std::map
-    * (FilterProcessor) Use External sort and merge for low memory usage
+	* Release 1.1.2
+	* Change deduplication module, replace BTree with std::map
+	* (FilterProcessor) Use External sort and merge for low memory usage
 
 2013-4-7 <jiangshuai@genomics.cn>
 	* Release 1.2.0.2
@@ -156,11 +156,11 @@
 	* Release 2.1.1
 	* Bugs fixed of SE trim、polyX and random extraction
 
-2019-4-19 <gongchun@genomics.cn>
+2020-4-19 <gongchun@genomics.cn>
 	* Release 2.1.2
 	* Add filterHts module
 
-2019-7-23 <gongchun@genomics.cn>
+2020-7-23 <gongchun@genomics.cn>
 	* Release 2.1.3
 	* Support adapter list as input
 	* Add filterStLFR module
