@@ -2,7 +2,7 @@ cc := g++
 src := ./src
 obj := ./obj
 
-MIN_GCC_VERSION = "4.7"
+MIN_GCC_VERSION = 4.7
 GCC_VERSION := $(shell gcc -dumpversion)
 IS_GCC_ABOVE_MIN_VERSION := $(shell expr "$(GCC_VERSION)" ">=" "$(MIN_GCC_VERSION)")
 ifeq "$(IS_GCC_ABOVE_MIN_VERSION)" "1"
@@ -12,8 +12,15 @@ else
 endif
 $(info $(GCC_VERSION_STRING))
 
-MIN_ZLIB_VERSION = "1.2.3.5"
-ZLIB_VERSION := $(shell readlink $(whereis libz) | sed 's/libz.so.\(.*\)$/\1/g')
+
+
+all=SOAPnuke
+exe=SOAPnuke
+MIN_ZLIB_VERSION = 1.2.3.5
+#ZLIB_VERSION := $(shell readlink $(whereis libz) | sed 's/libz.so.\(.*\)$/\1/g')
+ZLIBLOCATION:=$(shell whereis libz)
+ZLIB_VERSION=$(shell readlink $(ZLIBLOCATION) | awk -F 'so.' '{print $$NF}')
+#$(info $(ZLIB_VERSION_STRING))
 IS_ZLIB_ABOVE_MIN_VERSION := $(shell expr "$(ZLIB_VERSION)" ">=" "$(MIN_ZLIB_VERSION)")
 ifeq "$(IS_ZLIB_ABOVE_MIN_VERSION)" "1"
     ZLIB_VERSION_STRING := "ZLIB version Passes, $(ZLIB_VERSION) >= $(MIN_ZLIB_VERSION)"
@@ -22,19 +29,33 @@ else
 endif
 $(info $(ZLIB_VERSION_STRING))
 
+#set USEHTS true if you want use filterHts module
+USEHTS=false
+
 source := $(wildcard ${src}/*.cpp)
+source := $(filter-out ./src/mGzip.cpp, $(source))
+DFLAG=-lz -lpthread
+CXXFLAGS=-std=c++11 -g -O3
+ifeq "$(USEHTS)" "true"
+        CXXFLAGS+=-D _PROCESSHTS
+        DFLAG+= -lhts
+else
+        source := $(filter-out ./src/processHts.cpp, $(source))
+endif
+#$(warning $(source))
 objfile := $(patsubst %.cpp,${obj}/%.o,$(notdir ${source}))
-all=SOAPnuke
-exe=SOAPnuke
-
-
+objfile:=$(filter-out processHts.o,$(objfile))
 $(exe):${objfile}
-	$(cc) $(objfile) -o $@ -lz -lpthread -o $@
-
+                $(cc) $(objfile) -o $@ $(DFLAG)
 ${obj}/%.o:${src}/%.cpp mk_dir
-	$(cc) -std=c++11 -g -O3 -c $< -o $@ 
+        $(cc) $(CXXFLAGS) -c $< -o $@
 mk_dir:
-	@if test ! -d $(obj) ; \
-	then \
-		mkdir $(obj) ; \
-	fi
+        @if test ! -d $(obj) ; \
+        then \
+                mkdir $(obj) ; \
+        fi
+.PHONY:clean
+clean:
+        rm -f obj/*.o
+        rm -f SOAPnuke
+

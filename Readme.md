@@ -41,7 +41,13 @@ This table presents a benchmark result on 628M Paired-End 150bp reads. As thread
 #### Install
     git clone https://github.com/BGI-flexlab/SOAPnuke.git
     cd SOAPnuke
+     
+    // Considering rarely been used and complex compile dependency, we turn off filterHts module by default.
+    // If you want to use filterHts module, please set USEHTS true in Makefile like this:
+    // USEHTS=true
+     
     make
+
 
 #### QuickStart
 
