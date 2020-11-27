@@ -75,6 +75,12 @@ int C_single_fastq_filter::sRNA_discard(C_filter_stat* fs,C_global_parameter& gp
 }
 int C_single_fastq_filter::se_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
+    if(gp.rmdup){
+        if(read_result.dup){
+            fs->dupReadsNum++;
+            return 1;
+        }
+    }
 	if(!gp.tile.empty()){	//check read tile whether in the given removal tile list
 		if(check_tile_or_fov(read_result.read_tile,gp.tile)){
 			fs->tile_num++;
@@ -191,6 +197,12 @@ C_pe_fastq_filter::C_pe_fastq_filter(C_fastq& a,C_fastq& b,C_global_parameter& g
 
 int C_pe_fastq_filter::pe_discard(C_filter_stat* fs,C_global_parameter& gp){
 	int min_value=-1;
+	if(gp.rmdup){
+	    if(reads_result.dup){
+	        fs->dupReadsNum++;
+	        return 1;
+	    }
+	}
 	if(gp.module_name=="filterStLFR"){
 	    string barcode=getStLFRbarcode();
 	    if(barcode!="0_0_0"){
@@ -384,4 +396,9 @@ int C_pe_fastq_filter::pe_dis(bool a,bool b){
 	if(b)
 		return_value+=2;
 	return return_value;
+}
+
+string C_fastq::toString() {
+    string completeRead=seq_id+"\n"+sequence+"\n+\n"+qual_seq+"\n";
+    return completeRead;
 }

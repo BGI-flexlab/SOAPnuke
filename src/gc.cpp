@@ -435,3 +435,83 @@ vector<string> get_se_hard_trim(string a){
 	}
 	return tmp_eles;
 }
+
+void mkDir(string dir) {
+    struct stat s;
+    if(stat(dir.c_str(),&s)==0){
+        if(S_ISDIR(s.st_mode)){
+            return;
+        }
+    }
+    if(mkdir(dir.c_str(),0755)!=0){
+        cerr<<"Error:mkdir fail,"<<dir<<endl;
+        cerr<<strerror(errno)<<endl;
+        exit(errno);
+    }
+}
+
+void mkDir(string dir, mode_t mode) {
+    struct stat s;
+    if(stat(dir.c_str(),&s)==0){
+        if(S_ISDIR(s.st_mode)){
+            return;
+        }
+    }
+    if(mkdir(dir.c_str(),mode)!=0){
+        cerr<<"Error:mkdir fail,"<<dir<<endl;
+        cerr<<strerror(errno)<<endl;
+        exit(errno);
+    }
+}
+
+long long guessReadsNum(string fq1) {
+    struct stat s;
+    long long fileSize=0;
+    float conserveFlow=1.2;
+    if(stat(fq1.c_str(),&s)==0){
+        fileSize=s.st_size;
+    }
+    gzFile inFq1=gzopen(fq1.c_str(),"r");
+    int bufSize=1024*1024*10;
+    if(bufSize>fileSize){
+        bufSize=fileSize/2;
+    }
+    char* buf=new char[bufSize];
+    int readSize=0;
+    int lfNum=0;
+    int cSize=0;
+    if((readSize=gzread(inFq1,buf,bufSize))>0){
+        for(int i=0;i<readSize;i++){
+            if(buf[i]=='\n'){
+                lfNum++;
+            }
+        }
+        string tmpFq=fq1+".tmp";
+        gzFile outTmpFq=gzopen(tmpFq.c_str(),"wb");
+        gzwrite(outTmpFq,buf,readSize);
+        gzclose(outTmpFq);
+        struct stat s;
+        if(stat(tmpFq.c_str(),&s)==0){
+            cSize=s.st_size;
+        }
+        if(remove(tmpFq.c_str())!=0){
+            cerr<<"Error:cannot remove file,"<<tmpFq<<endl;
+            exit(1);
+        }
+    }
+    if(lfNum==0){
+        cerr<<"Error:no reads found in input file,"<<fq1<<endl;
+        exit(1);
+    }
+    long long readsNum=round(lfNum/4);
+    if(cSize==0){
+        cerr<<"Error:empty file,"<<fq1<<endl;
+        exit(1);
+    }
+    long long guessedReadsNum=(readsNum*fileSize/cSize)*conserveFlow;
+    gzclose(inFq1);
+
+
+    delete[] buf;
+    return guessedReadsNum;
+}

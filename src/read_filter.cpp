@@ -406,7 +406,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
             }
 			int qual_basis=gp.qualityPhred;
 			int head_ix(0),tail_ix(0);
-			for(int ix=0;ix!=head_low_qual_trim_length_limit;ix++){
+			for(int ix=0;ix<head_low_qual_trim_length_limit;ix++){
 				int base_quality=read.qual_seq[ix]-qual_basis;
 				if(base_quality<head_low_qual_threshold){
 					head_ix++;
@@ -414,7 +414,7 @@ void fastq_trim(C_fastq& read,C_global_parameter& gp){	//	1.index_remove	2.adapt
 					break;
 				}
 			}
-			for(int ix=0;ix!=tail_low_qual_trim_length_limit;ix++){
+			for(int ix=0;ix<tail_low_qual_trim_length_limit;ix++){
 				int base_quality=read.qual_seq[read.qual_seq.size()-ix-1]-qual_basis;
 				if(base_quality<tail_low_qual_threshold){
 					tail_ix++;

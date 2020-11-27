@@ -1,7 +1,7 @@
 //
 // Created by berry on 2020-08-11.
 //
-
+#ifdef _USEMGZIP
 #ifndef SOAPNUKE_MGZIP_H
 #define SOAPNUKE_MGZIP_H
 #include<string>
@@ -42,3 +42,4 @@ public:
 
 
 #endif //SOAPNUKE_MGZIP_H
+#endif

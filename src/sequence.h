@@ -19,7 +19,7 @@ public:
 };
 class C_fastq_stat_result:public C_sequence_stat_result{	//fastq stat information
 public:
-	C_fastq_stat_result():in_adapter_list(0),include_adapter_seq(-1),include_5_adapter(false),include_3_adapter(-1),include_contam(-1),include_global_contam(-1),qual_len(0),low_qual_base_num(0),low_qual_base_ratio(0),mean_quality(0),q20_num(0),q30_num(0){};
+	C_fastq_stat_result():in_adapter_list(0),include_adapter_seq(-1),include_5_adapter(false),include_3_adapter(-1),include_contam(-1),include_global_contam(-1),qual_len(0),low_qual_base_num(0),low_qual_base_ratio(0),mean_quality(0),q20_num(0),q30_num(0),dup(false){};
 	bool in_adapter_list;
 	int include_adapter_seq;
 	bool include_5_adapter;	//only used in sRNA
@@ -31,15 +31,17 @@ public:
 	float low_qual_base_ratio;
 	float mean_quality;
 	int q20_num,q30_num;
+	bool dup;
 };
 class C_pe_fastq_stat_result{	//pe fastq stat information
 public:
-	C_pe_fastq_stat_result():over_lapped(1),containStLFRbarcode(false),stLFRbarcode(""){};
+	C_pe_fastq_stat_result():over_lapped(1),containStLFRbarcode(false),stLFRbarcode(""),dup(false){};
 	C_fastq_stat_result fastq1_result;
 	C_fastq_stat_result fastq2_result;
 	bool over_lapped;	//pe fastq whether overlapped
 	bool containStLFRbarcode;
 	string stLFRbarcode;
+	bool dup;
 };
 
 class C_sequence{	//sequence
@@ -69,6 +71,7 @@ public:
 	int global_contam_5pos,global_contam_3pos;
 	int raw_length;
 	int pairPos;
+	string toString();
 };
 class C_pe_fastq{	//pe fastq
 public:

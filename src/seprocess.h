@@ -11,9 +11,13 @@
 #include "global_parameter.h"
 #include "global_variable.h"
 #include "sequence.h"
+#include "BloomFilter.h"
 #include <algorithm>
 #include <fstream>
+#include "rmdup.h"
+
 #define max_thread 48
+#define RMDUP 2
 struct SEstatOption
 {
 	vector<C_fastq>* fq1s;
@@ -55,46 +59,134 @@ public:
     void catRmFile(int index,int cycle,string type,bool gzFormat);
     void catRmFile(vector<int> indexes,int cycle,string type,bool gzFormat);
     void* smallFilesProcess();
-    void create_thread_smalltrimoutputFile(int index,int cycle);
-    void create_thread_smallcleanoutputFile(int index,int cycle);
+
+    void create_thread_smalltrimoutputFile(
+            int index
+            , int cycle);
+
+    void create_thread_smallcleanoutputFile(
+            int index
+            , int cycle);
+
     void closeSmallTrimFileHandle(int index);
+
     void closeSmallCleanFileHandle(int index);
+
     void run_cmd(string cmd);
-    void* sub_extract(string in,int mo,string out);
+
+    void *sub_extract(
+            string in
+            , int mo
+            , string out);
+
     void rmTmpFiles();
-    void extractReadsToFile(int cycle,int thread_index,int reads_number,string position,int& output_index,bool gzFormat);
-    void extractReadsToFile(int cycle,int thread_index,int reads_number,string position,bool gzFormat);
-    void addCleanList(int tmp_cycle,int index);
-	//void peOutput(outputOption opt);
+
+    void extractReadsToFile(
+            int cycle
+            , int thread_index
+            , int reads_number
+            , string position
+            , int &output_index
+            , bool gzFormat);
+
+    void extractReadsToFile(
+            int cycle
+            , int thread_index
+            , int reads_number
+            , string position
+            , bool gzFormat);
+
+    void addCleanList(
+            int tmp_cycle
+            , int index);
+
+    void *sub_thread_rmdup_step1(int index);
+
+    void filter_se_fqs(
+            SEcalOption opt
+            , int index);
+
+    int
+            dupNum;
+    mutex
+            checkDup;
+    BloomFilter
+            *dupDB;
+    gzFile
+            dupOut1;
+    gzFile
+            *dupThreadOut1;
+    set<string>
+            checkDupMap;
+    mutex
+            logLock;
+    //void peOutput(outputOption opt);
 public:
-	C_global_parameter gp;
-	C_global_variable gv;
-	gzFile *gz_trim_out1;
-	gzFile *gz_clean_out1;
-	FILE** nongz_clean_out1;
-    FILE** nongz_trim_out1;
+    C_global_parameter
+            gp;
+    C_global_variable
+            gv;
+    gzFile
+            *gz_trim_out1;
+    gzFile
+            *gz_clean_out1;
+    FILE
+            **nongz_clean_out1;
+    FILE
+            **nongz_trim_out1;
 	ofstream of_log;
 	string tmp_dir;
 	gzFile* multi_gzfq1;
     FILE** multi_Nongzfq1;
 
-	mutex se_stat_m,se_write_m;
-	C_filter_stat* se_local_fs;
-	C_fastq_file_stat* se_local_raw_stat1,*se_local_trim_stat1,*se_local_clean_stat1;
-	int se_bq_check;
-    int cur_cat_cycle;   //current cycle of cat small files
-    vector<string>* readyTrimFiles1,*readyCleanFiles1; //list of small files in threads
-    vector<int>* clean_file_readsNum; //reads number of small files in threads
-    int* sub_thread_done;
-    int end_sub_thread;
-    int patch;
+    mutex
+            se_stat_m,
+            se_write_m;
+    C_filter_stat
+            *se_local_fs;
+    C_fastq_file_stat
+            *se_local_raw_stat1,
+            *se_local_trim_stat1,
+            *se_local_clean_stat1;
+    int
+            se_bq_check;
+    int
+            cur_cat_cycle;   //current cycle of cat small files
+    vector<string>
+            *readyTrimFiles1,
+            *readyCleanFiles1; //list of small files in threads
+    vector<int>
+            *clean_file_readsNum; //reads number of small files in threads
+    int
+            *sub_thread_done;
+    int
+            end_sub_thread;
+    int
+            patch;
+    uint64_t
+            *threadReadsNum;
+    uint64_t
+            *totalData;
+    uint64_t
+            *threadCurReadReadsNumIdx;
+    vector<vector<uint64_t *> >
+            threadData;
+    vector<vector<size_t> >
+            threadDataNum;
+    bool
+            *dupFlag;
 private:
-	vector<C_fastq> fq1s;
-	vector<C_fastq> trim_output_fq1;
-	vector<C_fastq> clean_output_fq1;
+    vector<C_fastq>
+            fq1s;
+    vector<C_fastq>
+            trim_output_fq1;
+    vector<C_fastq>
+            clean_output_fq1;
 
-	//C_fastq fastq1;
-	int used_threads_num;
-	string random_num;
+    //C_fastq fastq1;
+    int
+            used_threads_num;
+    string
+            random_num;
 };
 #endif

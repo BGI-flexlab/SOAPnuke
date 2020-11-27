@@ -1,7 +1,6 @@
 //
 // Created by berry on 2020-04-08.
 //
-
 #ifndef SOAPNUKE_PROCESSHTS_H
 #define SOAPNUKE_PROCESSHTS_H
 #include <htslib/sam.h>
@@ -37,6 +36,8 @@ public:
     htsFile** threadCleanOut,**threadFilteredOut;
     string tmpDir;
     int* threadProgress;
+    int* threadWriteProgress;
+    mutex writeLock;
     bool* threadDone;
     BGZF *cleanBam,*filteredBam;
 
@@ -46,6 +47,8 @@ public:
     ofstream log;
     int8_t* seq_comp_table;
     int readsNumInPatch;
+    //主线程读取数据模式下的每个子线程读取数量
+    int lineNumPerThread;
     int keysNumber;
     const htsFormat* inputFormat;
     string inputFormatString;
@@ -113,7 +116,7 @@ public:
 
     void* peSubThread(vector<C_fastq> fq1s,vector<C_fastq> fq2s,int start,int end,bool* threadFilter,int index);
 
-    void* seSubThread(vector<C_fastq> fq1s,int start,int end,bool* threadFilter,int index);
+    void* seSubThread(bam1_t** data,int start,int end,bool* threadFilter,int index);
 
     void writeFile(int index,int patch);
 
@@ -147,5 +150,7 @@ public:
 //    bamBlock *readPEData(bam1_t *lastLine);
 
     void* peSubThread2(int index);
+
+    bam1_t **readSEData(int &lineNum);
 };
 #endif //SOAPNUKE_PROCESSHTS_H

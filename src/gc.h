@@ -2,11 +2,13 @@
 #define GC_H
 
 #include <string>
+#include <string.h>
 #include <vector>
 #include <sstream>
 #include <cctype>
 #include <set>
 #include <map>
+#include <math.h>
 using namespace::std;
 class quartile_result{
 public:
@@ -47,4 +49,8 @@ int check_bai_ok(string bin_path,string bam_file);
 string get_exe_path(string path);
 string link_dir_file(string dir,string file);
 void chomp_space(string& a,string type);
+void mkDir(string dir);
+void mkDir(string dir,mode_t mode);
+long long guessReadsNum(string fq1);
+long long guessReadsNum(string fq1,string fq2);
 #endif

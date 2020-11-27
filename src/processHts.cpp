@@ -1,12 +1,13 @@
 //
 // Created by berry on 2020-04-08.
 //
-
 #include "processHts.h"
 #define bam_is_read1(b) (((b)->core.flag&BAM_FREAD1)!=0)
 #define bam_is_read2(b) (((b)->core.flag&BAM_FREAD2)!=0)
 #define BAMCPERR "bam copy error"
-#define MultiThreadsMethod 1
+//if MultiThreadsMethod is set to 1, IO independent
+//if is set to 2, IO is locked
+#define MultiThreadsMethod 2
 processHts::processHts(C_global_parameter m_gp) {
 
     gp=m_gp;
@@ -24,12 +25,14 @@ processHts::processHts(C_global_parameter m_gp) {
     }else if(gp.fq2_path.rfind(".cram")==gp.fq2_path.size()-5){
         outputFormat="cram";
     }else{
-        cerr<<"Error, only support sam/bam/cram suffix format output"<<endl;
+        cerr<<"Error:only support sam/bam/cram suffix format output"<<endl;
         exit(1);
     }
     //每次读取的数据量，影响内存占用量
     //readsNumInPatch=gp.threads_num>1?100000/gp.threads_num:100000;
     readsNumInPatch=100000;
+
+    lineNumPerThread=100000;
     //key number limit in map
     keysNumber=50000000;
     //inputCram=m_gp.fq1_path; //fq1_path沿用了之前处理fastq的命名，代表了输入文件
@@ -43,10 +46,12 @@ processHts::processHts(C_global_parameter m_gp) {
         threadIn=new htsFile*[gp.threads_num];
         threadProgress=new int[gp.threads_num];
         threadDone=new bool[gp.threads_num];
+        threadWriteProgress=new int[gp.threads_num];
         for(int i=0;i<gp.threads_num;i++){
             openHts(i);
             threadProgress[i]=-2;
             threadDone[i]=0;
+            threadWriteProgress[i]=0;
         }
         //threadProgress 代表处理批次进度
         //threadDone 代表是否完成
@@ -96,45 +101,54 @@ void processHts::processSE() {
     prepare();
 
     if(gp.threads_num>1){
-//        multiThreadsSEprocess();
-        seLastID=new string[gp.threads_num];
-        for(int i=0;i<gp.threads_num;i++){
-            seLastID[i]="";
+        seLastID = new string[gp.threads_num];
+        for (int i = 0; i < gp.threads_num; i++) {
+            seLastID[i] = "";
         }
-        if(outputFormat=="bam") {
-            string cleanOut=gp.output_dir+"/"+gp.fq2_path;
-            cleanBam=bgzf_open(cleanOut.c_str(), "w");
-            if (bam_hdr_write(cleanBam, header) < 0) {
-                cerr<<"Error, couldn't write header"<<__FILE__<<" "<<__LINE__<<endl;
-                exit(1);
+
+        if (outputFormat == "bam") {
+            if(MultiThreadsMethod==2){
+                writeFile();
+            }else {
+                string cleanOut = gp.output_dir + "/" + gp.fq2_path;
+                cleanBam = bgzf_open(cleanOut.c_str(), "w");
+                if (bam_hdr_write(cleanBam, header) < 0) {
+                    cerr << "Error:couldn't write header" << __FILE__ << " " << __LINE__ << endl;
+                    exit(1);
+                }
             }
 //            string filterOut=gp.output_dir+"/_failQC."+outputFormat;
 //            filteredBam=bgzf_open(filterOut.c_str(), "w");
 //            if (bam_hdr_write(filteredBam, header) < 0) {
-//                cerr<<"Error, couldn't write header"<<__FILE__<<" "<<__LINE__<<endl;
+//                cerr<<"Error:couldn't write header"<<__FILE__<<" "<<__LINE__<<endl;
 //                exit(1);
 //            }
-        }else{
+        } else {
             writeFile();
         }
-        tmpDir=gp.output_dir+"/TMP";
-        if(access(tmpDir.c_str(),0)!=-1){
-            string rmCmd="rm -rf "+tmpDir;
-            if(system(rmCmd.c_str())==-1){
-                cerr<<"Error:when running "<<rmCmd<<endl;
-                exit(1);
+        if(MultiThreadsMethod==1) {
+            tmpDir = gp.output_dir + "/TMP";
+            if (access(tmpDir.c_str(), 0) != -1) {
+                string rmCmd = "rm -rf " + tmpDir;
+                if (system(rmCmd.c_str()) == -1) {
+                    cerr << "Error:when running " << rmCmd << endl;
+                    exit(1);
+                }
             }
+//        mkdir(tmpDir.c_str(),0755);
+            mkDir(tmpDir.c_str(), 0755);
         }
-        mkdir(tmpDir.c_str(),0755);
         thread t_array[gp.threads_num];
-        for(int i=0;i<gp.threads_num;i++){
-            t_array[i]=thread(bind(&processHts::seDependentIOSubThread,this,i));
+        for (int i = 0; i < gp.threads_num; i++) {
+            t_array[i] = thread(bind(&processHts::seDependentIOSubThread, this, i));
         }
-        thread catFiles = thread(bind(&processHts::catSmallFiles, this));
-        for(int i=0;i<gp.threads_num;i++){
+        if(MultiThreadsMethod==1){
+            thread catFiles = thread(bind(&processHts::catSmallFiles, this));
+            catFiles.join();
+        }
+        for (int i = 0; i < gp.threads_num; i++) {
             t_array[i].join();
         }
-        catFiles.join();
     }else {
         se_sub_thread(0);
     }
@@ -151,24 +165,29 @@ void processHts::processPE() {
 //    pe_sortedByPos_sub_thread(0);
 //  读取一批数据，分发给其它线程处理
     if(gp.threads_num>1){
-        if(MultiThreadsMethod==1) {
-            if (outputFormat == "bam") {
+        if (outputFormat == "bam") {
+            if(MultiThreadsMethod==2) {
+                writeFile();
+            }else {
                 string cleanOut = gp.output_dir + "/" + gp.fq2_path;
                 cleanBam = bgzf_open(cleanOut.c_str(), "w");
                 if (bam_hdr_write(cleanBam, header) < 0) {
-                    cerr << "Error, couldn't write header" << __FILE__ << " " << __LINE__ << endl;
+                    cerr << "Error:couldn't write header" << __FILE__ << " " << __LINE__ << endl;
                     exit(1);
                 }
+
 //                string filterOut = gp.output_dir + "/_failQC." + outputFormat;
 //                filteredBam = bgzf_open(filterOut.c_str(), "w");
 //                if (bam_hdr_write(filteredBam, header) < 0) {
-//                    cerr << "Error, couldn't write header" << __FILE__ << " " << __LINE__ << endl;
+//                    cerr << "Error:couldn't write header" << __FILE__ << " " << __LINE__ << endl;
 //                    exit(1);
 //                }
-            } else {
-                writeFile();
             }
+        } else {
+            writeFile();
+        }
 //            writeFile();
+        if(MultiThreadsMethod==1) {
             tmpDir = gp.output_dir + "/TMP";
             if (access(tmpDir.c_str(), 0) != -1) {
                 string rmCmd = "rm -rf " + tmpDir;
@@ -177,19 +196,23 @@ void processHts::processPE() {
                     exit(1);
                 }
             }
-            mkdir(tmpDir.c_str(), 0755);
-            thread t_array[gp.threads_num];
-            for (int i = 0; i < gp.threads_num; i++) {
-                t_array[i] = thread(bind(&processHts::peDependentIOSubThread, this, i));
-            }
-            thread catFiles = thread(bind(&processHts::catSmallFiles, this));
-            for (int i = 0; i < gp.threads_num; i++) {
-                t_array[i].join();
-            }
-            catFiles.join();
-        }else{
-            multiThreadsPEprocess();
+//            mkdir(tmpDir.c_str(), 0755);
+            mkDir(tmpDir.c_str(), 0755);
         }
+        thread t_array[gp.threads_num];
+        for (int i = 0; i < gp.threads_num; i++) {
+            t_array[i] = thread(bind(&processHts::peDependentIOSubThread, this, i));
+        }
+        if(MultiThreadsMethod==1) {
+            thread catFiles = thread(bind(&processHts::catSmallFiles, this));
+            catFiles.join();
+        }
+        for (int i = 0; i < gp.threads_num; i++) {
+            t_array[i].join();
+        }
+//        }else{
+//            multiThreadsPEprocess();
+//        }
        //
     }else{
         //由于该函数内涉及peProcess类中的线程函数，需要给1个线程索引作为参数，这里只设置为0即为单线程
@@ -261,7 +284,7 @@ void processHts::catSmallFiles(){
             }else if(outputFormat=="bam"){
                 catBam(cleanList,cleanBam);
             }else{
-                cerr<<"Error, not support such format output"<<endl;
+                cerr<<"Error:not support such format output"<<endl;
                 exit(1);
             }
             for (int i = 0; i < cleanList.size(); i++) {
@@ -275,7 +298,7 @@ void processHts::catSmallFiles(){
 //            }else if(outputFormat=="bam"){
 //                catBam(filteredList,filteredBam);
 //            }else{
-//                cerr<<"Error, not support such format output"<<endl;
+//                cerr<<"Error:not support such format output"<<endl;
 //                exit(1);
 //            }
 //            for(int i=0;i<filteredList.size();i++){
@@ -312,22 +335,22 @@ void processHts::catBam(vector<string> smallFiles,BGZF* fp){
 
 
         if (in == 0) {
-            cerr<<"Error, fail to open file,"<<smallFiles[i]<<endl;
+            cerr<<"Error:fail to open file,"<<smallFiles[i]<<endl;
             exit(1);
         }
         if (in->is_write) exit(1);
         sam_hdr_t *old = bam_hdr_read(in);
         if (old == NULL) {
-            cerr<<"Error, couldn't read header for "<<smallFiles[i]<<endl;
+            cerr<<"Error:couldn't read header for "<<smallFiles[i]<<endl;
             exit(1);
         }
         if (in->block_offset < in->block_length) {
             if (bgzf_write(fp, (char *)in->uncompressed_block + in->block_offset, in->block_length - in->block_offset) < 0) {
-                cerr<<"Error, bgzf write error "<<__FILE__<<" "<<__LINE__<<endl;
+                cerr<<"Error:bgzf write error "<<__FILE__<<" "<<__LINE__<<endl;
                 exit(1);
             };
             if (bgzf_flush(fp) != 0){
-                cerr<<"Error, cannot flush bgzf"<<endl;
+                cerr<<"Error:cannot flush bgzf"<<endl;
                 exit(1);
             }
         }
@@ -340,7 +363,7 @@ void processHts::catBam(vector<string> smallFiles,BGZF* fp){
                     exit(1);
                 }
                 if (bgzf_raw_write(fp, ebuf, len) < 0){
-                    cerr<<"Error, cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
+                    cerr<<"Error:cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
                     exit(1);
                 }
 
@@ -349,14 +372,14 @@ void processHts::catBam(vector<string> smallFiles,BGZF* fp){
             } else {
                 if(j!=0) {
                     if (bgzf_raw_write(fp, ebuf, es) < 0){
-                        cerr<<"Error, cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
+                        cerr<<"Error:cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
                         exit(1);
                     }
                 }
                 len-= es;
                 memcpy(ebuf,buf+len,es);
                 if (bgzf_raw_write(fp, buf, len) < 0){
-                    cerr<<"Error, cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
+                    cerr<<"Error:cannot write bgzf "<<__FILE__<<" "<<__LINE__<<endl;
                     exit(1);
                 }
             }
@@ -374,7 +397,7 @@ void processHts::catBam(vector<string> smallFiles,BGZF* fp){
                 fprintf(stderr, " Possible output corruption.\n");
                 exit(1);
                 if (bgzf_raw_write(fp, ebuf, es) < 0){
-                    cerr<<"Error, error in "<<__FILE__<<" "<<__LINE__<<endl;
+                    cerr<<"Error:error in "<<__FILE__<<" "<<__LINE__<<endl;
                     exit(1);
                 }
             }
@@ -383,7 +406,7 @@ void processHts::catBam(vector<string> smallFiles,BGZF* fp){
         bgzf_close(in);
         in = NULL;
         if(bgzf_flush(fp)==-1){
-            cerr<<"Error, bgzf flush error"<<endl;
+            cerr<<"Error:bgzf flush error"<<endl;
             exit(1);
         }
     }
@@ -405,14 +428,14 @@ void processHts::catCram(vector<string> smallFiles,htsFile* out){
 
         in = sam_open(smallFiles[i].c_str(), "rc");
         if (in == 0) {
-            cout<<"Error, cannot open such file,"<<smallFiles[i]<<endl;
+            cout<<"Error:cannot open such file,"<<smallFiles[i]<<endl;
             exit(1);
         }
         in_c = in->fp.cram;
 
         old_h = sam_hdr_read(in);
         if (!old_h) {
-            cout<<"Error, fail to read the header of file "<<smallFiles[i]<<endl;
+            cout<<"Error:fail to read the header of file "<<smallFiles[i]<<endl;
             exit(1);
         }
         // Copy contains and blocks within them
@@ -521,67 +544,155 @@ void processHts::catCram(vector<string> smallFiles,htsFile* out){
 //}
 void processHts::multiThreadsSEprocess(){
     writeFile();
-    vector<C_fastq> fq1s;
+//    vector<C_fastq> fq1s;
 //    thread *subThreads=new thread[gp.threads_num];
     thread t_array[gp.threads_num];
+
+    bool breakFlag=0;
     while(1) {
-        bam1_t** bamData=readSEData(fq1s);
-        int readsNum=fq1s.size();
-        if(readsNum==0){
+        if(breakFlag){
             break;
         }
-        bool *filterFlag = new bool[readsNum];
-        memset(filterFlag, 0, readsNum);
-        int meanAssigned=readsNum/gp.threads_num;
+        int readLineNum=0;
+        bam1_t** bamData=readSEData(readLineNum);
+        if(readLineNum<lineNumPerThread*gp.threads_num){
+            breakFlag=1;
+        }
+        if(readLineNum==0){
+            break;
+        }
+        bool *filterFlag = new bool[readLineNum];
+        memset(filterFlag, 0, readLineNum);
+        int meanAssigned=lineNumPerThread;
         int* assignedNum=new int[gp.threads_num];
         memset(assignedNum,0,gp.threads_num);
         bool** threadFilter=new bool*[gp.threads_num];
         memset(threadFilter,0,gp.threads_num);
+        int realUseThreadsNum=0;
+        int lastEndIndex=-1;
+        string lastReadID="";
+        bool lastReadFilter=false;
+        int startIndex=-1;
+        int endIndex=-1;
+        C_fastq fastq1;
+        seP->C_fastq_init(fastq1);
+        int checkStart=0;
         for(int i=0;i<gp.threads_num;i++){
-            int startIndex=0;
-            int endIndex=0;
-            startIndex=meanAssigned*i+1;
-            if(i<gp.threads_num-1){
-                endIndex=(i+1)*meanAssigned;
+            if(i==0){
+                while(checkStart<readLineNum){
+                    parseRead(bamData[0],fastq1);
+                    if(fastq1.seq_id==lastReadID){
+                        checkStart++;
+                    }else{
+                        break;
+                    }
+                }
+                startIndex=checkStart;
             }else{
-                endIndex=readsNum;
+                startIndex=lastEndIndex+1;
             }
-            threadFilter[i]=new bool[endIndex-startIndex+1];
-            memset(threadFilter[i],0,endIndex-startIndex+1);
-            assignedNum[i]=endIndex-startIndex+1;
-            t_array[i]=thread(bind(&processHts::seSubThread,this,fq1s,startIndex,endIndex,threadFilter[i],i));
+            endIndex=(i+1)*meanAssigned;
+
+            realUseThreadsNum=i;
+            if(endIndex>readLineNum){
+                endIndex=readLineNum;
+                if(startIndex>=endIndex){
+                    break;
+                }
+            }
+            if(endIndex<readLineNum) {
+                int checkEnd = endIndex;
+                parseRead(bamData[checkEnd - 1], fastq1);
+                string checkReadID = fastq1.seq_id;
+                while (checkEnd--) {
+                    parseRead(bamData[checkEnd - 1], fastq1);
+                    if (fastq1.seq_id != checkReadID) {
+                        break;
+                    } else {
+                        checkReadID = fastq1.seq_id;
+                    }
+                }
+                endIndex=checkEnd+1;
+                lastEndIndex=checkEnd;
+            }
+            threadFilter[i]=new bool[endIndex-startIndex];
+            memset(threadFilter[i],0,endIndex-startIndex);
+            assignedNum[i]=endIndex-startIndex;
+            t_array[i]=thread(bind(&processHts::seSubThread,this,bamData,startIndex,endIndex,threadFilter[i],i));
         }
-        for(int i=0;i<gp.threads_num;i++){
+        for(int i=0;i<=realUseThreadsNum;i++){
             t_array[i].join();
         }
-        vector<C_fastq>().swap(fq1s);
+//        vector<C_fastq>().swap(fq1s);
         //将过滤flag合并到filterFlag
         int iter=0;
-        for(int i=0;i<gp.threads_num;i++){
+        for(int i=0;i<realUseThreadsNum;i++){
             for(int j=0;j!=assignedNum[i];j++){
-                filterFlag[iter]=threadFilter[i][j];
+                if(iter<checkStart){
+                    filterFlag[iter]=lastReadFilter;
+                }else {
+                    filterFlag[iter] = threadFilter[i][j];
+                }
+                iter++;
             }
             delete[] threadFilter[i];
         }
+        lastReadFilter=filterFlag[iter-1];
+        parseRead(bamData[readLineNum-1],fastq1);
+        lastReadID=fastq1.seq_id;
         delete[] threadFilter;
         delete[] assignedNum;
 
-        writeBackToCram(bamData,filterFlag,readsNum);
+        writeBackToCram(bamData,filterFlag,readLineNum);
         delete[] filterFlag;
-        for(int i=0;i<readsNum;i++){
+        for(int i=0;i<readLineNum;i++){
             bam_destroy1(bamData[i]);
             bamData[i]=NULL;
         }
         delete[] bamData;
     }
 }
-void* processHts::seSubThread(vector<C_fastq> fq1s,int start,int end,bool* threadFilter,int index){
+
+void* processHts::seSubThread(bam1_t** data,int start,int end,bool* threadFilter,int index){
+    //parse fastq from data(bam1_t**) to fq1s
+    vector<C_fastq> fq1s;
+    C_fastq fastq1;
+    seP->C_fastq_init(fastq1);
+    string lastReadID="";
+    int* readsGroupNum=new int[end-start];
+    memset(readsGroupNum,0,end-start);
+    int iter=0;
+    for(int i=start;i<end;i++){
+        parseRead(data[i],fastq1);
+        if(fastq1.seq_id!=lastReadID) {
+            fq1s.emplace_back(fastq1);
+            readsGroupNum[iter]=1;
+            iter++;
+        }else{
+            readsGroupNum[iter-1]++;
+        }
+        lastReadID=fastq1.seq_id;
+    }
+//    int testTotalNum=0;
+//    for(int i=0;i<fq1s.size();i++){
+//        if(readsGroupNum[i]>1){
+//            cout<<readsGroupNum[i]<<"\there"<<endl;
+//        }
+//        testTotalNum+=readsGroupNum[i];
+//    }
+//    cout<<testTotalNum<<endl;
+    int readsNum=fq1s.size();
+    bool* readsNumFilter=new bool[readsNum];
+    memset(readsNumFilter,0,readsNum);
     vector<C_fastq> clean_result1;
     SEcalOption opt2;
     opt2.se_local_fs = &(seP->se_local_fs[index]);
     opt2.fq1s = &fq1s;
     opt2.clean_result1=&clean_result1;
-    filter_se_fqs(opt2,threadFilter);        //filter raw fastqs by the given parameters
+    filter_se_fqs(opt2,readsNumFilter);        //filter raw fastqs by the given parameters
+    for(int i=0;i<readsNum;i++){
+
+    }
     SEstatOption opt_raw;
     opt_raw.fq1s = &fq1s;
     opt_raw.stat1 = &(seP->se_local_raw_stat1[index]);
@@ -592,6 +703,15 @@ void* processHts::seSubThread(vector<C_fastq> fq1s,int start,int end,bool* threa
     opt_clean.fq1s=&clean_result1;
     seP->stat_se_fqs(opt_clean,"clean");
     vector<C_fastq>().swap(clean_result1);
+    iter=0;
+    for(int i=0;i<readsNum;i++){
+        for(int j=0;j<readsGroupNum[i];j++){
+            threadFilter[iter]=readsNumFilter[i];
+            iter++;
+        }
+    }
+    delete[] readsGroupNum;
+    delete[] readsNumFilter;
     return (void*)NULL;
 }
 
@@ -613,7 +733,7 @@ void* processHts::seSubThread(vector<C_fastq> fq1s,int start,int end,bool* threa
 //                char* qual=get_quality((threadBlock->getRecords())[lineNum]);
 //                char* qname=bam_get_qname((threadBlock->getRecords())[lineNum]);
 //                if(seq==NULL || qual==NULL || qname==NULL){
-//                    cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+//                    cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
 //                    exit(1);
 //                }
 //                for(int j=0;j<readGroupIndex[i];j++){
@@ -671,7 +791,7 @@ void* processHts::seSubThread(vector<C_fastq> fq1s,int start,int end,bool* threa
 //此方法用于主线程读取数据，其它线程只处理数据（占用cpu，不占IO），如果改成线程读写分离，那么此方法就用不到
 void* processHts::peSubThread(vector<C_fastq> fq1s,vector<C_fastq> fq2s,int start,int end,bool* threadFilter,int index){
     if(fq1s.size()<end || fq2s.size()<end){
-        cerr<<"Error, code error"<<endl;
+        cerr<<"Error:code error"<<endl;
     }
     vector<C_fastq> realFq1,realFq2;
     for(int i=start-1;i!=end;i++){
@@ -718,7 +838,7 @@ void processHts::pe_sortedByPos_sub_thread(int index){
     string tmpOut=gp.output_dir+"/_tmpFile";
     ofstream ofTmpOut(tmpOut.c_str());
     if(!ofTmpOut){
-        cerr<<"Error, cannot write to such file,"<<tmpOut<<endl;
+        cerr<<"Error:cannot write to such file,"<<tmpOut<<endl;
         exit(1);
     }
     //todo
@@ -781,7 +901,7 @@ void processHts::pe_sortedByPos_sub_thread(int index){
         //将未处理的reads输出到这个文件，看看有哪些例外情况
         ofstream ofNotProcessedReads(gp.output_dir+"/_unProcessReads");
         if(!ofNotProcessedReads){
-            cerr<<"Error, cannot write to such file,"<<gp.output_dir+"/_unProcessReads"<<endl;
+            cerr<<"Error:cannot write to such file,"<<gp.output_dir+"/_unProcessReads"<<endl;
             exit(1);
         }
         for(map<size_t,peFilterTmpOut*>::iterator ix=dataInfo.begin();ix!=dataInfo.end();ix++){
@@ -793,11 +913,11 @@ void processHts::pe_sortedByPos_sub_thread(int index){
     ifstream ifPairedFile(gp.output_dir+"/_tmpFile");
     ofstream ofWholeReadsFile(gp.output_dir+"/_tmpFile2");
     if(!ofWholeReadsFile){
-        cerr<<"Error, cannot write to such file,"<<gp.output_dir+"/_tmpFile2";
+        cerr<<"Error:cannot write to such file,"<<gp.output_dir+"/_tmpFile2";
         exit(1);
     }
     if(!ifPairedFile){
-        cerr<<"Error, cannot open such file,"<<gp.output_dir+"/_tmpFile"<<endl;
+        cerr<<"Error:cannot open such file,"<<gp.output_dir+"/_tmpFile"<<endl;
         exit(1);
     }
     string lineInfo;
@@ -817,7 +937,7 @@ void processHts::pe_sortedByPos_sub_thread(int index){
                 break;
             }
         }else{
-//            cerr<<"Error, code error or raw data error"<<endl;
+//            cerr<<"Error:code error or raw data error"<<endl;
 //            exit(1);
         }
     }
@@ -832,7 +952,7 @@ void processHts::parseRead(bam1_t* data,C_fastq& read){
     char* qual=get_quality(data);
     char* qname=bam_get_qname(data);
     if(seq==NULL || qual==NULL || qname==NULL){
-        cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+        cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
         exit(1);
     }
     read.seq_id.assign(qname);
@@ -924,7 +1044,9 @@ void* processHts::peDependentIOSubThread(int index){
 //    writeFile(index,0);
     while(1) {
         //打开写小文件的句柄
-        writeFile(index,patch);
+        if(MultiThreadsMethod==1) {
+            writeFile(index, patch);
+        }
         int* readNameGroupCount=new int[readsNumInPatch];
         memset(readNameGroupCount,0,readsNumInPatch);
         int readLineNum=0;
@@ -932,8 +1054,10 @@ void* processHts::peDependentIOSubThread(int index){
         int readsNum=fq1s.size();
         if(readsNum==0){
             delete[] readNameGroupCount;
-            closeHts(threadCleanOut[index]);
+            if(MultiThreadsMethod==1) {
+                closeHts(threadCleanOut[index]);
 //            closeHts(threadFilteredOut[index]);
+            }
             threadProgress[index]=patch;
             threadDone[index]=true;
             break;
@@ -998,12 +1122,29 @@ void* processHts::peDependentIOSubThread(int index){
 //            }
 //            usleep(20000);
 //        }
-
-        writeBackToCram(bamData,peFilterFlag,iter,index);
+        if(MultiThreadsMethod==1){
+            writeBackToCram(bamData,peFilterFlag,iter,index);
+        }else {
+            while (1) {
+                int lastIndex = index == 0 ? gp.threads_num - 1 : index - 1;
+                if (threadWriteProgress[lastIndex] - threadWriteProgress[index] == 1 ||
+                    (index == 0 && threadWriteProgress[index] == threadWriteProgress[lastIndex])) {
+                    writeLock.lock();
+                    writeBackToCram(bamData, peFilterFlag, iter);
+                    writeLock.unlock();
+                    threadWriteProgress[index]++;
+                    break;
+                } else {
+                    usleep(100000);
+                }
+            }
+        }
         if(index==0){
             log<<get_local_time()<<"\tprocessed reads: "<<curTotalNum<<endl;
         }
-        closeHts(threadCleanOut[index]);
+        if(MultiThreadsMethod==1) {
+            closeHts(threadCleanOut[index]);
+        }
 //        closeHts(threadFilteredOut[index]);
         int bamSize=int(readsNumInPatch*2.3);
         for(int i=0;i<bamSize;i++){
@@ -1037,7 +1178,9 @@ void* processHts::seDependentIOSubThread(int index){
     long long processedReads=0;
     while(1) {
         //打开写小文件的句柄
-        writeFile(index,patch);
+        if(MultiThreadsMethod==1) {
+            writeFile(index,patch);
+        }
         int readLineNum=0;
         int* readNameGroupCount=new int[readsNumInPatch];
         memset(readNameGroupCount,0,readsNumInPatch);
@@ -1045,12 +1188,14 @@ void* processHts::seDependentIOSubThread(int index){
         int readsNum=fq1s.size();
         processedReads+=readsNum;
         if(readLineNum<readsNum){
-            cerr<<"Error, code error"<<__FILE__<<"\t"<<__LINE__<<endl;
+            cerr<<"Error:code error"<<__FILE__<<"\t"<<__LINE__<<endl;
             exit(1);
         }
         if(readsNum==0){
             delete[] readNameGroupCount;
-            closeHts(threadCleanOut[index]);
+            if(MultiThreadsMethod==1) {
+                closeHts(threadCleanOut[index]);
+            }
 //            closeHts(threadFilteredOut[index]);
             threadProgress[index]=patch;
             threadDone[index]=true;
@@ -1086,14 +1231,33 @@ void* processHts::seDependentIOSubThread(int index){
         }
 //        cout<<"index:\t"<<index<<"\titer:\t"<<iter<<"\treadLineNum:\t"<<readLineNum<<endl;
         if(iter!=readLineNum){
-            cerr<<"Error, code error"<<__FILE__<<"\t"<<__LINE__<<endl;
+            cerr<<"Error:code error"<<__FILE__<<"\t"<<__LINE__<<endl;
             exit(1);
         }
-        writeBackToCram(bamData,seFilterFlag,iter,index);
+        if(MultiThreadsMethod==1){
+            writeBackToCram(bamData,seFilterFlag,iter,index);
+        }else {
+            while (1) {
+                int lastIndex = index == 0 ? gp.threads_num - 1 : index - 1;
+                if (threadWriteProgress[lastIndex] - threadWriteProgress[index] == 1 ||
+                    (index == 0 && threadWriteProgress[index] == threadWriteProgress[lastIndex])) {
+                    writeLock.lock();
+                    writeBackToCram(bamData, seFilterFlag, iter);
+                    writeLock.unlock();
+                    threadWriteProgress[index]++;
+                    break;
+                } else {
+                    usleep(100000);
+                }
+            }
+        }
+//        writeBackToCram(bamData,seFilterFlag,iter,index);
         if(index==0){
             log<<get_local_time()<<"\tprocessed reads: "<<curTotalNum<<endl;
         }
-        closeHts(threadCleanOut[index]);
+        if(MultiThreadsMethod==1) {
+            closeHts(threadCleanOut[index]);
+        }
 //        closeHts(threadFilteredOut[index]);
         threadProgress[index]=patch;
         int bamSize=int(readsNumInPatch*1.5);
@@ -1139,7 +1303,7 @@ void processHts::writeFile(){
     }else if(gp.fq2_path.rfind(".cram")==gp.fq2_path.size()-5){
         writeCram();
     }else{
-        cerr<<"Error, only support sam/bam/cram suffix format output"<<endl;
+        cerr<<"Error:only support sam/bam/cram suffix format output"<<endl;
         exit(1);
     }
 }
@@ -1151,7 +1315,7 @@ void processHts::writeFile(int index,int patch){
     }else if(gp.fq2_path.rfind(".cram")==gp.fq2_path.size()-5){
         writeCram(index,patch);
     }else{
-        cerr<<"Error, only support sam/bam/cram suffix format output"<<endl;
+        cerr<<"Error:only support sam/bam/cram suffix format output"<<endl;
         exit(1);
     }
 }
@@ -1213,27 +1377,39 @@ void processHts::clean(){
     log.close();
     bam_destroy1(aln);
     bam_hdr_destroy(header);
+    delete[] threadWriteProgress;
     if(gp.threads_num>1){
-        for(int i=0;i<gp.threads_num;i++){
+        for (int i = 0; i < gp.threads_num; i++) {
             closeHts(threadIn[i]);
         }
         if(outputFormat=="bam") {
-            if (bgzf_close(cleanBam) < 0) {
-                cerr << "Error, fail to close clean bam" << endl;
-                exit(1);
+            if(MultiThreadsMethod==1) {
+                if (bgzf_close(cleanBam) < 0) {
+                    cerr << "Error:fail to close clean bam" << endl;
+                    exit(1);
+                }
+            }else{
+                closeHts(cleanOut);
+//                closeHts(in);
             }
 //            if (bgzf_close(filteredBam) < 0) {
-//                cerr << "Error, fail to close filtered bam" << endl;
+//                cerr << "Error:fail to close filtered bam" << endl;
 //                exit(1);
 //            }
 //        }else{
 //            closeHts(cleanOut);
 //            closeHts(filteredOut);
+        }else{
+            if(MultiThreadsMethod==2){
+                closeHts(cleanOut);
+            }
         }
-        string rmCmd="rm -rf "+tmpDir;
-        if(system(rmCmd.c_str())==-1){
-            cerr<<"Error:when running "<<rmCmd<<endl;
-            exit(1);
+        if(MultiThreadsMethod==1) {
+            string rmCmd = "rm -rf " + tmpDir;
+            if (system(rmCmd.c_str()) == -1) {
+                cerr << "Error:when running " << rmCmd << endl;
+                exit(1);
+            }
         }
 //        closeHts(cleanOut);
     }else {
@@ -1243,14 +1419,15 @@ void processHts::clean(){
     }
 }
 void processHts::prepare(){
-    string mkdir_str="mkdir -p "+gp.output_dir;
-    if(system(mkdir_str.c_str())==-1){
-        cerr<<"Error:mkdir fail"<<endl;
-        exit(1);
-    }
+    mkDir(gp.output_dir);
+//    string mkdir_str="mkdir -p "+gp.output_dir;
+//    if(system(mkdir_str.c_str())==-1){
+//        cerr<<"Error:mkdir fail"<<endl;
+//        exit(1);
+//    }
     log.open(gp.log);
     if(!log){
-        cerr<<"Error, cannot write to such file,"<<gp.log<<endl;
+        cerr<<"Error:cannot write to such file,"<<gp.log<<endl;
         exit(-1);
     }
     openHts();
@@ -1259,7 +1436,7 @@ void processHts::prepare(){
         case 4:format="bam";break;
         case 6:format="cram";break;
         default:{
-            cerr<<"Error, only support BAM/CRAM in this module"<<endl;
+            cerr<<"Error:only support BAM/CRAM in this module"<<endl;
             exit(1);
         }
     }
@@ -1276,12 +1453,12 @@ void processHts::writeBackToCram(bam1_t** data,bool* filterFlag,int size){
                 data[i]->core.flag += 512;
             }
             if (sam_write1(cleanOut, header, data[i]) < 0) {
-                cerr << "Error, write file error" << endl;
+                cerr << "Error:write file error" << endl;
                 exit(1);
             }
         }else {
             if (sam_write1(cleanOut, header, data[i]) < 0) {
-                cerr << "Error, write file error" << endl;
+                cerr << "Error:write file error" << endl;
                 exit(1);
             }
         }
@@ -1294,12 +1471,12 @@ void processHts::writeBackToCram(bam1_t** data,bool* filterFlag,int size,int ind
                 data[i]->core.flag += 512;
             }
             if (sam_write1(threadCleanOut[index], header, data[i]) < 0) {
-                cerr << "Error, write file error" << endl;
+                cerr << "Error:write file error" << endl;
                 exit(1);
             }
         }else {
             if (sam_write1(threadCleanOut[index], header, data[i]) < 0) {
-                cerr << "Error, write file error" << endl;
+                cerr << "Error:write file error" << endl;
                 exit(1);
             }
         }
@@ -1414,14 +1591,14 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
     if(bam_get_qname(lastLine)!=NULL){
         readIDNum++;
         if(bam_copy1(aln,lastLine)==NULL){
-            cerr<<"Error, bam copy error"<<endl;
+            cerr<<"Error:bam copy error"<<endl;
             exit(1);
         }
         char* seq=get_read(aln);
         char* qual=get_quality(aln);
         char* qname=bam_get_qname(aln);
         if(seq==NULL || qual==NULL || qname==NULL){
-            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
             exit(1);
         }
         string qnameS=qname;
@@ -1442,7 +1619,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
         delete[] qual;
         qual=NULL;
         if(bam_copy1(data[lineNum],aln)==NULL){
-            cerr<<"Error, copy data in memory failed"<<endl;
+            cerr<<"Error:copy data in memory failed"<<endl;
             exit(1);
         }
         lastQname=qnameS;
@@ -1454,13 +1631,13 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
         char* qual=get_quality(aln);
         char* qname=bam_get_qname(aln);
         if(seq==NULL || qual==NULL || qname==NULL){
-            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
             exit(1);
         }
         string qnameS=qname;
 
         if(bam_copy1(data[lineNum],aln)==NULL){
-            cerr<<"Error, copy data in memory failed"<<endl;
+            cerr<<"Error:copy data in memory failed"<<endl;
             exit(1);
         }
 
@@ -1476,7 +1653,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
             readIDNum=0;
             if(lineNum+10>=readsNumInPatch*2){
                 if(bam_copy1(lastLine,aln)==NULL){
-                    cerr<<"Error, bam copy error"<<endl;
+                    cerr<<"Error:bam copy error"<<endl;
                     exit(1);
                 }
                 return data;
@@ -1539,17 +1716,17 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
 //    if(bam_get_qname(lastLine)!=NULL){
 //        linesOfOneReadID++;
 //        if(bam_copy1(aln,lastLine)==NULL){
-//            cerr<<"Error, bam copy error"<<endl;
+//            cerr<<"Error:bam copy error"<<endl;
 //            exit(1);
 //        }
 //        char* qname=bam_get_qname(aln);
 //        if(qname==NULL){
-//            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+//            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
 //            exit(1);
 //        }
 //        string qnameS=qname;
 //        if(bam_copy1(data[lineNum],aln)==NULL){
-//            cerr<<"Error, copy data in memory failed"<<endl;
+//            cerr<<"Error:copy data in memory failed"<<endl;
 //            exit(1);
 //        }
 //        lastQname=qnameS;
@@ -1559,7 +1736,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
 ////        aln->core.seq;
 //        char* qname=bam_get_qname(aln);
 //        if(qname==NULL){
-//            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+//            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
 //            exit(1);
 //        }
 //        string qnameS=qname;
@@ -1568,7 +1745,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
 //            linesOfOneReadID=0;
 //            if(lineNum+10>=readsNumInPatch*2){
 //                if(bam_copy1(lastLine,aln)==NULL){
-//                    cerr<<"Error, bam copy error"<<endl;
+//                    cerr<<"Error:bam copy error"<<endl;
 //                    exit(1);
 //                }
 //                lineNum++;
@@ -1580,7 +1757,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
 //            readReadsNum++;
 //        }
 //        if(bam_copy1(data[lineNum],aln)==NULL){
-//            cerr<<"Error, copy data in memory failed"<<endl;
+//            cerr<<"Error:copy data in memory failed"<<endl;
 //            exit(1);
 //        }
 //        lastQname=qnameS;
@@ -1612,7 +1789,7 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
     while(sam_read1(threadIn[index],header,threadAln)>=0){
         char* qname=bam_get_qname(threadAln);
         if(qname==NULL){
-            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
             exit(1);
         }
         string qnameS=qname;
@@ -1625,11 +1802,11 @@ bam1_t** processHts::readPEData(vector<C_fastq> &fq1s,vector<C_fastq> &fq2s,int*
             char* seq=get_read(threadAln);
             char* qual=get_quality(threadAln);
             if(seq==NULL || qual==NULL){
-                cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+                cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
                 exit(1);
             }
             if(bam_copy1(data[lineNum],threadAln)==NULL){
-                cerr<<"Error, copy data in memory failed"<<endl;
+                cerr<<"Error:copy data in memory failed"<<endl;
                 exit(1);
             }
             if(lastQname!=qnameS && lastQname!="" && lineNum>1){
@@ -1699,15 +1876,15 @@ bam1_t** processHts::readSEData(vector<C_fastq> &fq1s,int* IDstat,int &readLineN
 //    if(totalNum>0){
 //        lastQname.assign(bam_get_qname(lastLine));
 //    }
-    bool scanRead1=false;
+//    bool scanRead1=false;
     int lineNum=0;
     bam1_t *threadAln=bam_init1();
-    bool test=true;
+//    bool test=true;
 //    cout<<"index:\t"<<index<<"\tcurrent totalNum:\t"<<totalNum<<"\t"<<(totalNum/readsNumInPatch)%gp.threads_num<<endl;
     while(sam_read1(threadIn[index],header,threadAln)>=0){
         char* qname=bam_get_qname(threadAln);
         if(qname==NULL){
-            cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+            cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
             exit(1);
         }
         string qnameS=qname;
@@ -1720,11 +1897,11 @@ bam1_t** processHts::readSEData(vector<C_fastq> &fq1s,int* IDstat,int &readLineN
             char* seq=get_read(threadAln);
             char* qual=get_quality(threadAln);
             if(seq==NULL || qual==NULL){
-                cerr<<"Error, parse "<<inputFormatString<<" file error"<<endl;
+                cerr<<"Error:parse "<<inputFormatString<<" file error"<<endl;
                 exit(1);
             }
             if(bam_copy1(data[lineNum],threadAln)==NULL){
-                cerr<<"Error, copy data in memory failed"<<endl;
+                cerr<<"Error:copy data in memory failed"<<endl;
                 exit(1);
             }
             lineNum++;//bam1_t数组的索引
@@ -1765,35 +1942,63 @@ bam1_t** processHts::readSEData(vector<C_fastq> &fq1s,int* IDstat,int &readLineN
     seLastID[index]=lastQname;
     return data;
 }
-bam1_t** processHts::readSEData(vector<C_fastq> &fq1s) {
-
-
-    C_fastq fastq1;
-    bam1_t** data=new bam1_t*[readsNumInPatch];
-    for(int i=0;i<readsNumInPatch;i++){
+bam1_t** processHts::readSEData(int& lineNum) {
+    bam1_t** data=new bam1_t*[lineNumPerThread*gp.threads_num];
+    for(int i=0;i<lineNumPerThread*gp.threads_num;i++){
         data[i]=bam_init1();
     }
     int iter=0;
+//    seP->C_fastq_init(fastq1);
+    aln=bam_init1();
+    while(sam_read1(in,header,aln)>=0){
+        lineNum++;
+//        aln->core.seq;
+
+//        char* seq=get_read(aln);
+//        char* qual=get_quality(aln);
+//        char* qname=bam_get_qname(aln);
+//        if(seq==NULL || qual==NULL || qname==NULL){
+//            cerr<<"Error:parse cram file error"<<endl;
+//            exit(1);
+//        }
+//        fastq1.seq_id.assign(qname);
+//        fastq1.sequence.assign(seq);
+//        fastq1.qual_seq.assign(qual);
+//        delete[] seq;
+//        delete[] qual;
+//        delete qname;
+//        fq1s.emplace_back(fastq1);
+        if(bam_copy1(data[iter],aln)==NULL){
+            cerr<<"Error:copy data in memory failed"<<endl;
+            exit(1);
+        }
+        if (lineNum == lineNumPerThread*gp.threads_num) {
+            return data;
+            break;
+        }
+        iter++;
+    }
+//    for(int i=fq1s.size();i<readsNumInPatch;i++){
+//        data[i]=NULL;
+//    }
+    return data;
+}
+bam1_t** processHts::readSEData(vector<C_fastq> &fq1s) {
+    bam1_t** data=new bam1_t*[lineNumPerThread*gp.threads_num];
+    for(int i=0;i<lineNumPerThread*gp.threads_num;i++){
+        data[i]=bam_init1();
+    }
+    int iter=0;
+    C_fastq fastq1;
     seP->C_fastq_init(fastq1);
     aln=bam_init1();
     while(sam_read1(in,header,aln)>=0){
 //        aln->core.seq;
-        char* seq=get_read(aln);
-        char* qual=get_quality(aln);
-        char* qname=bam_get_qname(aln);
-        if(seq==NULL || qual==NULL || qname==NULL){
-            cerr<<"Error, parse cram file error"<<endl;
-            exit(1);
-        }
-        fastq1.seq_id.assign(qname);
-        fastq1.sequence.assign(seq);
-        fastq1.qual_seq.assign(qual);
-        delete[] seq;
-        delete[] qual;
-//        delete qname;
+
+        parseRead(aln,fastq1);
         fq1s.emplace_back(fastq1);
         if(bam_copy1(data[iter],aln)==NULL){
-            cerr<<"Error, copy data in memory failed"<<endl;
+            cerr<<"Error:copy data in memory failed"<<endl;
             exit(1);
         }
         if (fq1s.size() == readsNumInPatch) {
@@ -1810,72 +2015,72 @@ bam1_t** processHts::readSEData(vector<C_fastq> &fq1s) {
 void processHts::openHts(){
     in=hts_open(gp.fq1_path.c_str(),"rc");
     if(in==NULL){
-        cerr<<"Error, cannot open such file,"<<inputCram<<endl;
+        cerr<<"Error:cannot open such file,"<<inputCram<<endl;
         exit(1);
     }
     if(gp.fq1_path.rfind(".cram")==gp.fq1_path.size()-5 || gp.fq2_path.rfind(".cram")==gp.fq2_path.size()-5) {
         string refPath = gp.reference;
         string refFai = refPath + ".fai";
         if (hts_set_fai_filename(in, refFai.c_str()) < 0) {
-            cerr << "Error, reference is needed, cannot open such file," << refFai << endl;
+            cerr << "Error:reference is needed, cannot open such file," << refFai << endl;
             exit(1);
         }
     }
     inputFormat=hts_get_format(in);
     if(inputFormat->category==1){
         if(inputFormat->format!=4 && inputFormat->format!=6){
-            cerr<<"Error, only support BAM/CRAM in this module"<<endl;
+            cerr<<"Error:only support BAM/CRAM in this module"<<endl;
             exit(1);
         }
     }else{
-        cerr<<"Error, only support BAM/CRAM in this module"<<endl;
+        cerr<<"Error:only support BAM/CRAM in this module"<<endl;
         exit(1);
     }
     header=sam_hdr_read(in);
     if(header==NULL){
-        cerr<<"Error, get header fail"<<endl;
+        cerr<<"Error:get header fail"<<endl;
         exit(1);
     }
 
     aln=bam_init1();
 
     if(aln==NULL){
-        cerr<<"Error, init error,"<<__FILE__<<":line"<<__LINE__<<endl;
+        cerr<<"Error:init error,"<<__FILE__<<":line"<<__LINE__<<endl;
         exit(1);
     }
 }
 void processHts::openHts(int index){
     threadIn[index]=hts_open(gp.fq1_path.c_str(),"r");
     if(threadIn[index]==NULL){
-        cerr<<"Error, cannot open such file,"<<inputCram<<endl;
+        cerr<<"Error:cannot open such file,"<<inputCram<<endl;
         exit(1);
     }
     if(gp.fq1_path.rfind(".cram")==gp.fq1_path.size()-5 || gp.fq2_path.rfind(".cram")==gp.fq2_path.size()-5) {
         string refPath = gp.reference;
         string refFai = refPath + ".fai";
         if (hts_set_fai_filename(threadIn[index], refFai.c_str()) < 0) {
-            cerr << "Error, reference is needed, cannot open such file," << refFai << endl;
+            cerr << "Error:reference is needed, cannot open such file," << refFai << endl;
             exit(1);
         }
     }
     inputFormat=hts_get_format(threadIn[index]);
     if(inputFormat->category==1){
         if(inputFormat->format!=4 && inputFormat->format!=6){
-            cerr<<"Error, only support BAM/CRAM in this module"<<endl;
+            cerr<<"Error:only support BAM/CRAM in this module"<<endl;
             exit(1);
         }
     }else{
-        cerr<<"Error, only support BAM/CRAM in this module"<<endl;
+        cerr<<"Error:only support BAM/CRAM in this module"<<endl;
         exit(1);
     }
     header=sam_hdr_read(threadIn[index]);
     if(header==NULL){
-        cerr<<"Error, get header fail"<<endl;
+        cerr<<"Error:get header fail"<<endl;
         exit(1);
     }
     aln=bam_init1();
     if(aln==NULL){
-        cerr<<"Error, init error,"<<__FILE__<<":line"<<__LINE__<<endl;
+        cerr<<"Error:init error,"<<__FILE__<<":line"<<__LINE__<<endl;
         exit(1);
     }
 }
@@ -1883,31 +2088,31 @@ void processHts::writeCram(){
     string outPath=gp.output_dir+"/"+gp.fq2_path;
     cleanOut=sam_open(outPath.c_str(),"wc");
     if(cleanOut==NULL){
-        cerr<<"Error, cannot write to such file,"<<outPath<<endl;
+        cerr<<"Error:cannot write to such file,"<<outPath<<endl;
         exit(1);
     }
     string refPath=gp.reference;
     string refFai=refPath+".fai";
     if(hts_set_fai_filename(cleanOut,refFai.c_str())<0){
-        cerr<<"Error, cannot open such file,"<<refFai<<endl;
+        cerr<<"Error:cannot open such file,"<<refFai<<endl;
         exit(1);
     }
     if(sam_hdr_write(cleanOut,header)==-1){
-        cerr<<"Error, write header to cram failed"<<endl;
+        cerr<<"Error:write header to cram failed"<<endl;
         exit(1);
     }
 //    string outPath2=gp.output_dir+"/_failQC.cram";
 //    filteredOut=sam_open(outPath2.c_str(),"wc");
 //    if(filteredOut==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(hts_set_fai_filename(filteredOut,refFai.c_str())<0){
-//        cerr<<"Error, cannot open such file,"<<refFai<<endl;
+//        cerr<<"Error:cannot open such file,"<<refFai<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(filteredOut,header)==-1){
-//        cerr<<"Error, write header to cram failed"<<endl;
+//        cerr<<"Error:write header to cram failed"<<endl;
 //        exit(1);
 //    }
 }
@@ -1915,21 +2120,21 @@ void processHts::writeBam(){
     string outPath=gp.output_dir+"/"+gp.fq2_path;
     cleanOut=sam_open(outPath.c_str(),"wb");
     if(cleanOut==NULL){
-        cerr<<"Error, cannot write to such file,"<<outPath<<endl;
+        cerr<<"Error:cannot write to such file,"<<outPath<<endl;
         exit(1);
     }
     if(sam_hdr_write(cleanOut,header)<0){
-        cerr<<"Error, write file error"<<endl;
+        cerr<<"Error:write file error"<<endl;
         exit(1);
     }
 //    string outPath2=gp.output_dir+"/_failQC.bam";
 //    filteredOut=sam_open(outPath2.c_str(),"wb");
 //    if(filteredOut==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(filteredOut,header)<0){
-//        cerr<<"Error, write file error"<<endl;
+//        cerr<<"Error:write file error"<<endl;
 //        exit(1);
 //    }
 }
@@ -1937,21 +2142,21 @@ void processHts::writeSam(){
     string outPath=gp.output_dir+"/"+gp.fq2_path;
     cleanOut=sam_open(outPath.c_str(),"w");
     if(cleanOut==NULL){
-        cerr<<"Error, cannot write to such file,"<<gp.fq2_path<<endl;
+        cerr<<"Error:cannot write to such file,"<<gp.fq2_path<<endl;
         exit(1);
     }
     if(sam_hdr_write(cleanOut,header)<0){
-        cerr<<"Error, write file error"<<endl;
+        cerr<<"Error:write file error"<<endl;
         exit(1);
     }
 //    string outPath2=gp.output_dir+"/_failQC.sam";
 //    filteredOut=sam_open(outPath.c_str(),"w");
 //    if(filteredOut==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(filteredOut,header)<0){
-//        cerr<<"Error, write file error"<<endl;
+//        cerr<<"Error:write file error"<<endl;
 //        exit(1);
 //    }
 }
@@ -1960,31 +2165,31 @@ void processHts::writeCram(int index,int patch){
     string outPath=tmpDir+"/"+gp.fq2_path+".t"+to_string(index)+"."+to_string(patch);
     threadCleanOut[index]=sam_open(outPath.c_str(),"wc");
     if(threadCleanOut[index]==NULL){
-        cerr<<"Error, cannot write to such file,"<<outPath<<endl;
+        cerr<<"Error:cannot write to such file,"<<outPath<<endl;
         exit(1);
     }
     string refPath=gp.reference;
     string refFai=refPath+".fai";
     if(hts_set_fai_filename(threadCleanOut[index],refFai.c_str())<0){
-        cerr<<"Error, cannot open such file,"<<refFai<<endl;
+        cerr<<"Error:cannot open such file,"<<refFai<<endl;
         exit(1);
     }
     if(sam_hdr_write(threadCleanOut[index],header)==-1){
-        cerr<<"Error, write header to cram failed"<<endl;
+        cerr<<"Error:write header to cram failed"<<endl;
         exit(1);
     }
 //    string outPath2=tmpDir+"/_failQC.cram"+".t"+to_string(index)+"."+to_string(patch);
 //    threadFilteredOut[index]=sam_open(outPath2.c_str(),"wc");
 //    if(threadFilteredOut[index]==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(hts_set_fai_filename(threadFilteredOut[index],refFai.c_str())<0){
-//        cerr<<"Error, cannot open such file,"<<refFai<<endl;
+//        cerr<<"Error:cannot open such file,"<<refFai<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(threadFilteredOut[index],header)==-1){
-//        cerr<<"Error, write header to cram failed"<<endl;
+//        cerr<<"Error:write header to cram failed"<<endl;
 //        exit(1);
 //    }
 }
@@ -1992,21 +2197,21 @@ void processHts::writeBam(int index,int patch){
     string outPath=tmpDir+"/"+gp.fq2_path+".t"+to_string(index)+"."+to_string(patch);
     threadCleanOut[index]=sam_open(outPath.c_str(),"wb");
     if(threadCleanOut[index]==NULL){
-        cerr<<"Error, cannot write to such file,"<<outPath<<endl;
+        cerr<<"Error:cannot write to such file,"<<outPath<<endl;
         exit(1);
     }
     if(sam_hdr_write(threadCleanOut[index],header)<0){
-        cerr<<"Error, write file error"<<endl;
+        cerr<<"Error:write file error"<<endl;
         exit(1);
     }
 //    string outPath2=tmpDir+"/_failQC.bam"+".t"+to_string(index)+"."+to_string(patch);
 //    threadFilteredOut[index]=sam_open(outPath2.c_str(),"wb");
 //    if(threadFilteredOut[index]==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(threadFilteredOut[index],header)<0){
-//        cerr<<"Error, write file error"<<endl;
+//        cerr<<"Error:write file error"<<endl;
 //        exit(1);
 //    }
 }
@@ -2014,28 +2219,28 @@ void processHts::writeSam(int index,int patch){
     string outPath=tmpDir+"/"+gp.fq2_path+".t"+to_string(index)+"."+to_string(patch);
     threadCleanOut[index]=sam_open(outPath.c_str(),"w");
     if(threadCleanOut[index]==NULL){
-        cerr<<"Error, cannot write to such file,"<<gp.fq2_path<<endl;
+        cerr<<"Error:cannot write to such file,"<<gp.fq2_path<<endl;
         exit(1);
     }
     if(sam_hdr_write(threadCleanOut[index],header)<0){
-        cerr<<"Error, write file error"<<endl;
+        cerr<<"Error:write file error"<<endl;
         exit(1);
     }
 //    string outPath2=tmpDir+"/_failQC.sam"+".t"+to_string(index)+"."+to_string(patch);
 //    threadFilteredOut[index]=sam_open(outPath.c_str(),"w");
 //    if(threadFilteredOut[index]==NULL){
-//        cerr<<"Error, cannot write to such file,"<<outPath2<<endl;
+//        cerr<<"Error:cannot write to such file,"<<outPath2<<endl;
 //        exit(1);
 //    }
 //    if(sam_hdr_write(threadFilteredOut[index],header)<0){
-//        cerr<<"Error, write file error"<<endl;
+//        cerr<<"Error:write file error"<<endl;
 //        exit(1);
 //    }
 }
 
 void processHts::closeHts(htsFile* fp){
     if(hts_close(fp)<0){
-        cerr<<"Error, cannot close cram file"<<endl;
+        cerr<<"Error:cannot close cram file"<<endl;
         exit(1);
     }
 }

@@ -43,17 +43,95 @@ seProcess::seProcess(C_global_parameter m_gp){
 	se_local_clean_stat1=new C_fastq_file_stat[gp.threads_num];
 	se_bq_check=0;
     cur_cat_cycle=0;
-    nongz_trim_out1=new FILE*[gp.threads_num];
-    readyTrimFiles1=new vector<string>[gp.threads_num];
-    readyCleanFiles1=new vector<string>[gp.threads_num];
-    clean_file_readsNum=new vector<int>[gp.threads_num];
-    nongz_trim_out1=new FILE*[gp.threads_num];
-    sub_thread_done=new int[gp.threads_num];
-    for(int i=0;i<gp.threads_num;i++){
-        sub_thread_done[i]=0;
+    nongz_trim_out1 =new FILE*[gp.threads_num];
+    readyTrimFiles1
+                    = new vector<string>[gp.threads_num];
+    readyCleanFiles1
+                    = new vector<string>[gp.threads_num];
+    clean_file_readsNum
+                    = new vector<int>[gp.threads_num];
+    nongz_trim_out1
+                    = new FILE *[gp.threads_num];
+    sub_thread_done
+                    = new int[gp.threads_num];
+    for (
+            int
+                    i
+                    = 0;
+            i
+            < gp.threads_num;
+            i++
+            )
+    {
+        sub_thread_done[i]
+                = 0;
     }
-    end_sub_thread=0;
-    patch=160/gp.threads_num;
+    end_sub_thread
+            = 0;
+    patch
+            = 160
+              / gp.threads_num;
+    threadCurReadReadsNumIdx
+            = new uint64_t[gp.threads_num];
+    memset(
+            threadCurReadReadsNumIdx
+            , 0
+            , sizeof(uint64_t)
+              * gp.threads_num
+          );
+    if (gp.rmdup)
+    {
+
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            vector<uint64_t *>
+                    tmp;
+            threadData.push_back(tmp);
+            vector<size_t>
+                    tmp2;
+            threadDataNum.push_back(tmp2);
+        }
+        threadReadsNum
+                = new uint64_t[gp.threads_num];
+        memset(
+                threadReadsNum
+                , 0
+                , sizeof(uint64_t)
+                  * gp.threads_num
+              );
+
+        dupNum
+                = 0;
+        dupThreadOut1
+                = new gzFile[gp.threads_num];
+        mkDir(gp.output_dir);
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            dupThreadOut1[i]
+                    = gzopen((
+                                     gp.output_dir
+                                     + "/dupReads."
+                                     + to_string(i)
+                                     + ".1.gz"
+                             ).c_str()
+                             , "wb"
+                            );
+        }
+    }
 }
 void seProcess::print_stat(){
 	string filter_out=gp.output_dir+"/Statistics_of_Filtered_Reads.txt";
@@ -90,6 +168,7 @@ void seProcess::print_stat(){
 	}
 	of_filter_stat<<"Item\tTotal\tPercentage"<<endl;
 	vector<string> filter_items;
+    filter_items.emplace_back("Reads are duplicate");
 	filter_items.emplace_back("Reads limited to output number");
 	filter_items.emplace_back("Reads with filtered tile");
 	filter_items.emplace_back("Reads with filtered fov");
@@ -104,6 +183,7 @@ void seProcess::print_stat(){
 	filter_items.emplace_back("Reads with adapter");
 	filter_items.emplace_back("Reads with global contam sequence");
 	map<string,long long> filter_number;
+    filter_number["Reads are duplicate"]=gv.fs.dupReadsNum;
 	filter_number["Reads with contam sequence"]=gv.fs.include_contam_seq_num;
 	filter_number["Reads with global contam sequence"]=gv.fs.include_global_contam_seq_num;
 	filter_number["Reads too short"]=gv.fs.short_len_num;
@@ -376,6 +456,9 @@ void seProcess::update_stat(C_fastq_file_stat& fq1s_stat,C_filter_stat& fs_stat,
 		gv.fs.long_len_num+=fs_stat.long_len_num;
 		gv.fs.include_contam_seq_num+=fs_stat.include_contam_seq_num;
 		gv.fs.include_global_contam_seq_num+=fs_stat.include_global_contam_seq_num;
+        if(gp.rmdup){
+            gv.fs.dupReadsNum+=fs_stat.dupReadsNum;
+        }
 	}else if(type=="trim"){
 		//gv.trim1_stat.gs.read_length=fq1s_stat.gs.read_length;	//generate stat
 		gv.trim1_stat.gs.reads_number+=fq1s_stat.gs.reads_number;
@@ -646,8 +729,11 @@ void* seProcess::stat_se_fqs(SEstatOption opt,string dataType){
 
 void seProcess::filter_se_fqs(SEcalOption opt){
 	//C_reads_trim_stat cut_pos;
+    //check dup
+    int iter=0;
 	for(vector<C_fastq>::iterator i=opt.fq1s->begin();i!=opt.fq1s->end();i++){
 		C_single_fastq_filter se_fastq_filter=C_single_fastq_filter(*i,gp);
+        iter++;
 		se_fastq_filter.se_trim(gp);
 		if(gp.adapter_discard_or_trim=="trim" || gp.contam_discard_or_trim=="trim" || !gp.trim.empty() || !gp.trimBadHead.empty() || !gp.trimBadTail.empty()){
 			(*i).head_hdcut=se_fastq_filter.read.head_hdcut;
@@ -757,7 +843,9 @@ int seProcess::read(vector<C_fastq>& pe1,ifstream& infile1){
 }
 
 void* seProcess::sub_thread(int index){
+    logLock.lock();
     of_log<<get_local_time()<<"\tthread "<<index<<" start"<<endl;
+    logLock.unlock();
 //	}
     create_thread_read(index);
     int thread_cycle=-1;
@@ -807,8 +895,16 @@ void* seProcess::sub_thread(int index){
                             if(tmp_cycle!=thread_cycle && tmp_cycle>0) {
                                 addCleanList(thread_cycle, index);
                             }
-                            thread_cycle = tmp_cycle;
-                            thread_process_reads(index, thread_cycle, fq1s);
+                            thread_cycle
+                                    = tmp_cycle;
+                            threadCurReadReadsNumIdx[index]
+                                    = file1_line_num
+                                      / 4;
+                            thread_process_reads(
+                                    index
+                                    , thread_cycle
+                                    , fq1s
+                                                );
                             if (index == 0) {
                                 of_log << get_local_time() << " processed_reads:\t" << file1_line_num / 4 << endl;
                             }
@@ -825,8 +921,16 @@ void* seProcess::sub_thread(int index){
                     if(tmp_cycle!=thread_cycle && tmp_cycle>0) {
                         addCleanList(thread_cycle, index);
                     }
-                    thread_cycle = tmp_cycle;
-                    thread_process_reads(index, thread_cycle, fq1s);
+                    thread_cycle
+                            = tmp_cycle;
+                    threadCurReadReadsNumIdx[index]
+                            = file1_line_num
+                              / 4;
+                    thread_process_reads(
+                            index
+                            , thread_cycle
+                            , fq1s
+                                        );
                 }
                 gzclose(multi_gzfq1[index]);
                 break;
@@ -858,8 +962,16 @@ void* seProcess::sub_thread(int index){
                             if(tmp_cycle!=thread_cycle && tmp_cycle>0) {
                                 addCleanList(thread_cycle, index);
                             }
-                            thread_cycle = tmp_cycle;
-                            thread_process_reads(index, thread_cycle, fq1s);
+                            thread_cycle
+                                    = tmp_cycle;
+                            threadCurReadReadsNumIdx[index]
+                                    = file1_line_num
+                                      / 4;
+                            thread_process_reads(
+                                    index
+                                    , thread_cycle
+                                    , fq1s
+                                                );
                             if (index == 0) {
                                 of_log << get_local_time() << " processed_reads:\t" << file1_line_num / 4 << endl;
                             }
@@ -876,8 +988,16 @@ void* seProcess::sub_thread(int index){
                     if(tmp_cycle!=thread_cycle && tmp_cycle>0) {
                         addCleanList(thread_cycle, index);
                     }
-                    thread_cycle = tmp_cycle;
-                    thread_process_reads(index, thread_cycle, fq1s);
+                    thread_cycle
+                            = tmp_cycle;
+                    threadCurReadReadsNumIdx[index]
+                            = file1_line_num
+                              / 4;
+                    thread_process_reads(
+                            index
+                            , thread_cycle
+                            , fq1s
+                                        );
                 }
                 fclose(multi_Nongzfq1[index]);
                 break;
@@ -888,7 +1008,9 @@ void* seProcess::sub_thread(int index){
     }
     check_disk_available();
     sub_thread_done[index]=1;
+    logLock.lock();
     of_log<<get_local_time()<<"\tthread "<<index<<" done\t"<<endl;
+    logLock.unlock();
     return &se_bq_check;
 }
 void seProcess::addCleanList(int tmp_cycle,int index){
@@ -1458,27 +1580,62 @@ void seProcess::extractReadsToFile(int cycle,int thread_index,int reads_number,s
 void seProcess::thread_process_reads(int index,int& cycle,vector<C_fastq> &fq1s){
     check_disk_available();
     create_thread_smallcleanoutputFile(index,cycle);
-    if(!gp.trim_fq1.empty()){
-        create_thread_smalltrimoutputFile(index,cycle);
+    if (!gp.trim_fq1
+           .empty())
+    {
+        create_thread_smalltrimoutputFile(
+                index
+                , cycle
+                                         );
     }
-    vector<C_fastq> trim_result1,clean_result1;
+    vector<C_fastq>
+            trim_result1,
+            clean_result1;
 
-    SEcalOption opt2;
-    opt2.se_local_fs=&se_local_fs[index];
-    opt2.fq1s=&fq1s;
-    opt2.trim_result1=&trim_result1;
-    opt2.clean_result1=&clean_result1;
-    filter_se_fqs(opt2);		//filter raw fastqs by the given parameters
-    SEstatOption opt_raw;
-    opt_raw.fq1s=&fq1s;
-    opt_raw.stat1=&se_local_raw_stat1[index];
-    stat_se_fqs(opt_raw,"raw");		//statistic raw fastqs
+    SEcalOption
+            opt2;
+    opt2.se_local_fs
+            = &se_local_fs[index];
+    opt2.fq1s
+            = &fq1s;
+    opt2.trim_result1
+            = &trim_result1;
+    opt2.clean_result1
+            = &clean_result1;
+    if (gp.rmdup
+        && RMDUP
+           == 2)
+    {
+        filter_se_fqs(
+                opt2
+                , index
+                     );
+    }
+    else
+    {
+        filter_se_fqs(opt2);        //filter raw fastqs by the given parameters
+    }
+    SEstatOption
+            opt_raw;
+    opt_raw.fq1s
+            = &fq1s;
+    opt_raw.stat1
+            = &se_local_raw_stat1[index];
+    stat_se_fqs(
+            opt_raw
+            , "raw"
+               );        //statistic raw fastqs
     fq1s.clear();
     //add_raw_trim(se_local_raw_stat1[index],raw_cut);
 
-    SEstatOption opt_trim,opt_clean;
-    if(!gp.trim_fq1.empty()){	//trim means only trim but not discard.
-        opt_trim.fq1s=&trim_result1;
+    SEstatOption
+            opt_trim,
+            opt_clean;
+    if (!gp.trim_fq1
+           .empty())
+    {    //trim means only trim but not discard.
+        opt_trim.fq1s
+                = &trim_result1;
         opt_trim.stat1=&se_local_trim_stat1[index];
         stat_se_fqs(opt_trim,"trim");	//statistic trim fastqs
     }
@@ -1572,26 +1729,256 @@ void seProcess::run_extract_random(){
 }
 
 void seProcess::process(){
-    string mkdir_str="mkdir -p "+gp.output_dir;
-    if(system(mkdir_str.c_str())==-1){
-        cerr<<"Error:mkdir fail"<<endl;
+
+    mkDir(gp.output_dir);
+//    string mkdir_str="mkdir -p "+gp.output_dir;
+//    if(system(mkdir_str.c_str())==-1){
+//        cerr<<"Error:mkdir fail"<<endl;
+//        exit(1);
+//    }
+    of_log.open(
+            gp.log
+              .c_str());
+    if (!of_log)
+    {
+        cerr
+                << "Error:cannot open such file,"
+                << gp.log
+                << endl;
         exit(1);
     }
-    of_log.open(gp.log.c_str());
-    if(!of_log){
-        cerr<<"Error:cannot open such file,"<<gp.log<<endl;
-        exit(1);
-    }
-    of_log<<get_local_time()<<"\tAnalysis start!"<<endl;
+    of_log
+            << get_local_time()
+            << "\tAnalysis start!"
+            << endl;
+//    of_log<<"memSize used in rmdup:"<<(dupDB->realUseByteSize)/(1024*1024)<<"M"<<endl;
     make_tmpDir();
-    thread t_array[gp.threads_num];
+    if (gp.rmdup)
+    {
+        thread
+                t_array[gp.threads_num];
+        for (
+                int
+                i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            //t_array[i]=thread(bind(&peProcess::sub_thread_nonssd_multiOut,this,i));
+            t_array[i]
+                    = thread(
+                    bind(
+                            &seProcess::sub_thread_rmdup_step1
+                            , this
+                            , i
+                        ));
+        }
+        for (
+                int
+                i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            t_array[i].join();
+        }
+        int
+                maxCycle
+                        = 0;
+        uint64_t
+                totalReadsNum
+                        = 0;
+        for (
+                int
+                i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            totalReadsNum += threadReadsNum[i];
+            if (threadData[i].size()
+                > maxCycle)
+            {
+                maxCycle
+                        = threadData[i].size();
+            }
+        }
+        delete[] threadReadsNum;
+        if (totalReadsNum
+            > (
+                    pow(
+                            2
+                            , 32
+                       )
+                    - 1
+            ))
+        {
+            cerr
+                    << "Error,reads number is too large to do remove duplication,"
+                    << totalReadsNum
+                    << endl;
+            exit(1);
+        }
+        totalData
+                = new uint64_t[totalReadsNum];
+        memset(
+                totalData
+                , 0
+                , sizeof(uint64_t)
+                  * totalReadsNum
+              );
+//        int iter=0;
+        uint64_t
+                checkNum
+                = 0;
+        uint64_t
+                *totalTmp
+                = totalData;
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < maxCycle;
+                i += patch
+                )
+        {
+            for (
+                    int
+                            j
+                            = 0;
+                    j
+                    < gp.threads_num;
+                    j++
+                    )
+            {
+                for (
+                        int
+                                k
+                                = 0;
+                        k
+                        < patch;
+                        k++
+                        )
+                {
+                    if (threadData[j].size()
+                        > i
+                          + k)
+                    {
+                        checkNum += threadDataNum[j][i
+                                                     + k];
+                        if (checkNum
+                            > totalReadsNum)
+                        {
+                            cerr
+                                    << "Error,code error,"
+                                    << __FILE__
+                                    << ","
+                                    << __LINE__
+                                    << endl;
+                            exit(1);
+                        }
+                        memcpy(
+                                totalTmp
+                                , threadData[j][i
+                                                + k]
+                                , sizeof(uint64_t)
+                                  * threadDataNum[j][i
+                                                     + k]
+                              );
+                        totalTmp += threadDataNum[j][i
+                                                     + k];
+                        delete[] threadData[j][i
+                                               + k];
+                    }
+                }
+            }
+        }
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            vector<uint64_t *>().swap(threadData[i]);
+            vector<size_t>().swap(threadDataNum[i]);
+        }
+        vector<vector<uint64_t *> >().swap(threadData);
+        vector<vector<size_t> >().swap(threadDataNum);
+        dupFlag
+                = new bool[totalReadsNum];
+        memset(
+                dupFlag
+                , 0
+                , sizeof(bool)
+                  * totalReadsNum
+              );
+        rmdup
+                *dormdup
+                = new rmdup(
+                totalData
+                , totalReadsNum
+                           );
+        dormdup->markDup(dupFlag);
+        delete dormdup;
+
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < totalReadsNum;
+                i++
+                )
+        {
+            if (dupFlag[i])
+            {
+                dupNum++;
+            }
+        }
+        of_log
+                << "duplicate reads number:\t"
+                << dupNum
+                << endl;
+    }
+    thread
+            t_array[gp.threads_num];
     //thread read_monitor(bind(&peProcess::monitor_read_thread,this));
     //sleep(10);
-    for(int i=0;i<gp.threads_num;i++){
+    for (
+            int
+            i
+                    = 0;
+            i
+            < gp.threads_num;
+            i++
+            )
+    {
         //t_array[i]=thread(bind(&peProcess::sub_thread_nonssd_multiOut,this,i));
-        t_array[i]=thread(bind(&seProcess::sub_thread,this,i));
+        t_array[i]
+                = thread(
+                bind(
+                        &seProcess::sub_thread
+                        , this
+                        , i
+                    ));
     }
-    thread catFiles = thread(bind(&seProcess::smallFilesProcess, this));
+    thread
+            catFiles
+                    = thread(
+                    bind(
+                            &seProcess::smallFilesProcess
+                            , this
+                        ));
     catFiles.join();
 
     for(int i=0;i<gp.threads_num;i++){
@@ -1606,6 +1993,27 @@ void seProcess::process(){
     print_stat();
     remove_tmpDir();
     check_disk_available();
+    if(gp.rmdup)
+    {
+        for (
+                int
+                        i
+                        = 0;
+                i
+                < gp.threads_num;
+                i++
+                )
+        {
+            if (dupThreadOut1[i]
+                != NULL)
+            {
+                gzclose(dupThreadOut1[i]);
+            }
+        }
+    }
+    if(gp.rmdup) {
+        of_log << "dup number:\t" << dupNum << endl;
+    }
     of_log<<get_local_time()<<"\tAnalysis accomplished!"<<endl;
     of_log.close();
 }
@@ -1652,11 +2060,13 @@ void seProcess::make_tmpDir(){
 		tmp_str<<(char)tmp_rand;
 	}
 	tmp_dir="TMP"+tmp_str.str();
-	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
-	if(system(mkdir_str.c_str())==-1){
-		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
-		exit(1);
-	}
+	string tmp_dir_abs=gp.output_dir+"/"+tmp_dir;
+	mkDir(tmp_dir_abs);
+//	string mkdir_str="mkdir -p "+gp.output_dir+"/"+tmp_dir;
+//	if(system(mkdir_str.c_str())==-1){
+//		cerr<<"Error:mkdir error,"<<mkdir_str<<endl;
+//		exit(1);
+//	}
 }
 void seProcess::output_fastqs(string type,vector<C_fastq> &fq1,gzFile outfile){
 	//m.lock();
@@ -1764,13 +2174,504 @@ void seProcess::seStreaming_stat(C_global_variable& local_gv){
 		cout<<"0\n";
 	}
 }
-void seProcess::check_disk_available(){
-	if(access(gp.fq1_path.c_str(),0)==-1){
-		cerr<<"Error:input raw fastq not exists suddenly, please check the disk"<<endl;
-		exit(1);
-	}
-	if(access(gp.output_dir.c_str(),0)==-1){
-		cerr<<"Error:output directory cannot open suddenly, please check the disk"<<endl;
-		exit(1);
-	}
+
+void seProcess::check_disk_available()
+{
+    if (access(
+            gp.fq1_path
+              .c_str()
+            , 0
+              )
+        == -1)
+    {
+        cerr
+                << "Error:input raw fastq not exists suddenly, please check the disk"
+                << endl;
+        exit(1);
+    }
+    if (access(
+            gp.output_dir
+              .c_str()
+            , 0
+              )
+        == -1)
+    {
+        cerr
+                << "Error:output directory cannot open suddenly, please check the disk"
+                << endl;
+        exit(1);
+    }
+}
+
+void *seProcess::sub_thread_rmdup_step1(int index)
+{
+    logLock.lock();
+    of_log
+            << get_local_time()
+            << "\tthread "
+            << index
+            << " pre-rmdup start"
+            << endl;
+    logLock.unlock();
+    create_thread_read(index);
+//    int thread_cycle=-1;
+    char
+            buf1[READBUF];
+    C_fastq
+            fastq1,
+            fastq2;
+    C_fastq_init(fastq1);
+    long long
+            file1_line_num(0);
+    long long
+            block_line_num1(0);
+    int
+            thread_read_block
+                    = 4
+                      * gp.patchSize
+                      * patch;
+    vector<C_fastq>
+            fq1s;
+    bool
+            inputGzformat
+                    = true;
+    gzFile
+            tmpRead
+                    = gzopen((gp.fq1_path).c_str()
+                             , "rb"
+                            );
+    int
+            spaceNum
+                    = 0;
+    if (gzgets(
+            tmpRead
+            , buf1
+            , READBUF
+              )
+        != NULL)
+    {
+        string
+                tmpLine(buf1);
+        while (isspace(
+                tmpLine[tmpLine.size()
+                        - 1]
+                      ))
+        {
+            spaceNum++;
+            tmpLine.erase(
+                    tmpLine.size()
+                    - 1
+                         );
+        }
+    }
+    gzclose(tmpRead);
+    if (gp.fq1_path
+          .rfind(".gz")
+        == gp.fq1_path
+             .size()
+           - 3)
+    {
+        inputGzformat
+                = true;
+    }
+    else
+    {
+        inputGzformat
+                = false;
+    }
+    string
+            fq1seq,
+            fq2seq;
+    vector<string>
+            seqs;
+    if (inputGzformat)
+    {
+        while (1)
+        {
+            if (gzgets(
+                    multi_gzfq1[index]
+                    , buf1
+                    , READBUF
+                      )
+                != NULL)
+            {
+                if ((
+                            file1_line_num
+                            / thread_read_block
+                    )
+                    % gp.threads_num
+                    == index)
+                {
+                    block_line_num1++;
+                    if (block_line_num1
+                        % 4
+                        == 2)
+                    {
+                        fq1seq.assign(buf1);
+                        fq1seq.erase(
+                                fq1seq.size()
+                                - spaceNum
+                                , spaceNum
+                                    );
+                        seqs.emplace_back(fq1seq);
+                    }
+                    if (seqs.size()
+                        == gp.patchSize)
+                    {
+                        uint64_t
+                                *curData
+                                = new uint64_t[seqs.size()];
+                        for (
+                                int
+                                        i
+                                        = 0;
+                                i
+                                < seqs.size();
+                                i++
+                                )
+                        {
+                            curData[i]
+                                    = hash<string>()(seqs[i]);
+//                            MDString(seqs[i].c_str(),curData[i]);
+                        }
+                        threadData[index].emplace_back(curData);
+                        threadDataNum[index].emplace_back(seqs.size());
+                        threadReadsNum[index] += seqs.size();
+                        seqs.clear();
+                        if (index
+                            == 0)
+                        {
+                            of_log
+                                    << get_local_time()
+                                    << " pre-processed reads:\t"
+                                    << file1_line_num
+                                       / 4
+                                    << endl;
+                        }
+                    }
+                }
+                file1_line_num++;
+            }
+            else
+            {
+                if (!seqs.empty())
+                {
+                    uint64_t
+                            *curData
+                            = new uint64_t[seqs.size()];
+//                    memset(curData,NULL,sizeof(uint64_t)*seqs.size());
+                    for (
+                            int
+                                    i
+                                    = 0;
+                            i
+                            < seqs.size();
+                            i++
+                            )
+                    {
+                        curData[i]
+                                = hash<string>()(seqs[i]);
+//                        MDString(seqs[i].c_str(),curData[i]);
+                    }
+                    threadData[index].emplace_back(curData);
+                    threadReadsNum[index] += seqs.size();
+                    threadDataNum[index].emplace_back(seqs.size());
+                    seqs.clear();
+                }
+                if (multi_gzfq1[index]
+                    != NULL)
+                {
+                    gzclose(multi_gzfq1[index]);
+                }
+                break;
+            }
+        }
+    }
+    else
+    {
+        while (1)
+        {
+            if (fgets(
+                    buf1
+                    , READBUF
+                    , multi_Nongzfq1[index]
+                     )
+                != NULL)
+            {
+                if ((
+                            file1_line_num
+                            / thread_read_block
+                    )
+                    % gp.threads_num
+                    == index)
+                {
+                    block_line_num1++;
+                    if (block_line_num1
+                        % 4
+                        == 2)
+                    {
+                        fq1seq.assign(buf1);
+                        fq1seq.erase(
+                                fq1seq.size()
+                                - spaceNum
+                                , spaceNum
+                                    );
+                        seqs.emplace_back(fq1seq);
+                    }
+                    if (seqs.size()
+                        == gp.patchSize)
+                    {
+                        uint64_t
+                                *curData
+                                = new uint64_t[seqs.size()];
+//                        memset(curData,NULL,sizeof(uint64_t)*seqs.size());
+                        for (
+                                int
+                                        i
+                                        = 0;
+                                i
+                                < seqs.size();
+                                i++
+                                )
+                        {
+                            curData[i]
+                                    = hash<string>()(seqs[i]);
+//                            MDString(seqs[i].c_str(),curData[i]);
+                        }
+                        threadData[index].emplace_back(curData);
+                        threadReadsNum[index] += seqs.size();
+                        threadDataNum[index].emplace_back(seqs.size());
+                        seqs.clear();
+                        if (index
+                            == 0)
+                        {
+                            of_log
+                                    << get_local_time()
+                                    << " pre-processed reads:\t"
+                                    << file1_line_num
+                                       / 4
+                                    << endl;
+                        }
+                    }
+                }
+                file1_line_num++;
+            }
+            else
+            {
+                if (!seqs.empty())
+                {
+                    uint64_t
+                            *curData
+                            = new uint64_t[seqs.size()];
+//                    memset(curData,NULL,sizeof(uint64_t)*seqs.size());
+                    for (
+                            int
+                                    i
+                                    = 0;
+                            i
+                            < seqs.size();
+                            i++
+                            )
+                    {
+                        curData[i]
+                                = hash<string>()(seqs[i]);
+//                        MDString(seqs[i].c_str(),curData[i]);
+                    }
+                    threadData[index].emplace_back(curData);
+                    threadReadsNum[index] += seqs.size();
+                    threadDataNum[index].emplace_back(seqs.size());
+                    seqs.clear();
+                }
+                if (multi_Nongzfq1[index]
+                    != NULL)
+                {
+                    fclose(multi_Nongzfq1[index]);
+                }
+                break;
+            }
+        }
+    }
+    check_disk_available();
+//    sub_thread_done[index]=1;
+    logLock.lock();
+    of_log
+            << get_local_time()
+            << "\tthread "
+            << index
+            << " done\t"
+            << endl;
+    logLock.unlock();
+    return &se_bq_check;
+}
+
+void seProcess::filter_se_fqs(
+        SEcalOption opt
+        , int index)
+{
+    //C_reads_trim_stat_2 cut_pos;
+    vector<C_fastq>::iterator
+            i_end
+            = opt.fq1s
+                 ->end();
+    //check dup
+    bool
+            *dupFilter
+            = new bool[opt.fq1s
+                          ->size()];
+    if (gp.rmdup)
+    {
+        checkDup.lock();
+        memset(
+                dupFilter
+                , false
+                , opt.fq1s
+                     ->size());
+        int
+                iter
+                = 0;
+        for (
+                vector<C_fastq>::iterator
+                i
+                = opt.fq1s
+                     ->begin();
+                i
+                != i_end;
+                i++
+                )
+        {
+//            string checkSeq=(*i).sequence;
+//            if(checkDupMap.find(checkSeq)!=checkDupMap.end()){
+//                dupNum++;
+//                cout<<"real dup:\t"<<(*i).sequence<<endl;
+//            }else{
+//                checkDupMap.insert(checkSeq);
+//            }
+            if (dupFlag[threadCurReadReadsNumIdx[index]
+                        - opt.fq1s
+                             ->size()
+                        + iter])
+            {
+//                    dupNum++;
+                dupFilter[iter]
+                        = true;
+                gzwrite(
+                        dupThreadOut1[index]
+                        , (*i).toString()
+                              .c_str()
+                        , (*i).toString()
+                              .size());
+            }
+            iter++;
+        }
+        checkDup.unlock();
+    }
+    i_end
+            = opt.fq1s
+                 ->end();
+
+    int
+            iter
+            = 0;
+    for (
+            vector<C_fastq>::iterator
+            i
+            = opt.fq1s
+                 ->begin();
+            i
+            != opt.fq1s
+                  ->end();
+            i++
+            )
+    {
+        C_single_fastq_filter
+                se_fastq_filter
+                = C_single_fastq_filter(
+                *i
+                , gp
+                                       );
+        if (dupFilter[iter])
+        {
+            se_fastq_filter.read_result
+                           .dup
+                    = true;
+        }
+        iter++;
+        se_fastq_filter.se_trim(gp);
+        if (gp.adapter_discard_or_trim
+            == "trim"
+            || gp.contam_discard_or_trim
+               == "trim"
+            || !gp.trim
+                  .empty()
+            || !gp.trimBadHead
+                  .empty()
+            || !gp.trimBadTail
+                  .empty())
+        {
+            (*i).head_hdcut
+                    = se_fastq_filter.read
+                                     .head_hdcut;
+            (*i).head_lqcut
+                    = se_fastq_filter.read
+                                     .head_lqcut;
+            (*i).tail_hdcut
+                    = se_fastq_filter.read
+                                     .tail_hdcut;
+            (*i).tail_lqcut
+                    = se_fastq_filter.read
+                                     .tail_lqcut;
+            (*i).adacut_pos
+                    = se_fastq_filter.read
+                                     .adacut_pos;
+            //(*i).contam_pos=se_fastq_filter.read.contam_pos;
+            //(*i).global_contam_pos=se_fastq_filter.read.global_contam_pos;
+            //(*i).raw_length=se_fastq_filter.read.raw_length;
+        }
+        //*i=se_fastq_filter.read;
+        if (!gp.trim_fq1
+               .empty())
+        {
+            preOutput(
+                    1
+                    , se_fastq_filter.read
+                     );
+            opt.trim_result1
+               ->emplace_back(se_fastq_filter.read);
+        }
+        int
+                whether_discard(0);
+        if (gp.module_name
+            == "filtersRNA")
+        {
+            whether_discard
+                    = se_fastq_filter.sRNA_discard(
+                    opt.se_local_fs
+                    , gp
+                                                  );
+        }
+        else
+        {
+            whether_discard
+                    = se_fastq_filter.se_discard(
+                    opt.se_local_fs
+                    , gp
+                                                );
+        }
+        if (whether_discard
+            != 1)
+        {
+            if (!gp.clean_fq1
+                   .empty())
+            {
+                preOutput(
+                        1
+                        , se_fastq_filter.read
+                         );
+                opt.clean_result1
+                   ->emplace_back(se_fastq_filter.read);
+            }
+        }
+    }
+    delete[] dupFilter;
+    //return cut_pos;
 }

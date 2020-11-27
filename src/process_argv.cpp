@@ -18,7 +18,9 @@ void check_module(int argc,char* argv[]){
         modules.insert("filter");
         modules.insert("filtersRNA");
         modules.insert("filterMeta");
+        #ifdef _PROCESSHTS
         modules.insert("filterHts");
+        #endif
         modules.insert("filterStLFR");
         string module=argv[1];
         if(modules.find(module)==modules.end()){
@@ -27,6 +29,9 @@ void check_module(int argc,char* argv[]){
             }else if(module=="-v" || module=="--version"){
                 printVersion();
             }else{
+                if(module=="filterHts"){
+                    cout<<"Error:filterHts module not installed, please re-make after set USEHTS true in Makefile, details see Install part in Readme"<<endl;
+                }
                 cerr<<"Error:no such module,type -h/--help for help"<<endl;
                 exit(1);
             }
@@ -125,7 +130,7 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
                     {"minReadLen",1,NULL,'4'},
                     //reads number limit
                    // {"'totalReadsNum'"     , 1, NULL, 'c' },
-                    {"totalReadsNum",1,NULL,'L'},
+//                    {"totalReadsNum",1,NULL,'L'},
                     {"output_clean",1,NULL,'w'},
 
 
@@ -289,52 +294,52 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
            // case '6':gp.split_line=atoi(optarg);break;
 //            case '3':gp.max_read_length=atoi(optarg);break;
             case '4':gp.min_read_length=atoi(optarg);break;
-            case 'L':{
-                string tmp_str;
-                tmp_str.assign(optarg);
-                if(tmp_str.find("head")==string::npos){
-                    gp.total_reads_num_random=true;
-                    //gp.catWhenrunning=false;
-                    for(int i=0;i!=tmp_str.size();i++){
-                        if(!isdigit(tmp_str[i]) && tmp_str[i]!='.'){
-                            cerr<<"Error:-L value should be a positive integer or float"<<endl;
-                            exit(1);
-                        }
-                    }
-                }else{
-                    gp.total_reads_num_random=false;
-                    tmp_str.erase(tmp_str.find("head"),4);
-                    if(tmp_str.find(".")!=string::npos){
-                        cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
-                        exit(1);
-                    }else{
-                        for(int i=0;i!=tmp_str.size();i++){
-                            if(!isdigit(tmp_str[i])){
-                                cerr<<"Error:-L value should be an integer when with head suffix"<<endl;
-                                exit(1);
-                            }
-                        }
-                    }
-                }
-
-                float tmp_val=atof(optarg);
-                if(tmp_val==0){
-                    cerr<<"Error:-L value should be a positive integer or float"<<endl;
-                    exit(1);
-                }
-                gp.total_reads_num=tmp_val;
-                if(tmp_val<1){
-                    gp.f_total_reads_ratio=tmp_val;
-                }else{
-                    istringstream is_str(tmp_str);
-                    is_str>>gp.l_total_reads_num;
-                }
-                if(gp.f_total_reads_ratio>0 && gp.l_total_reads_num>0){
-                    cerr<<"Error:reads number and ratio should not be both assigned at the same time"<<endl;
-                    exit(1);
-                }
-                break;
-            }
+//            case 'L':{
+//                string tmp_str;
+//                tmp_str.assign(optarg);
+//                if(tmp_str.find("head")==string::npos){
+//                    gp.total_reads_num_random=true;
+//                    //gp.catWhenrunning=false;
+//                    for(int i=0;i!=tmp_str.size();i++){
+//                        if(!isdigit(tmp_str[i]) && tmp_str[i]!='.'){
+//                            cerr<<"Error:-L value should be a positive integer or float"<<endl;
+//                            exit(1);
+//                        }
+//                    }
+//                }else{
+//                    gp.total_reads_num_random=false;
+//                    tmp_str.erase(tmp_str.find("head"),4);
+//                    if(tmp_str.find(".")!=string::npos){
+//                        cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
+//                        exit(1);
+//                    }else{
+//                        for(int i=0;i!=tmp_str.size();i++){
+//                            if(!isdigit(tmp_str[i])){
+//                                cerr<<"Error:-L value should be an integer when with head suffix"<<endl;
+//                                exit(1);
+//                            }
+//                        }
+//                    }
+//                }
+//
+//                float tmp_val=atof(optarg);
+//                if(tmp_val==0){
+//                    cerr<<"Error:-L value should be a positive integer or float"<<endl;
+//                    exit(1);
+//                }
+//                gp.total_reads_num=tmp_val;
+//                if(tmp_val<1){
+//                    gp.f_total_reads_ratio=tmp_val;
+//                }else{
+//                    istringstream is_str(tmp_str);
+//                    is_str>>gp.l_total_reads_num;
+//                }
+//                if(gp.f_total_reads_ratio>0 && gp.l_total_reads_num>0){
+//                    cerr<<"Error:reads number and ratio should not be both assigned at the same time"<<endl;
+//                    exit(1);
+//                }
+//                break;
+//            }
             case 'w':{
                 string paraCheck(optarg);
                 for(int i=0;i!=paraCheck.size();i++){
@@ -416,25 +421,54 @@ int global_parameter_initial(int argc,char* argv[],C_global_parameter& gp){
 //            case '0':gp.log.assign(optarg);break;
             case 'v':printVersion();return 1;
             case 'h':printUsage(c_module);return 1;
-            default:{
+            default:
+            {
                 exit(1);
             }
         }
     }
-    if (argc != optind+1)
+    if (argc
+        != optind
+           + 1)
     {
-        cerr << "Error:please check the options" << endl;
+        cerr
+                << "Error:please check the options"
+                << endl;
         exit(1);
     }
-    if(gp.log.find("/")==string::npos){
-        gp.log=gp.output_dir+"/"+gp.log;
+    if (gp.rmdup
+        && gp.cleanOutSplit
+           > 0)
+    {
+        cerr
+                << "Warning:generating split files(-w was set) would become slower when rmdup function was on"
+                << endl;
     }
-    
-    if(gp.fq1_path.rfind(".gz")!=gp.fq1_path.size()-3){
-        gp.mode="ssd";
+    if (gp.log
+          .find("/")
+        == string::npos)
+    {
+        gp.log
+                = gp.output_dir
+                  + "/"
+                  + gp.log;
     }
-    if(gp.patchSize==0){
-        gp.patchSize=gp.threads_num*20000/8;
+    if (gp.fq1_path
+          .rfind(".gz")
+        != gp.fq1_path
+             .size()
+           - 3)
+    {
+        gp.mode
+                = "ssd";
+    }
+    if (gp.patchSize
+        == 0)
+    {
+        gp.patchSize
+                = gp.threads_num
+                  * 20000
+                  / 8;
     }
     /*
     int min_adapter_length=gp.adapter1_seq.size()>gp.adapter2_seq.size()?gp.adapter2_seq.size():gp.adapter1_seq.size();
@@ -638,7 +672,7 @@ bool check_parameter(int argc,char* argv[],C_global_parameter& gp){
             }
             for (int i = 0; i < gp.trim.size(); i++) {
                 if (!isdigit(gp.trim[i]) && gp.trim[i] != ',') {
-                    cerr << "Error,trim value format error:" << gp.trim << endl;
+                    cerr << "Error:trim value format error:" << gp.trim << endl;
                     cerr << "e.g.: -t 10 2 10 2" << endl;
                     exit(1);
                 }
@@ -723,7 +757,9 @@ void printModule(){
     cout << "Contact: GongChun<gongchun@genomics.cn>  ChenYuXin<chenyuxin@genomics.cn>"<<endl;
     cout << "Command:\n";
     cout << "         filter        preprocessing normal Fastq files\n";
+    #ifdef _PROCESSHTS
     cout << "         filterHts     preprocessing BAM/CRAM files\n";
+    #endif
     cout << "         filterStLFR   preprocessing stLFR Fastq files\n";
     cout << "         filtersRNA    preprocessing sRNA Fastq files\n";
     //cout << "         filterDGE     preprocessing DGE sequences\n";   //not include filterDGE in thie version
@@ -818,8 +854,13 @@ void printUsage(string c_module){
     cout << "\t-p, --highA\t\tFLOAT\t\tfilter reads if ratio of A in a read exceed [FLOAT]\n";
     cout << "\t-g, --polyG_tail\tFLOAT\t\tfilter reads if found polyG in tail [INT]\n";
     cout << "\t-X, --polyX\t\tINT\t\tfilter reads if a read contains polyX [INT]\n";
-    cout << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
-    cout << "\t-h, --help\t\t\t\thelp" << endl;
+    cout
+            << "\t-4, --minReadLen\tINT\t\tread min length,default 18 for filtersRNA,30 for other modules\n";
+    cout
+            << "\t-w, --cleanOutSplit\tINT\t\tmax reads number in each output clean fastq file\n";
+    cout
+            << "\t-h, --help\t\t\t\thelp"
+            << endl;
     cout << "\t-v, --version\t\t\t\tshow version" << endl;
     if(c_module=="filter"){
         cout << "\tExample:  ./SOAPnuke filter -l 10 -q 0.1 -n 0.01  -f AAGTCGGAGGCCAAGCGGTCTTAGGAAGACAA -r AAGTCGGATCGTAGCCATGTCGTTCTGTGAGCCAAGGAGTTG  -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz  -o result -T 8"<<endl;
@@ -874,7 +915,14 @@ void printUsage(string c_module){
     cout << "\toutFileType\tSTR\t\toutput file format: fastq or fasta[fastq]\n";
 
     cout<<endl;
-
+    if(c_module=="filterStLFR" || c_module=="filter")
+    {
+        cout
+                << "\trmdup\t\t\tremove duplicate reads. The function contains a certain false positive rate which means a small number of non-duplicate reads would be marked as duplication, and limited in large reads number\n";
+//        cout<<"\tapproximateReadsNum\tSTR/LONG\tapproximate reads number. We suggest you set this parameter if you know. e.g. 100m"<<endl;
+//        cout<<"\tmemSizeUsedInRmdup\tSTR/LONG\tmaximum memory size used in rmdup. e.g. 1g\n";
+//        cout<<"\texpectedFalsePositive\tFLOAT\texpected false positive rate which means maybe a <expectedFalsePositive> of reads would be marked as duplication which actually not. e.g. 1e-7"<<endl;
+    }
     cout << "\tindex\t\t\t\tremove index\n";
     cout << "\ttotalReadsNum\tINT/FLOAT\tnumber/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).\n";
     cout << "\t    \t\t\t\t\tIt will extract reads randomly through the total clean fq file by default, you also can get the head reads\n";
@@ -896,7 +944,7 @@ void printUsage(string c_module){
     cout << "\toutQualSys\tINT\t\tout quality system 1:64, 2:33[default:2]\n";
     cout << "\tmaxReadLen\tINT\t\tread max length,default 49 for filtersRNA\n";
 
-    cout << "\tcleanOutSplit\tINT\t\tmax reads number in each output clean fastq file\n";
+//    cout << "\tcleanOutSplit\tINT\t\tmax reads number in each output clean fastq file\n";
 //      cout << "\tappend      STR       the log's output place : console or file  [console]\n";
     
     
@@ -946,12 +994,21 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
     legalParas.insert("adaREr");
     legalParas.insert("adaRMm");
     legalParas.insert("log");
+    legalParas.insert("totalReadsNum");
+    legalParas.insert("cleanOutSplit");
+    legalParas.insert("trim");
+    legalParas.insert("trimBadHead");
+    legalParas.insert("trimBadTail");
     //stLFR
     legalParas.insert("barcodeListPath");
     legalParas.insert("barcodeRegionStr");
     legalParas.insert("notCutNoLFR");
     legalParas.insert("inputAsList");
     legalParas.insert("tenX");
+    legalParas.insert("rmdup");
+//    legalParas.insert("approximateReadsNum");
+//    legalParas.insert("memSizeUsedInRmdup");
+//    legalParas.insert("expectedFalsePositive");
 
     boolParas.insert("index");
     boolParas.insert("pe_info");
@@ -961,11 +1018,12 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
     boolParas.insert("inputAsList");
     boolParas.insert("tenX");
 
+    boolParas.insert("rmdup");
     string configFilePath(configFile);
     ifstream ifConfig;
     ifConfig.open(configFilePath.c_str());
     if(!ifConfig){
-        cerr<<"Error, cannot open such file,"<<configFile<<endl;
+        cerr<<"Error:cannot open such file,"<<configFile<<endl;
         exit(1);
     }
     string line;
@@ -978,7 +1036,7 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
             vector<string> eles;
             line_split(line,'=',eles);
             if(eles.size()!=2){
-                cerr<<"Error, unrecgonized format parameter,"<<line<<endl;
+                cerr<<"Error:unrecgonized format parameter,"<<line<<endl;
                 exit(1);
             }
             para=eles[0];
@@ -988,12 +1046,12 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
         }else{
             para=line;
             if(boolParas.find(para)==boolParas.end()){
-                cerr<<"Error, this parameter should set a value,"<<para<<endl;
+                cerr<<"Error:this parameter should set a value,"<<para<<endl;
                 exit(1);
             }
         }
         if(legalParas.find(para)==legalParas.end()){
-            cerr<<"Error, no such parameter,"<<para<<endl;
+            cerr<<"Error:no such parameter,"<<para<<endl;
             exit(1);
         }
         if(para=="trimFq1"){
@@ -1150,6 +1208,79 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
         if(para=="log"){
             gp.log.assign(value.c_str());
         }
+        if(para=="totalReadsNum"){
+            string tmp_str;
+            tmp_str.assign(value.c_str());
+            if(tmp_str.find("head")==string::npos){
+                gp.total_reads_num_random=true;
+                //gp.catWhenrunning=false;
+                for(int i=0;i!=tmp_str.size();i++){
+                    if(!isdigit(tmp_str[i]) && tmp_str[i]!='.'){
+                        cerr<<"Error:-L value should be a positive integer or float"<<endl;
+                        exit(1);
+                    }
+                }
+            }else{
+                gp.total_reads_num_random=false;
+                tmp_str.erase(tmp_str.find("head"),4);
+                if(tmp_str.find(".")!=string::npos){
+                    cerr<<"Error:-L value should be a integer when with head suffix"<<endl;
+                    exit(1);
+                }else{
+                    for(int i=0;i!=tmp_str.size();i++){
+                        if(!isdigit(tmp_str[i])){
+                            cerr<<"Error:-L value should be an integer when with head suffix"<<endl;
+                            exit(1);
+                        }
+                    }
+                }
+            }
+
+            float tmp_val=atof(value.c_str());
+            if(tmp_val==0){
+                cerr<<"Error:-L value should be a positive integer or float"<<endl;
+                exit(1);
+            }
+            gp.total_reads_num=tmp_val;
+            if(tmp_val<1){
+                gp.f_total_reads_ratio=tmp_val;
+            }else{
+                istringstream is_str(tmp_str);
+                is_str>>gp.l_total_reads_num;
+            }
+            if(gp.f_total_reads_ratio>0 && gp.l_total_reads_num>0){
+                cerr<<"Error:reads number and ratio should not be both assigned at the same time"<<endl;
+                exit(1);
+            }
+        }
+        if(para=="cleanOutSplit"){
+            string paraCheck=value;
+            for(int i=0;i!=paraCheck.size();i++){
+                if(!isdigit(paraCheck[i])){
+                    cerr<<"Error:-w value should be a positive integer"<<endl;
+                    exit(1);
+                }
+            }
+            gp.cleanOutSplit=atoi(paraCheck.c_str());
+            if(gp.cleanOutSplit==0){
+                cerr<<"Error:-w value should be a positive integer"<<endl;
+                exit(1);
+            }
+        }
+            if(para=="trim"){
+            gp.trim=value;
+        }
+        if(para=="trimBadHead"){
+            gp.trimBadHead=value;
+        }
+        if(para=="trimBadTail"){
+            gp.trimBadTail=value;
+        }
+        /*legalParas.insert("cleanOutSplit");
+        legalParas.insert("trim");
+        legalParas.insert("trimBadHead");
+        legalParas.insert("trimBadTail");
+         */
         //stLFR
         /*string barcodeListPath;
     string barcodeRegionStr;
@@ -1164,11 +1295,57 @@ void initFromConfigFile(C_global_parameter& gp,char* configFile){
         if(para=="notCutNoLFR"){
             gp.notCutNoLFR=true;
         }
-        if(para=="inputAsList"){
-            gp.inputAsList=true;
+        if (para
+            == "inputAsList")
+        {
+            gp.inputAsList
+                    = true;
         }
-        if(para=="tenX"){
-            gp.tenX=true;
+        if (para
+            == "tenX")
+        {
+            gp.tenX
+                    = true;
         }
+        if (para
+            == "rmdup")
+        {
+            gp.rmdup
+                    = true;
+        }
+//        if(para=="approximateReadsNum"){
+//            if(isdigit(value[value.size()-1])){
+//                gp.approximateReadsNum=atol(value.c_str());
+//            }else if(value[value.size()-1]=='M' || value[value.size()-1]=='m'){
+//                string realValue=value.substr(0,value.size()-1);
+//                gp.approximateReadsNum=atol(realValue.c_str())*1024*1024;
+//            }else if(value[value.size()-1]=='G' || value[value.size()-1]=='g') {
+//                string realValue = value.substr(0, value.size() - 1);
+//                gp.approximateReadsNum = atol(realValue.c_str()) * 1024 * 1024 * 1024;
+//            }else{
+//                cerr<<"Error:cannot recognize value,"<<value<<endl;
+//                exit(1);
+//            }
+//        }
+//        if(para=="memSizeUsedInRmdup"){
+//            if(isdigit(value[value.size()-1])){
+//                gp.memSizeUsedInRmdup=atol(value.c_str());
+//            }else if(value[value.size()-1]=='M' || value[value.size()-1]=='m'){
+//                string realValue=value.substr(0,value.size()-1);
+//                gp.memSizeUsedInRmdup=atol(realValue.c_str())*1024*1024;
+//            }else if(value[value.size()-1]=='G' || value[value.size()-1]=='g') {
+//                string realValue = value.substr(0, value.size() - 1);
+//                gp.memSizeUsedInRmdup = atol(realValue.c_str()) * 1024 * 1024 * 1024;
+//            }else{
+//                cerr<<"Error:cannot recognize value,"<<value<<endl;
+//                exit(1);
+//            }
+//        }
+//        if(para=="expectedFalsePositive"){
+//            gp.expectedFalsePositive=stof(value.c_str());
+//            if(gp.expectedFalsePositive==0 || gp.expectedFalsePositive==1){
+//                cout<<"Warning:expected FP you set is "<<gp.expectedFalsePositive<<", please check the parameter"<<endl;
+//            }
+//        }
     }
 }

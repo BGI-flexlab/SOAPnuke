@@ -1,7 +1,7 @@
 //
 // Created by berry on 2020-08-11.
 //
-
+#ifdef _USEMGZIP
 #include "mGzip.h"
 using namespace::std;
 bool mGzip::check_mGzip(string filePath) {
@@ -9,7 +9,7 @@ bool mGzip::check_mGzip(string filePath) {
 //    gzFile in=gzopen(filePath.c_str(),"rb");
     FILE* in=fopen(filePath.c_str(),"rb");
     if(in==NULL){
-        cerr<<"Error, fail to open file:"<<filePath<<endl;
+        cerr<<"Error:fail to open file:"<<filePath<<endl;
         exit(1);
     }
     int bufSize=100;
@@ -44,7 +44,7 @@ vector<threadDataInfo> mGzip::allocate(int threadsNum, vector<string> filesPath)
         string filePath=filesPath[fileIndex];
         FILE* in=fopen(filePath.c_str(),"rb");
         if(in==NULL){
-            cerr<<"Error, fail to open file:"<<filePath<<endl;
+            cerr<<"Error:fail to open file:"<<filePath<<endl;
             exit(1);
         }
         //span file
@@ -116,7 +116,7 @@ int mGzip::getOneBlock(FILE *pFile,  int& method, int& flag, long &curOffSet, ve
     char* buf=new char[firstReadSize];
     if(fread(buf,1,firstReadSize,pFile)==firstReadSize){
         if(!(buf[12]=='I' && buf[13]=='G')){
-            cerr<<"Error, input is not with mGzip format"<<endl;
+            cerr<<"Error:input is not with mGzip format"<<endl;
             exit(1);
         }
     }else{
@@ -229,3 +229,4 @@ int mGzip::getOneBlock(FILE *pFile,  int& method, int& flag, long &curOffSet, ve
     }
     return 1;
 }
+#endif
