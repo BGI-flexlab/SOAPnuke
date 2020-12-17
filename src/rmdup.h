@@ -10,13 +10,14 @@
 #include<vector>
 #include <cmath>
 #include <cstring>
+#include "gc.h"
 using namespace::std;
-
+#define AUTHOREMAIL "gongchun@genomics.cn"
 class rmdup {
 private:
     uint64_t* data;
     uint64_t size;
-    int getPrime();
+    uint32_t getPrime();
 public:
     rmdup(uint64_t* data,uint64_t size);
     ~rmdup();

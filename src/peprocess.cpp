@@ -2526,7 +2526,7 @@ void peProcess::process(){
         }
         delete[] threadReadsNum;
         if(totalReadsNum>(pow(2,32)-1)){
-            cerr<<"Error,reads number is too large to do remove duplication,"<<totalReadsNum<<endl;
+            cerr<<"Error:reads number is too large to do remove duplication,"<<totalReadsNum<<endl;
             exit(1);
         }
         totalData=new uint64_t[totalReadsNum];
@@ -2540,7 +2540,7 @@ void peProcess::process(){
                     if (threadData[j].size() > i+k) {
                         checkNum += threadDataNum[j][i+k];
                         if (checkNum > totalReadsNum) {
-                            cerr << "Error,code error," << __FILE__ << "," << __LINE__ << endl;
+                            cerr<<"Error:code error,"<<__FILE__<<","<<__LINE__<<endl;
                             exit(1);
                         }
                         memcpy(totalTmp, threadData[j][i+k], sizeof(uint64_t) * threadDataNum[j][i+k]);

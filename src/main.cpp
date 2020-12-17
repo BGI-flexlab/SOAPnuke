@@ -6,6 +6,7 @@
 #include "global_parameter.h"
 #include "peprocess.h"
 #include "seprocess.h"
+#include <exception>
 #ifdef _PROCESSHTS
 #include "processHts.h"
 #endif

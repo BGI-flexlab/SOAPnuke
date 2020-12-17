@@ -1820,7 +1820,7 @@ void seProcess::process(){
             ))
         {
             cerr
-                    << "Error,reads number is too large to do remove duplication,"
+                    << "Error:reads number is too large to do remove duplication,"
                     << totalReadsNum
                     << endl;
             exit(1);
@@ -1877,7 +1877,7 @@ void seProcess::process(){
                             > totalReadsNum)
                         {
                             cerr
-                                    << "Error,code error,"
+                                    << "Error:code error,"
                                     << __FILE__
                                     << ","
                                     << __LINE__
