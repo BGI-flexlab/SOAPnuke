@@ -710,20 +710,22 @@ int adapter_pos(string& ref_sequence,string& adapter,C_global_parameter& gp){
         return -1;
     }
     int readLen=ref_sequence.size();
+    int minEdge5 = 5;
+    float misGrad5 = (adptLen-minEdge5)/(gp.adaMis+1);
     float misGrad = (adptLen-gp.adaEdge)/(gp.adaMis+1);
     int r1, mis, maxSegMatch;
     int segMatchThr = (int)ceil(adptLen * gp.adaMR);
     int misMatchTemp;
-    int minEdge5 = adptLen - 5;
-    for (r1 = 0; r1 < adptLen - minEdge5; ++r1)
+
+    for (r1 = 1; r1 <= minEdge5; ++r1)
     {
         mis = 0;
         maxSegMatch = 0;
-        misMatchTemp = r1/misGrad;
+        misMatchTemp = (adptLen-r1)/misGrad5;
 
-        for (int c = 0; c < r1+minEdge5; ++c)
+        for (int c = 0; c < adptLen-r1; ++c)
         {
-            if (adapter[adptLen-r1-minEdge5+c] == ref_sequence[c]){
+            if (adapter[r1+c] == ref_sequence[c]){
                 maxSegMatch++;
                 if (maxSegMatch >= segMatchThr)
                     return 0;

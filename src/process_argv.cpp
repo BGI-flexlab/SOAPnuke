@@ -853,9 +853,9 @@ bool check_parameter(int argc,char *argv[],C_global_parameter &gp){
         {
             gp.clean_file_reads=gp.l_total_reads_num;
         }
-    if(gp.threads_num>48)
+    if(gp.threads_num>72)
     {
-        cerr<<"Error:threads number is limited to 48"<<endl;
+        cerr<<"Error:threads number is limited to 72"<<endl;
         exit(1);
     }
     if(gp.patchSize>5000000)
@@ -933,8 +933,7 @@ void printHtsUsage(){
     cout<<"\tAdapter related:\n";
 
 //    cout << "\tcontam_trim\t\t\ttrim read when find contam[default:discard]\n";
-    cout
-            <<"\tadaMis\t\tINT,[INT]\tthe max mismatch number when match the adapter (depend on -f/-r).If different values are required for fq1 and fq2, you can set two values seperated by comma,e.g. 1,2 (same as -A/-9)[1]\n";
+    cout<<"\tadaMis\t\tINT,[INT]\tthe max mismatch number when match the adapter (depend on -f/-r).If different values are required for fq1 and fq2, you can set two values seperated by comma,e.g. 1,2 (same as -A/-9)[1]\n";
     cout<<"\tadaMR\t\tFLOAT,[FLOAT]\tadapter's shortest match ratio (depend on -f/-r)  [0.5]\n";
     cout<<"\tadaEdge\t\tINT,[INT]\tthe min length for segmental alignment [6]\n";
     cout<<endl;
@@ -950,8 +949,7 @@ void printHtsUsage(){
     cout<<"\n";
 
     cout<<"\tpe_info\t\t\t\tAdd /1, /2 at the end of fastq name.[default:not add]\n";
-    cout
-            <<"\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU, means convert base T to base U in the output\n";
+    cout<<"\tbaseConvert\tSTR\t\tconvert base when write data,example:TtoU, means convert base T to base U in the output\n";
     cout<<"\tlog\t\tSTR\t\tlog file\n";
     cout<<"\n";
 
@@ -963,18 +961,15 @@ void printUsage(string c_module){
     cout<<"\ncommonly used parameters\n";
     //cout << "\t-E, --mode\t\tSTR\t\tif pigz software is available,you can assign ssd mode for accelerate(-E ssd). Default is non SSD\n";
     cout<<"\t-1, --fq1\t\tFILE\t\tfq1 file(required), .gz or normal text format are both supported(required)\n";
-    cout
-            <<"\t-2, --fq2\t\tFILE\t\tfq2 file(used when process PE data), format should be same as fq1 file, both are gz or both are normal text\n";
+    cout<<"\t-2, --fq2\t\tFILE\t\tfq2 file(used when process PE data), format should be same as fq1 file, both are gz or both are normal text\n";
     cout<<"\t-C, --cleanFq1\t\tSTR\t\treads which passed QC from fq1 file would output to this file\n";
     cout<<"\t-D, --cleanFq2\t\tSTR\t\treads which passed QC from fq2 file would output to this file\n";
-    cout
-            <<"\t-o, --outDir\t\tSTR\t\tOutput directory. Processed fq files and statistical results would be output to here\n";
+    cout<<"\t-o, --outDir\t\tSTR\t\tOutput directory. Processed fq files and statistical results would be output to here\n";
     cout<<"\t-f, --adapter1\t\tSTR\t\tadapter sequence or list file of read1\n";
     cout<<"\t-r, --adapter2\t\tSTR\t\tadapter sequence or list file of read2 (if PE)\n";
     cout<<"\t-J, --ada_trim\t\t\t\ttrim read when find adapter[default:discard]\n";
     cout<<"\t-T, --thread\t\tINT\t\tthreads number used in process[6]\n";
-    cout
-            <<"\t-c, --configFile\tSTR\t\tconfig file which include uncommonly used parameters. Each line contains a parameter, for value needed parameter: adaMis=2, for bool parameter:contam_trim, which means change mode from discard to trim\n";
+    cout<<"\t-c, --configFile\tSTR\t\tconfig file which include uncommonly used parameters. Each line contains a parameter, for value needed parameter: adaMis=2, for bool parameter:contam_trim, which means change mode from discard to trim\n";
     cout<<"\t-l, --lowQual\t\tINT\t\tlow quality threshold  [default:5]\n";
     cout<<"\t-q, --qualRate\t\tFLOAT\t\tlow quality rate  [default:0.5]\n";
     cout<<"\t-n, --nRate\t\tFLOAT\t\tN rate threshold  [default:0.05]\n";

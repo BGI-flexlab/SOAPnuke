@@ -16,7 +16,7 @@
 #include <fstream>
 #include "rmdup.h"
 
-#define max_thread 48
+#define max_thread 72
 #define RMDUP 2
 struct SEstatOption
 {

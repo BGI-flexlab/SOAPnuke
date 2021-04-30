@@ -23,7 +23,7 @@
 //#include "Md5.h"
 //0:bf 1:rbf 2:normal
 #define RMDUP 2
-#define max_thread 48
+#define max_thread 72
 struct PEstatOption
 {
 	vector<C_fastq>* fq1s,*fq2s;
