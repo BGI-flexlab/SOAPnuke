@@ -2551,24 +2551,30 @@ void peProcess::process(){
             }
         }
         for(int i=0;i<gp.threads_num;i++){
-            vector<uint64_t*>().swap(threadData[i]);
+            vector<uint64_t *>().swap(threadData[i]);
             vector<size_t>().swap(threadDataNum[i]);
         }
-        vector<vector<uint64_t*> >().swap(threadData);
+        vector<vector<uint64_t *> >().swap(threadData);
         vector<vector<size_t> >().swap(threadDataNum);
         dupFlag=new bool[totalReadsNum];
         memset(dupFlag,0,sizeof(bool)*totalReadsNum);
-        rmdup* dormdup=new rmdup(totalData,totalReadsNum);
-        dormdup->markDup(dupFlag);
+        rmdup *dormdup=new rmdup(totalData,totalReadsNum);
+        cout<<"totalReadsNum:\t"<<totalReadsNum<<endl;
+//        if(totalReadsNum>2L*1000*1000*1000){
+//            cout<<"use set"<<endl;
+//            dormdup->markDupLargeData(dupFlag);
+//        }else{
+            dormdup->markDup(dupFlag);
+//        }
         delete dormdup;
 
         for(int i=0;i<totalReadsNum;i++){
-            if(dupFlag[i]) {
+            if(dupFlag[i]){
                 dupNum++;
             }
         }
         of_log<<"duplicate reads number:\t"<<dupNum<<endl;
-	}
+    }
 	thread t_array[gp.threads_num];
 	//thread read_monitor(bind(&peProcess::monitor_read_thread,this));
 	//sleep(10);
@@ -2642,8 +2648,8 @@ void peProcess::run_extract_random(){
     }
     // todo: if 1.1<f_interval<2, implement extract more random
     int interval=total_clean_reads/gp.l_total_reads_num;
-    if(interval==1)
-        return;
+//    if(interval==1)
+//        return;
     string in1=gp.output_dir+"/"+gp.clean_fq1;
     string in2=gp.output_dir+"/"+gp.clean_fq2;
     string out1=gp.cleanOutGzFormat?gp.output_dir+"/cleanRandomExtractReads.r1.fq.gz":gp.output_dir+"/cleanRandomExtractReads.r1.fq";
