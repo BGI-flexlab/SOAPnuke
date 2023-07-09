@@ -3,6 +3,7 @@
 //
 
 #include "BloomFilter.h"
+#include <cstdint>
 
 BloomFilter::BloomFilter(long long sampleSize, int multiple):multiple(20) {
     if(sampleSize==0){
