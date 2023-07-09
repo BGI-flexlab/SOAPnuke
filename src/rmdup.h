@@ -9,7 +9,8 @@
 #include<unordered_set>
 #include<vector>
 #include <cmath>
-#include <cstring>
+#include <string>
+#include <cstdint>
 #include "gc.h"
 using namespace::std;
 #define AUTHOREMAIL "gongchun@genomics.cn"
