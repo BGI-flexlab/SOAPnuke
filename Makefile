@@ -4,7 +4,7 @@ obj := ./obj
 
 MIN_GCC_VERSION = 4.7
 GCC_VERSION := $(shell gcc -dumpversion)
-IS_GCC_ABOVE_MIN_VERSION := $(shell expr "$(GCC_VERSION)" ">=" "$(MIN_GCC_VERSION)")
+IS_GCC_ABOVE_MIN_VERSION := $(shell echo `gcc -dumpversion | cut -f1-2 -d.` \>= $(MIN_GCC_VERSION) | bc )
 ifeq "$(IS_GCC_ABOVE_MIN_VERSION)" "1"
     GCC_VERSION_STRING := "GCC version Passes, $(GCC_VERSION) >= $(MIN_GCC_VERSION)"
 else

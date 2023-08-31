@@ -19,7 +19,7 @@
 //#include<stdio.h>
 
 using namespace::std;
-int MAXLEN=500;
+int MAXLEN=1000;
 //char separator='\t';
 quartile_result cal_quar_from_map(map<int,int> data){
 	quartile_result return_value;

@@ -20,12 +20,12 @@
 #include "sequence.h"
 
 using namespace ::std;
-#define READBUF 500
+#define READBUF 1000
 #define random(x) (rand()%x)
 
 seProcess::seProcess(C_global_parameter m_gp){
     gp=m_gp;
-    gv=C_global_variable();
+    gv=C_global_variable(gp);
     used_threads_num=0;
     srand((unsigned)time(NULL));
     ostringstream tmpstring;
@@ -244,7 +244,7 @@ void seProcess::print_stat(){
     of_readPos_qual_stat1<<"Pos\t";
     int max_qual=0;
     for(int i=0;i<gv.raw1_stat.gs.read_length;i++){
-        for(int j=1;j<=MAX_QUAL;j++){
+        for(int j=1;j<=gp.maxBaseQuality;j++){
             if(gv.raw1_stat.qs.position_qual[i][j]>0){
                 max_qual=max_qual>j?max_qual:j;
             }
@@ -411,7 +411,7 @@ void seProcess::update_stat(C_fastq_file_stat &fq1s_stat,C_filter_stat &fs_stat,
             gv.raw1_stat.ts.ta[i]+=fq1s_stat.ts.ta[i];
         }
         for(int i=0;i!=gv.raw1_stat.gs.read_max_length;i++){
-            for(int j=1;j<=MAX_QUAL;j++){
+            for(int j=1;j<=gp.maxBaseQuality;j++){
                 if(fq1s_stat.qs.position_qual[i][j]>0)
                     max_qual=max_qual>j?max_qual:j;
             }
@@ -475,7 +475,7 @@ void seProcess::update_stat(C_fastq_file_stat &fq1s_stat,C_filter_stat &fs_stat,
                 gv.trim1_stat.ts.ta[i]+=fq1s_stat.ts.ta[i];
             }
             for(int i=0;i!=gv.trim1_stat.gs.read_max_length;i++){
-                for(int j=1;j<=MAX_QUAL;j++){
+                for(int j=1;j<=gp.maxBaseQuality;j++){
                     if(fq1s_stat.qs.position_qual[i][j]>0)
                         max_qual=max_qual>j?max_qual:j;
                 }
@@ -523,7 +523,7 @@ void seProcess::update_stat(C_fastq_file_stat &fq1s_stat,C_filter_stat &fs_stat,
                     gv.clean1_stat.ts.ta[i]+=fq1s_stat.ts.ta[i];
                 }
                 for(int i=0;i!=gv.clean1_stat.gs.read_max_length;i++){
-                    for(int j=1;j<=MAX_QUAL;j++){
+                    for(int j=1;j<=gp.maxBaseQuality;j++){
                         if(fq1s_stat.qs.position_qual[i][j]>0)
                             max_qual=max_qual>j?max_qual:j;
                     }
@@ -609,7 +609,7 @@ void *seProcess::stat_se_fqs(SEstatOption opt,string dataType){
         for(string::size_type i=0;i!=(*ix).qual_seq.size();i++){    //process quality sequence
             int base_quality=((*ix).qual_seq)[i]-qualityBase;
             /*
-            if(base_quality>MAX_QUAL){
+            if(base_quality>gp.maxBaseQuality){
                 cerr<<"Error:quality is too high,please check the quality system parameter or fastq file"<<endl;
                 exit(1);
             }
@@ -638,19 +638,19 @@ void *seProcess::stat_se_fqs(SEstatOption opt,string dataType){
             for(string::size_type i=0;i!=qual_len;i++){    //process quality sequence
                 int base_quality=((*ix).qual_seq)[i]-gp.qualityPhred;
                 q1_mean_bq+=base_quality;
-                if(base_quality>=MIN_QUAL&&base_quality<=MAX_QUAL){
+                if(base_quality>=MIN_QUAL&&base_quality<=gp.maxBaseQuality){
                     q1_normal_bq++;
                 }else{
-                    if(base_quality<MIN_QUAL-10||base_quality>MAX_QUAL+10)
+                    if(base_quality<MIN_QUAL-10||base_quality>gp.maxBaseQuality+10)
                         q1_exceed++;
                 }
                 int another_q=gp.qualityPhred==64?33:64;
                 int base_quality2=((*ix).qual_seq)[i]-another_q;
                 q2_mean_bq+=base_quality2;
-                if(base_quality2>=MIN_QUAL&&base_quality2<=MAX_QUAL){
+                if(base_quality2>=MIN_QUAL&&base_quality2<=gp.maxBaseQuality){
                     q2_normal_bq++;
                 }else{
-                    if(base_quality2<MIN_QUAL-10||base_quality2>MAX_QUAL+10)
+                    if(base_quality2<MIN_QUAL-10||base_quality2>gp.maxBaseQuality+10)
                         q2_exceed++;
                 }
             }
@@ -688,12 +688,12 @@ void *seProcess::stat_se_fqs(SEstatOption opt,string dataType){
                 q1_score+=3;
                 q2_score+=3;
             }
-        if(q1_mean<10||q1_mean>MAX_QUAL){
+        if(q1_mean<10||q1_mean>gp.maxBaseQuality){
             q1_score+=0;
         }else{
             q1_score+=2;
         }
-        if(q2_mean<10||q2_mean>MAX_QUAL){
+        if(q2_mean<10||q2_mean>gp.maxBaseQuality){
             q2_score+=0;
         }else{
             q2_score+=2;
@@ -2015,7 +2015,7 @@ void seProcess::seStreaming_stat(C_global_variable &local_gv){
         cout<<local_gv.clean1_stat.bs.position_acgt_content[i][4]<<"\n";
     }
     cout<<"#Raw_Base_quality_value_distribution_by_read_position"<<"\n";
-    //position_qual[READ_MAX_LEN][MAX_QUAL]
+    //position_qual[READ_MAX_LEN][gp.maxBaseQuality]
     for(int i=0;i!=local_gv.raw1_stat.gs.read_length;i++){
         for(int j=0;j!=40;j++){
             cout<<local_gv.clean1_stat.qs.position_qual[i][j]<<" ";

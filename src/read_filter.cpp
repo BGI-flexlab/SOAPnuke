@@ -10,7 +10,7 @@
 #include "gc.h"
 using namespace::std;
 
-#define MAX_LENGTH 500
+#define MAX_LENGTH 1000
 bool check_tile_or_fov(string tile,string& tile_parameter){
 	if(tile_parameter.find("C")==string::npos){
 		if(tile_parameter.find(",")==string::npos){

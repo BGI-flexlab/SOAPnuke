@@ -170,3 +170,25 @@
 	* Release 2.1.4.beta.1
 	* Bugs fixed
 
+2020-11-27 <gongchun@genomics.cn>
+	* Release 2.1.4.beta.3
+	* add rmdup function by adopting reverse Bloom filter
+
+2020-12-17 <gongchun@genomics.cn>
+	* Release 2.1.5
+	* add rmdup function by adopting reverse Bloom filter
+
+2021-4-30 <gongchun@genomics.cn>
+	* Release 2.1.6
+    * Fix the bug of detecting adapter in the head of read
+    * Increase the max threading num from 48 to 72
+
+2022-1-16 <gongchun@genomics.cn>
+	* Release 2.1.7
+	* Fix the bug when totalReadsNum parameter is too large to do the extraction
+
+2023-8-31 <gongchun@genomics.cn>
+	* Release 2.1.8
+	* Assign max value of Quality Score by parameter
+	* Automatically set the max threading number by software
+	* Max supported read length increased from 500 to 1000

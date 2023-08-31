@@ -5,7 +5,7 @@
 #include <fstream>
 #include "processStLFR.h"
 #include "read_filter.h"
-#define READBUF 500
+#define READBUF 1000
 processStLFR::processStLFR(C_global_parameter m_gp) : peProcess(m_gp) {
 /*set<string> barcodeList;
     vector<int> barcodeStartPos;

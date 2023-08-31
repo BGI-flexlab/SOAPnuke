@@ -17,7 +17,7 @@
 #include "peFilterTmpOut.h"
 
 using namespace::std;
-#define READBUF 500
+#define READBUF 1000
 //同时支持bam、cram的读写
 //todo
 //以后支持写入fastq
