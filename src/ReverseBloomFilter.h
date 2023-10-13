@@ -8,6 +8,7 @@
 #include <iostream>
 #include <string.h>
 #include <math.h>
+#include <cstdint>
 using namespace ::std;
 #define maxRBfSize 1024L * 1024 * 1024 * 4
 #define minRBfSize 1024L * 1024 * 1000

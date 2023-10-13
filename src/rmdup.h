@@ -10,6 +10,7 @@
 #include<vector>
 #include <cmath>
 #include <cstring>
+#include <cstdint>
 #include "gc.h"
 using namespace::std;
 #define AUTHOREMAIL "gongchun@genomics.cn"
