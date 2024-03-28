@@ -16,6 +16,7 @@
 #include <fstream>
 #include "zlib.h"
 #include "gc.h"
+#include <cstdint>
 // #include<stdio.h>
 
 using namespace ::std;

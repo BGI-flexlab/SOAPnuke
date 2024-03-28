@@ -9,6 +9,7 @@
 #include <set>
 #include <map>
 #include <math.h>
+#include <cstdint>
 using namespace ::std;
 class quartile_result
 {

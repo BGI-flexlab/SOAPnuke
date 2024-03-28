@@ -4,6 +4,7 @@
 #include <string>
 #include <set>
 #include "global_parameter.h"
+#include <cstdint>
 // #include <map>
 using namespace ::std;
 #define READ_MAX_LEN 1000
