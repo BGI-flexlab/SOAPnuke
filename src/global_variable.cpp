@@ -1,4 +1,5 @@
 #include "global_variable.h"
+#include <cstdint>
 
 C_general_stat::C_general_stat()
 {
