@@ -52,22 +52,25 @@ This table presents a benchmark result on 628M Paired-End 150bp reads. As thread
 #### QuickStart
 
 All usages start with executable file **SOAPnuke**, and different modules are invoked with different sub-commands. Here are some usage examples:
+```shell
+    #filter:
 
-    filter:
+	#QC the input fastq and extract 10M clean reads to the output files.
+	echo "totalReadsNum=10000000" >config.txt
+
+    SOAPnuke filter -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz -o result -T 8 -c config.txt
     
-    SOAPnuke filter -1 test.r1.fq.gz -2 test.r2.fq.gz -C clean_1.fq.gz -D clean_2.fq.gz -o result -T 8
     
-    
-    filterHts:
+    #filterHts:
     
     SOAPnuke filterHts --ref chr21.fa -1 input.bam -2 output.cram  -o result
 	SOAPnuke filterHts -1 input.bam  -2 output.bam -o result
 
 
-    filterStLFR:
+    #filterStLFR:
 
     filterStLFR -1 fq1.list -2 fq2.list -C clean1.gz -D clean2.gz -o result -T 8 -c config
-
+```
 
 #### Detailed QC steps
 
@@ -346,7 +349,7 @@ remove index
 
 - totalReadsNum
 
-number/fraction of reads you want to keep in the output clean FASTQ file(cannot be assigned when -w is given). It will extract reads randomly through the total clean FASTQ file by default, you also can get the head reads for save time by add head suffix to the integer(e.g. -L 10000000head)
+number/fraction of reads you want to keep in the output clean FASTQ file(cannot be assigned when -w is given). It will extract reads randomly through the total clean FASTQ file by default, you also can get the head reads for save time by add head suffix to the integer
 
 - trim
 

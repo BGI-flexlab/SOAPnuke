@@ -1113,7 +1113,7 @@ void printUsage(string c_module)
 		<< "\ttotalReadsNum\tINT/FLOAT\tnumber/fraction of reads you want to keep in the output clean fq file(cannot be assigned when -w is given).\n";
 	cout
 		<< "\t    \t\t\t\t\tIt will extract reads randomly through the total clean fq file by default, you also can get the head reads\n";
-	cout << "\t    \t\t\t\t\tfor save time by add head suffix to the integer(e.g. -L 10000000head)\n";
+	cout << "\t    \t\t\t\t\tfor save time by add head suffix to the integer(e.g. totalReadsNum=10000000head)\n";
 	cout << "\ttrim\t\tINT,INT,INT,INT\n";
 	cout
 		<< "\t    \t\t\t\t\ttrim some bp of the read's head and tail, they means: (PE type:read1's head and tail and read2's head and tail  [0,0,0,0]; SE type:read head and tail [0,0])\n";

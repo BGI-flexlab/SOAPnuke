@@ -192,3 +192,9 @@
 	* Assign max value of Quality Score by parameter
 	* Automatically set the max threading number by software
 	* Max supported read length increased from 500 to 1000
+
+2024-3-28 <gongchun@genomics.cn>
+	* Release 2.1.9
+	* Fix the bug of quality value getting out of bounds and some statistical values overflowing
+	* Remove the obsolete description about parameter L
+	* Add some description about usage of config file

@@ -29,18 +29,18 @@ C_reads_pos_qual_stat::C_reads_pos_qual_stat()
 {
 	for (int i = 0; i != READ_MAX_LEN; i++)
 	{
-		position_qual[i] = new long long[MAX_QUAL];
+		position_qual[i] = new uint64_t[MAX_QUAL];
 		for (int j = 0; j != MAX_QUAL; j++)
 		{
 			position_qual[i][j] = 0;
 		}
 	}
 }
-C_reads_pos_qual_stat::C_reads_pos_qual_stat(C_global_parameter gp)
+C_reads_pos_qual_stat::C_reads_pos_qual_stat(C_global_parameter &gp)
 {
 	for (int i = 0; i != READ_MAX_LEN; i++)
 	{
-		position_qual[i] = new long long[gp.maxBaseQuality];
+		position_qual[i] = new uint64_t[gp.maxBaseQuality];
 		for (int j = 0; j != gp.maxBaseQuality; j++)
 		{
 			position_qual[i][j] = 0;
@@ -66,6 +66,13 @@ C_fastq_file_stat::C_fastq_file_stat()
 	// qs=C_reads_pos_qual_stat();
 	// ts=C_reads_trim_stat();
 }
+C_fastq_file_stat::C_fastq_file_stat(C_global_parameter &gp)
+{
+	gs = C_general_stat();
+	bs = C_reads_pos_base_stat();
+	qs = C_reads_pos_qual_stat(gp);
+	ts = C_reads_trim_stat();
+}
 void C_fastq_file_stat::clear()
 {
 	gs = C_general_stat();
@@ -83,13 +90,13 @@ C_global_variable::C_global_variable()
 	clean1_stat = C_fastq_file_stat();
 	clean2_stat = C_fastq_file_stat();
 }
-C_global_variable::C_global_variable(C_global_parameter gp)
+C_global_variable::C_global_variable(C_global_parameter &gp)
 {
 	fs = C_filter_stat();
-	raw1_stat = C_fastq_file_stat();
-	raw2_stat = C_fastq_file_stat();
-	trim1_stat = C_fastq_file_stat();
-	trim2_stat = C_fastq_file_stat();
-	clean1_stat = C_fastq_file_stat();
-	clean2_stat = C_fastq_file_stat();
+	raw1_stat = C_fastq_file_stat(gp);
+	raw2_stat = C_fastq_file_stat(gp);
+	trim1_stat = C_fastq_file_stat(gp);
+	trim2_stat = C_fastq_file_stat(gp);
+	clean1_stat = C_fastq_file_stat(gp);
+	clean2_stat = C_fastq_file_stat(gp);
 }
